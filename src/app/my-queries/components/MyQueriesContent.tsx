@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import { createClient } from '@/lib/supabase/client';
 
@@ -142,6 +143,16 @@ function AuthCard({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-24">
       <div className="w-full max-w-sm">
+        <div className="mb-6">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold transition-opacity hover:opacity-70"
+            style={{ color: 'var(--foreground-subtle)' }}
+          >
+            <Icon name="ArrowLeftIcon" size={13} />
+            Back to Home
+          </Link>
+        </div>
         <div className="text-center mb-8">
           <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
             ✦ Customer Portal ✦
@@ -504,6 +515,14 @@ export default function MyQueriesContent() {
       {/* Header */}
       <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
         <div>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold mb-3 transition-opacity hover:opacity-70"
+            style={{ color: 'var(--foreground-subtle)' }}
+          >
+            <Icon name="ArrowLeftIcon" size={13} />
+            Back to Home
+          </Link>
           <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
             ✦ Customer Portal ✦
           </p>
