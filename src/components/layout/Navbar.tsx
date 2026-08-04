@@ -701,6 +701,7 @@ const NAV_LINKS = [
   { label: 'Collections', href: '/collections' },
   { label: 'Wishlist', href: '/wishlist' },
   { label: 'My Orders', href: '/orders' },
+  { label: 'My Queries', href: '/my-queries' },
   { label: 'FAQs', href: '/faqs' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
