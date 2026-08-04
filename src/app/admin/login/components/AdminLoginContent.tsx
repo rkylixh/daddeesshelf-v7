@@ -254,7 +254,7 @@ export default function AdminLoginContent() {
                   />
                 </div>
                 {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
-                <button type="submit" className="btn-primary w-full py-3">
+                <button type="submit" className="btn-primary w-full py-3" suppressHydrationWarning>
                   Verify Code
                 </button>
                 <a href="/" className="block text-center text-xs mt-3" style={{ color: 'var(--foreground-subtle)' }}>
