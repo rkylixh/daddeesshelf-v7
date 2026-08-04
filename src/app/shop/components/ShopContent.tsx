@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import BookGrid from '@/components/books/BookGrid';
 import ShopFilters from './ShopFilters';
 import ShopHeader from './ShopHeader';
@@ -8,25 +9,26 @@ import ShopPagination from './ShopPagination';
 import { getBooks, getDistinctGenres } from '@/lib/books';
 import { Book, BookFilters } from '@/lib/types';
 
-const PAGE_SIZE_OPTIONS = [12, 24, 48];
+const PAGE_SIZE_OPTIONS = [15, 20, 30];
 const FORMATS = ['Paperback', 'Hardcover', 'Special Edition', 'Omnibus', 'Bundle'];
 
 export default function ShopContent() {
+  const searchParams = useSearchParams();
   const [allBooks, setAllBooks] = useState<Book[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [filters, setFilters] = useState<BookFilters>({
     search: '',
-    genre: '',
-    subgenre: '',
+    genre: searchParams.get('genre') ?? '',
+    subgenre: searchParams.get('subgenre') ?? '',
     format: '',
     status: '',
     series: '',
   });
   const [sort, setSort] = useState<'title-asc' | 'price-asc' | 'price-desc' | 'newest'>('newest');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
+  const [pageSize, setPageSize] = useState(20);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export default function ShopContent() {
       );
     }
     if (filters.genre) books = books.filter(b => b.genre === filters.genre);
+    if (filters.subgenre) books = books.filter(b => b.subgenre === filters.subgenre);
     if (filters.format) books = books.filter(b => b.format === filters.format);
     if (filters.status) books = books.filter(b => b.status === filters.status);
     if (filters.series) books = books.filter(b => b.series.toLowerCase().includes(filters.series.toLowerCase()));

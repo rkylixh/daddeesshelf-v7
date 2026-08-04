@@ -2,6 +2,49 @@ import React from 'react';
 import Link from 'next/link';
 import AppLogo from '@/components/ui/AppLogo';
 
+// Navigation data — keep in sync with Navbar.tsx NAV_LINKS
+const FOOTER_BROWSE_LINKS = [
+  { label: 'Shop All Books', href: '/shop' },
+  { label: 'Genres', href: '/genres' },
+  { label: 'Collections', href: '/collections' },
+  { label: 'Available Now', href: '/available-now' },
+];
+
+const FOOTER_ACCOUNT_LINKS = [
+  { label: 'My Wishlist', href: '/wishlist' },
+  { label: 'My Orders', href: '/orders' },
+  { label: 'Request a Title', href: '/request' },
+];
+
+const FOOTER_SUPPORT_LINKS = [
+  { label: 'FAQs', href: '/faqs' },
+  { label: 'About Us', href: '/about' },
+  { label: 'Contact', href: '/contact' },
+];
+
+// Helper: only render links that have both a label and an href
+function isValidLink(link: unknown): link is { label: string; href: string } {
+  if (!link || typeof link !== 'object') return false;
+  const l = link as Record<string, unknown>;
+  return typeof l.label === 'string' && l.label.trim() !== '' &&
+         typeof l.href === 'string' && l.href.trim() !== '';
+}
+
+// TikTok icon (SVG) — inline since heroicons doesn't include TikTok
+function TikTokIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.78 1.52V6.76a4.85 4.85 0 01-1.01-.07z" />
+    </svg>
+  );
+}
+
 export default function Footer() {
   return (
     <footer
@@ -21,24 +64,18 @@ export default function Footer() {
             <p className="text-sm" style={{ color: 'var(--foreground-muted)', lineHeight: '1.6' }}>
               Your cozy corner for pre-loved and pre-ordered books. Making books accessible to Filipino readers.
             </p>
+            {/* TikTok only — Facebook and Instagram are hidden until re-enabled via Admin Dashboard */}
             <div className="flex gap-3 mt-4">
               <a
-                href="https://facebook.com"
+                href="https://tiktok.com/@daddees.shelf"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-ghost p-2 rounded-lg"
-                aria-label="Facebook"
+                className="btn-ghost p-2 rounded-lg flex items-center gap-1.5"
+                aria-label="TikTok @daddees.shelf"
+                title="@daddees.shelf on TikTok"
               >
-                <span className="text-sm" style={{ color: 'var(--primary-bright)' }}>fb</span>
-              </a>
-              <a
-                href="https://instagram.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-ghost p-2 rounded-lg"
-                aria-label="Instagram"
-              >
-                <span className="text-sm" style={{ color: 'var(--primary-bright)' }}>ig</span>
+                <TikTokIcon size={15} />
+                <span className="text-xs" style={{ color: 'var(--primary-bright)' }}>TikTok</span>
               </a>
             </div>
           </div>
@@ -49,15 +86,9 @@ export default function Footer() {
               Browse
             </h4>
             <div className="flex flex-col gap-2">
-              {[
-                { label: 'Shop All Books', href: '/shop' },
-                { label: 'Genres', href: '/genres' },
-                { label: 'Collections', href: '/collections' },
-                { label: 'Preorder List', href: '/preorder-list' },
-                { label: 'Available Now', href: '/shop' },
-              ]?.map(link => (
-                <Link key={`footer-browse-${link?.href}`} href={link?.href} className="nav-link text-sm">
-                  {link?.label}
+              {FOOTER_BROWSE_LINKS.filter(isValidLink).map(link => (
+                <Link key={`footer-browse-${link.href}`} href={link.href} className="nav-link text-sm">
+                  {link.label}
                 </Link>
               ))}
             </div>
@@ -69,13 +100,9 @@ export default function Footer() {
               Account
             </h4>
             <div className="flex flex-col gap-2">
-              {[
-                { label: 'My Wishlist', href: '/wishlist' },
-                { label: 'My Preorders', href: '/orders' },
-                { label: 'Request a Title', href: '/request' },
-              ]?.map(link => (
-                <Link key={`footer-account-${link?.href}`} href={link?.href} className="nav-link text-sm">
-                  {link?.label}
+              {FOOTER_ACCOUNT_LINKS.filter(isValidLink).map(link => (
+                <Link key={`footer-account-${link.href}`} href={link.href} className="nav-link text-sm">
+                  {link.label}
                 </Link>
               ))}
             </div>
@@ -87,13 +114,9 @@ export default function Footer() {
               Support
             </h4>
             <div className="flex flex-col gap-2">
-              {[
-                { label: 'FAQs', href: '/faqs' },
-                { label: 'About Us', href: '/about' },
-                { label: 'Contact', href: '/contact' },
-              ]?.map(link => (
-                <Link key={`footer-support-${link?.href}`} href={link?.href} className="nav-link text-sm">
-                  {link?.label}
+              {FOOTER_SUPPORT_LINKS.filter(isValidLink).map(link => (
+                <Link key={`footer-support-${link.href}`} href={link.href} className="nav-link text-sm">
+                  {link.label}
                 </Link>
               ))}
             </div>

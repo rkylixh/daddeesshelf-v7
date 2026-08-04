@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
 import StatusBadge from '@/components/books/StatusBadge';
 import { getPreorderBooks } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
+import { useCart } from '@/components/layout/Navbar';
+import Icon from '@/components/ui/AppIcon';
 
 // ── Types ──────────────────────────────────────────────────
 interface PreorderItem {
@@ -16,14 +18,10 @@ interface PreorderItem {
 
 interface PreorderForm {
   tiktok_handle: string;
-  full_name: string;
-  contact_number: string;
-  shipping_address: string;
-  preferred_courier: string;
+  customer_pin: string;
   payment_method: string;
   payment_ref: string;
   notes: string;
-  is_pile_shipping: boolean;
 }
 
 interface ConfirmationData {
@@ -35,12 +33,52 @@ interface ConfirmationData {
   status: string;
 }
 
-// ── Order Reference Generator ──────────────────────────────
+// ── Helpers ────────────────────────────────────────────────
 function generateOrderRef(): string {
   const now = new Date();
   const date = now.toISOString().slice(0, 10).replace(/-/g, '');
   const seq = String(Math.floor(Math.random() * 9000) + 1000).padStart(4, '0');
   return `DDS-${date}-${seq}`;
+}
+
+// Simple PIN hash using Web Crypto API
+async function hashPin(pin: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(pin + 'daddees-shelf-salt');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ── GCash QR Section ───────────────────────────────────────
+function GCashQRSection() {
+  return (
+    <div
+      className="rounded-xl p-4 text-center"
+      style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.25)' }}
+    >
+      <p className="text-xs font-bold mb-2" style={{ color: '#10b981' }}>
+        ✦ GCash Payment Instructions
+      </p>
+      <div
+        className="w-40 h-40 mx-auto rounded-xl mb-3 flex items-center justify-center"
+        style={{ background: 'rgba(255,255,255,0.05)', border: '2px dashed rgba(16,185,129,0.4)' }}
+      >
+        {/* QR Code placeholder — owner will upload official QR */}
+        <div className="text-center">
+          <Icon name="QrCodeIcon" size={48} style={{ color: 'rgba(16,185,129,0.5)' } as React.CSSProperties} />
+          <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>Official QR</p>
+          <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Coming Soon</p>
+        </div>
+      </div>
+      <ol className="text-xs text-left space-y-1.5 max-w-xs mx-auto" style={{ color: 'var(--foreground-muted)' }}>
+        <li className="flex gap-2"><span className="font-bold" style={{ color: '#10b981' }}>1.</span> Scan the QR code above with your GCash app</li>
+        <li className="flex gap-2"><span className="font-bold" style={{ color: '#10b981' }}>2.</span> Send the exact total amount</li>
+        <li className="flex gap-2"><span className="font-bold" style={{ color: '#10b981' }}>3.</span> Copy your GCash Reference Number</li>
+        <li className="flex gap-2"><span className="font-bold" style={{ color: '#10b981' }}>4.</span> Paste it in the field below</li>
+      </ol>
+    </div>
+  );
 }
 
 // ── Success Overlay ────────────────────────────────────────
@@ -54,76 +92,47 @@ function SuccessOverlay({ data, onClose }: { data: ConfirmationData; onClose: ()
     });
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const totalQty = data.items.reduce((s, i) => s + i.qty, 0);
+  const totalPrice = data.items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}
-    >
-      <div
-        className="relative w-full max-w-lg rounded-2xl overflow-hidden animate-fade-in-up"
-        style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.4)', maxHeight: '90vh', overflowY: 'auto' }}
-      >
-        {/* Header */}
-        <div
-          className="px-6 py-5 text-center"
-          style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(79,70,229,0.15))', borderBottom: '1px solid rgba(139,92,246,0.3)' }}
-        >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+      <div className="relative w-full max-w-lg rounded-2xl overflow-hidden animate-fade-in-up" style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="px-6 py-5 text-center" style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(79,70,229,0.15))', borderBottom: '1px solid rgba(139,92,246,0.3)' }}>
           <div className="text-4xl mb-2" aria-hidden="true">✓</div>
-          <h2 className="font-display text-xl font-bold" style={{ color: 'var(--primary-bright)' }}>
-            Order Successfully Submitted
-          </h2>
+          <h2 className="font-display text-xl font-bold" style={{ color: 'var(--primary-bright)' }}>Preorder Successfully Submitted</h2>
           <p className="text-xs mt-1" style={{ color: 'var(--foreground-muted)' }}>
             {new Date(data.date_submitted).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
 
-        {/* Order details */}
         <div className="p-6 space-y-4">
-          {/* Order Reference */}
-          <div
-            className="rounded-xl p-4 text-center"
-            style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }}
-          >
-            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--foreground-subtle)', letterSpacing: '0.15em' }}>
-              Order Reference Number
-            </p>
-            <p className="font-display text-2xl font-bold" style={{ color: 'var(--primary-bright)' }}>
-              {data.order_ref}
-            </p>
+          <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }}>
+            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--foreground-subtle)', letterSpacing: '0.15em' }}>Order Reference Number</p>
+            <p className="font-display text-2xl font-bold" style={{ color: 'var(--primary-bright)' }}>{data.order_ref}</p>
           </div>
 
-          {/* Details grid */}
           <div className="space-y-2">
             <div className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--border)' }}>
               <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>TikTok Handle</span>
               <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{data.tiktok_handle}</span>
             </div>
             <div className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Payment Reference</span>
+              <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>GCash Reference</span>
               <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{data.payment_ref}</span>
             </div>
             <div className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Total Quantity</span>
-              <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{totalQty} {totalQty === 1 ? 'title' : 'titles'}</span>
+              <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Total ({totalQty} {totalQty === 1 ? 'title' : 'titles'})</span>
+              <span className="text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>₱{totalPrice.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center py-2" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Current Status</span>
-              <span
-                className="text-xs font-bold px-3 py-1 rounded-full"
-                style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
-              >
+              <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Status</span>
+              <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
                 {data.status}
               </span>
             </div>
           </div>
 
-          {/* Titles ordered */}
           <div>
             <p className="text-xs font-semibold mb-2" style={{ color: 'var(--foreground-subtle)' }}>Titles Ordered</p>
             <div className="space-y-1.5">
@@ -136,48 +145,23 @@ function SuccessOverlay({ data, onClose }: { data: ConfirmationData; onClose: ()
             </div>
           </div>
 
-          {/* TikTok reminder */}
-          <div
-            className="rounded-xl p-4 text-center"
-            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}
-          >
-            <p className="text-sm font-bold mb-2" style={{ color: '#f87171' }}>
-              ⚠️ Important Reminder
-            </p>
+          <div className="rounded-xl p-4" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.25)' }}>
+            <p className="text-xs font-bold mb-1" style={{ color: '#10b981' }}>✦ What Happens Next?</p>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--foreground-muted)' }}>
-              Please take a screenshot of this page and send it together with your Order Reference Number to our official TikTok account:
-            </p>
-            <p className="font-display text-lg font-bold mt-2 mb-2" style={{ color: 'var(--primary-bright)' }}>
-              @daddees.shelf
-            </p>
-            <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>
-              Your preorder will only be processed after payment has been verified.
+              Your payment reference will be verified by our team. Shipping details will be collected once your books arrive. Use your 4-digit PIN to track your order at <strong>My Orders</strong>.
             </p>
           </div>
 
-          {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={handleCopy}
-              className="btn-primary flex-1 text-sm py-2.5"
-            >
+            <button onClick={handleCopy} className="btn-primary flex-1 text-sm py-2.5">
               {copied ? '✓ Copied!' : 'Copy Order Reference'}
             </button>
-            <button
-              onClick={handlePrint}
-              className="btn-secondary flex-1 text-sm py-2.5"
-            >
-              Print / Download
-            </button>
+            <Link href="/orders" className="btn-secondary flex-1 text-sm py-2.5 text-center">
+              Track My Order
+            </Link>
           </div>
 
-          <button
-            onClick={onClose}
-            className="w-full text-xs py-2"
-            style={{ color: 'var(--foreground-subtle)' }}
-          >
-            Close
-          </button>
+          <button onClick={onClose} className="w-full text-xs py-2" style={{ color: 'var(--foreground-subtle)' }}>Close</button>
         </div>
       </div>
     </div>
@@ -196,14 +180,10 @@ function PreorderFormModal({
 }) {
   const [form, setForm] = useState<PreorderForm>({
     tiktok_handle: '',
-    full_name: '',
-    contact_number: '',
-    shipping_address: '',
-    preferred_courier: '',
-    payment_method: '',
+    customer_pin: '',
+    payment_method: 'GCash',
     payment_ref: '',
     notes: '',
-    is_pile_shipping: false,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -213,34 +193,35 @@ function PreorderFormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.tiktok_handle.trim()) { setError('TikTok Handle is required.'); return; }
-    if (!form.payment_method) { setError('Please select a payment method.'); return; }
-    if (!form.payment_ref.trim()) { setError('Payment Reference Number is required.'); return; }
+    if (form.customer_pin.length !== 4 || !/^\d{4}$/.test(form.customer_pin)) {
+      setError('PIN must be exactly 4 digits.'); return;
+    }
+    if (!form.payment_ref.trim()) { setError('GCash Reference Number is required.'); return; }
 
     setSubmitting(true);
     setError('');
 
-    const orderRef = generateOrderRef();
-    const orderItems = items.map(i => ({
-      sku: i.book.sku,
-      title: i.book.title,
-      qty: i.qty,
-      price: i.book.final_srp,
-    }));
-
     try {
+      const orderRef = generateOrderRef();
+      const hashedPin = await hashPin(form.customer_pin);
+      const orderItems = items.map(i => ({
+        sku: i.book.sku,
+        title: i.book.title,
+        qty: i.qty,
+        price: i.book.final_srp,
+        batch: i.book.batch,
+      }));
+
       const { error: err } = await supabase.from('orders').insert({
         ref_number: orderRef,
-        customer_name: form.full_name || form.tiktok_handle,
+        customer_name: form.tiktok_handle,
         tiktok_handle: form.tiktok_handle,
+        customer_pin: hashedPin,
         items: orderItems,
         total_price: totalPrice,
-        payment_method: form.payment_method,
+        payment_method: 'GCash',
         payment_ref: form.payment_ref,
-        contact_number: form.contact_number,
-        shipping_address: form.shipping_address,
-        preferred_courier: form.preferred_courier,
         notes: form.notes,
-        is_pile_shipping: form.is_pile_shipping,
         status: 'Pending Payment Verification',
       });
       if (err) throw err;
@@ -261,14 +242,8 @@ function PreorderFormModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
-    >
-      <div
-        className="relative w-full max-w-lg rounded-2xl animate-fade-in-up"
-        style={{ background: 'var(--background-card)', border: '1px solid var(--border)', maxHeight: '90vh', overflowY: 'auto' }}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+      <div className="relative w-full max-w-lg rounded-2xl animate-fade-in-up" style={{ background: 'var(--background-card)', border: '1px solid var(--border)', maxHeight: '90vh', overflowY: 'auto' }}>
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <h2 className="font-display text-lg font-bold" style={{ color: 'var(--foreground)' }}>Submit Preorder</h2>
           <button onClick={onClose} className="btn-ghost p-1 rounded-lg">
@@ -292,7 +267,7 @@ function PreorderFormModal({
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* TikTok Handle — required */}
+          {/* TikTok Handle */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
               TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
@@ -306,104 +281,37 @@ function PreorderFormModal({
               placeholder="@yourtiktok"
             />
             <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
-              You must be a follower of @daddees.shelf to place pre-orders.
+              You must be a follower of @daddees.shelf to place preorders.
             </p>
           </div>
 
-          {/* Full Name */}
+          {/* 4-digit PIN */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-              Full Name <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+              4-Digit PIN <span style={{ color: 'var(--primary)' }}>*</span>
             </label>
             <input
-              type="text"
-              value={form.full_name}
-              onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
-              className="input-field text-sm"
-              placeholder="Your full name"
-            />
-          </div>
-
-          {/* Contact Number */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-              Contact Number <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
-            </label>
-            <input
-              type="tel"
-              value={form.contact_number}
-              onChange={e => setForm(f => ({ ...f, contact_number: e.target.value }))}
-              className="input-field text-sm"
-              placeholder="09XX XXX XXXX"
-            />
-          </div>
-
-          {/* Shipping Address */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-              Shipping Address <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
-            </label>
-            <textarea
-              rows={2}
-              value={form.shipping_address}
-              onChange={e => setForm(f => ({ ...f, shipping_address: e.target.value }))}
-              className="input-field text-sm resize-none"
-              placeholder="Full delivery address"
-            />
-          </div>
-
-          {/* Preferred Courier */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-              Preferred Courier <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
-            </label>
-            <select
-              value={form.preferred_courier}
-              onChange={e => setForm(f => ({ ...f, preferred_courier: e.target.value }))}
-              className="select-field text-sm"
-            >
-              <option value="">Select courier...</option>
-              <option value="Lalamove">Lalamove (Metro Manila)</option>
-              <option value="Grab">Grab</option>
-              <option value="J&T Express">J&T Express (Nationwide)</option>
-            </select>
-          </div>
-
-          {/* Pile Shipping */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.is_pile_shipping}
-              onChange={e => setForm(f => ({ ...f, is_pile_shipping: e.target.checked }))}
-              className="w-4 h-4 rounded"
-              style={{ accentColor: 'var(--primary)' }}
-            />
-            <span className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
-              Pile / Bundle Shipping — hold my order and ship together with other titles
-            </span>
-          </label>
-
-          {/* Payment Method — required */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-              Payment Method <span style={{ color: 'var(--primary)' }}>*</span>
-            </label>
-            <select
+              type="password"
               required
-              value={form.payment_method}
-              onChange={e => setForm(f => ({ ...f, payment_method: e.target.value }))}
-              className="select-field text-sm"
-            >
-              <option value="">Select payment method...</option>
-              <option value="GCash">GCash</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-            </select>
+              maxLength={4}
+              value={form.customer_pin}
+              onChange={e => setForm(f => ({ ...f, customer_pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+              className="input-field text-sm text-center tracking-widest"
+              placeholder="••••"
+              inputMode="numeric"
+            />
+            <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+              Remember this PIN — you will use it to track your preorder in My Orders.
+            </p>
           </div>
 
-          {/* Payment Reference Number — required */}
+          {/* GCash QR */}
+          <GCashQRSection />
+
+          {/* Payment Reference */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-              Payment Reference Number / Transaction ID <span style={{ color: 'var(--primary)' }}>*</span>
+              GCash Reference Number <span style={{ color: 'var(--primary)' }}>*</span>
             </label>
             <input
               type="text"
@@ -411,30 +319,34 @@ function PreorderFormModal({
               value={form.payment_ref}
               onChange={e => setForm(f => ({ ...f, payment_ref: e.target.value }))}
               className="input-field text-sm"
-              placeholder="e.g. GCash ref: 1234567890"
+              placeholder="e.g. 1234567890"
             />
             <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
-              Enter the reference number from your GCash or bank transfer receipt.
+              Copy the reference number from your GCash transaction receipt.
             </p>
           </div>
 
-          {/* Notes to Seller */}
+          {/* Notes */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-              Notes to Seller <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+              Notes <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
             </label>
             <textarea
               rows={3}
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               className="input-field text-sm resize-none"
-              placeholder="Any special instructions or notes..."
+              placeholder="Any special instructions..."
             />
           </div>
 
-          {error && (
-            <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>
-          )}
+          <div className="rounded-xl p-3" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
+            <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
+              <strong style={{ color: 'var(--primary-bright)' }}>Note:</strong> Shipping details will be collected after your books arrive. Supported couriers: J&T Express (Nationwide) and Lalamove (Metro Manila / Nearby Areas).
+            </p>
+          </div>
+
+          {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
 
           <button
             type="submit"
@@ -458,6 +370,7 @@ export default function PreorderContent() {
   const [confirmation, setConfirmation] = useState<ConfirmationData | null>(null);
   const [allPreorderBooks, setAllPreorderBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const { items: cartItems, addItem: addToCart, clearCart } = useCart();
 
   useEffect(() => {
     getPreorderBooks().then(books => {
@@ -465,6 +378,13 @@ export default function PreorderContent() {
       setLoading(false);
     });
   }, []);
+
+  // Sync cart items to local preorder list
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      setPreorderList(cartItems);
+    }
+  }, [cartItems]);
 
   const preorderBooks = useMemo(() => {
     const books = [...allPreorderBooks];
@@ -500,240 +420,222 @@ export default function PreorderContent() {
       if (existing) return prev.map(i => i.book.id === book.id ? { ...i, qty: i.qty + 1 } : i);
       return [...prev, { book, qty: 1 }];
     });
+    addToCart(book);
   };
 
   const removeFromList = (bookId: string) => {
     setPreorderList(prev => prev.filter(i => i.book.id !== bookId));
   };
 
-  const totalListItems = preorderList.reduce((s, i) => s + i.qty, 0);
+  const updateQty = (bookId: string, qty: number) => {
+    if (qty <= 0) { removeFromList(bookId); return; }
+    setPreorderList(prev => prev.map(i => i.book.id === bookId ? { ...i, qty } : i));
+  };
+
+  const isInList = (bookId: string) => preorderList.some(i => i.book.id === bookId);
+  const totalPrice = preorderList.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
 
   const handleSuccess = (data: ConfirmationData) => {
     setShowForm(false);
-    setPreorderList([]);
     setConfirmation(data);
+    setPreorderList([]);
+    clearCart();
   };
 
+  // Determine active batch (FIFO: earliest future arrival_date)
+  const activeBatch = useMemo(() => {
+    const batches = Array.from(byBatch.keys());
+    if (batches.length === 0) return null;
+    // Find batch with earliest future arrival date
+    let earliest: string | null = null;
+    let earliestDate: Date | null = null;
+    const now = new Date();
+    for (const [batchName, books] of byBatch.entries()) {
+      const dates = books.map(b => b.arrival_date).filter(Boolean) as string[];
+      if (dates.length === 0) continue;
+      const minDate = new Date(Math.min(...dates.map(d => new Date(d).getTime())));
+      if (minDate > now && (earliestDate === null || minDate < earliestDate)) {
+        earliest = batchName;
+        earliestDate = minDate;
+      }
+    }
+    return earliest ?? batches[0];
+  }, [byBatch]);
+
   return (
-    <div className="content-wrapper py-8">
+    <div className="content-wrapper py-12">
       {/* Header */}
       <div className="text-center mb-12">
         <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
-          ✦ Reserve Your Copy ✦
+          ✦ Open for Preorder ✦
         </p>
-        <h1 className="font-display text-4xl font-bold mb-3" style={{ color: 'var(--foreground)' }}>
+        <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>
           Preorder List
         </h1>
         <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
-          {preorderBooks.length} titles arriving soon. Full payment required to reserve your copy.
+          Reserve your copies from the current import batch. Add titles to your cart and checkout when ready.
         </p>
       </div>
 
-      {/* Workflow banner */}
-      <div
-        className="rounded-xl p-4 mb-8 flex flex-col sm:flex-row items-start sm:items-center gap-4"
-        style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }}
-      >
-        <div className="flex-shrink-0 text-2xl" aria-hidden="true">✦</div>
-        <div className="flex-1">
-          <p className="text-sm font-semibold mb-1" style={{ color: 'var(--foreground)' }}>
-            How to Preorder
-          </p>
-          <p className="text-xs" style={{ color: 'var(--foreground-muted)', lineHeight: '1.6' }}>
-            Browse → Click <strong>Add to Preorder List</strong> → Review your list → Click <strong>Submit Preorder</strong> → Fill in your details and payment reference → Done!
-            You must be a TikTok follower of <strong style={{ color: 'var(--primary-bright)' }}>@daddees.shelf</strong> to place pre-orders.
-          </p>
+      {/* Sort + Cart Summary */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold" style={{ color: 'var(--foreground-muted)' }}>Sort by:</span>
+          {(['arrival', 'title', 'price'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setSortBy(s)}
+              className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${sortBy === s ? 'btn-primary' : 'btn-secondary'}`}
+            >
+              {s === 'arrival' ? 'Arrival Date' : s === 'title' ? 'Title' : 'Price'}
+            </button>
+          ))}
         </div>
-      </div>
 
-      {/* Preorder List Summary */}
-      {preorderList.length > 0 && (
-        <div
-          className="rounded-xl p-4 mb-8"
-          style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.35)' }}
-        >
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold" style={{ color: 'var(--primary-bright)' }}>
-              Your Preorder List ({totalListItems} {totalListItems === 1 ? 'item' : 'items'})
-            </p>
+        {preorderList.length > 0 && (
+          <div
+            className="flex items-center gap-3 rounded-xl px-4 py-2.5"
+            style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)' }}
+          >
+            <div>
+              <p className="text-xs font-semibold" style={{ color: 'var(--primary-bright)' }}>
+                {preorderList.reduce((s, i) => s + i.qty, 0)} title{preorderList.reduce((s, i) => s + i.qty, 0) !== 1 ? 's' : ''} selected
+              </p>
+              <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>Total: ₱{totalPrice.toLocaleString()}</p>
+            </div>
             <button
               onClick={() => setShowForm(true)}
-              className="btn-primary text-sm px-5 py-2"
+              className="btn-primary text-xs px-4 py-2"
             >
-              Submit Preorder ✦
+              Preorder Now ✦
             </button>
           </div>
-          <div className="space-y-1.5">
-            {preorderList.map(item => (
-              <div key={item.book.id} className="flex items-center justify-between text-xs">
-                <span style={{ color: 'var(--foreground-muted)' }}>{item.book.title} × {item.qty}</span>
-                <div className="flex items-center gap-3">
-                  <span style={{ color: 'var(--primary-bright)' }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</span>
-                  <button
-                    onClick={() => removeFromList(item.book.id)}
-                    className="text-xs px-2 py-0.5 rounded"
-                    style={{ color: '#f87171', background: 'rgba(239,68,68,0.1)' }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between text-sm font-bold mt-3 pt-3" style={{ borderTop: '1px solid rgba(139,92,246,0.3)' }}>
-            <span style={{ color: 'var(--foreground)' }}>Total</span>
-            <span style={{ color: 'var(--primary-bright)' }}>₱{preorderList.reduce((s, i) => s + i.book.final_srp * i.qty, 0).toLocaleString()}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Sort controls */}
-      <div className="flex items-center justify-between mb-6">
-        <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
-          {preorderBooks.length} titles on pre-order
-        </p>
-        <div className="flex items-center gap-2">
-          <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Sort by:</span>
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value as typeof sortBy)}
-            className="select-field text-sm py-1.5 px-3"
-          >
-            <option value="arrival">Arrival Date</option>
-            <option value="title">Title A–Z</option>
-            <option value="price">Price</option>
-          </select>
-        </div>
+        )}
       </div>
 
-      {/* Batch groups */}
       {loading ? (
-        <div
-          className="flex items-center justify-center py-24"
-        >
-          <div
-            className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-            style={{ borderColor: 'var(--primary)' }}
-          />
+        <div className="flex items-center justify-center py-32">
+          <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
         </div>
       ) : preorderBooks.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center py-24 rounded-xl"
-          style={{ border: '1px dashed var(--border)', background: 'var(--background-card)' }}
-        >
-          <span className="text-4xl mb-4">✦</span>
-          <h3 className="font-display text-lg font-semibold mb-2" style={{ color: 'var(--foreground-muted)' }}>
-            No pre-orders right now
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--foreground-subtle)' }}>
-            Check back soon — new batches are announced regularly.
-          </p>
-          <Link href="/shop" className="btn-primary mt-4 text-sm px-6">
-            Browse Available Books
-          </Link>
+        <div className="text-center py-24">
+          <span className="text-5xl mb-4 block" aria-hidden="true">✦</span>
+          <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>No Preorders Open</h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--foreground-muted)' }}>Check back soon for the next import batch.</p>
+          <Link href="/shop" className="btn-primary text-sm px-8 py-3 inline-block">Browse All Books ✦</Link>
         </div>
       ) : (
         <div className="space-y-12">
-          {Array.from(byBatch.entries()).map(([batch, books]) => (
-            <div key={`batch-${batch}`}>
-              <div className="flex items-center gap-4 mb-6">
-                <div
-                  className="px-4 py-2 rounded-lg"
-                  style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)' }}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--primary)', letterSpacing: '0.12em' }}>
-                    {batch}
-                  </p>
+          {Array.from(byBatch.entries()).map(([batchName, books]) => {
+            const isActive = batchName === activeBatch;
+            const batchEta = books[0]?.arrival_date ?? null;
+            const daysUntil = getDaysUntil(batchEta);
+
+            return (
+              <div key={batchName}>
+                {/* Batch Header */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="font-display text-xl font-bold" style={{ color: 'var(--foreground)' }}>{batchName}</h2>
+                      {isActive && (
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.2)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.4)' }}>
+                          ✦ Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+                      ETA: <strong style={{ color: 'var(--foreground)' }}>{formatDate(batchEta)}</strong>
+                      {daysUntil !== null && daysUntil > 0 && (
+                        <span className="ml-2 text-xs" style={{ color: 'var(--foreground-subtle)' }}>({daysUntil} days away)</span>
+                      )}
+                    </p>
+                  </div>
+                  {isActive && (
+                    <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>{books.length} titles available</span>
+                  )}
                 </div>
-                {books[0].arrival_date && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Estimated arrival:</span>
-                    <span className="text-xs font-semibold" style={{ color: 'var(--foreground-muted)' }}>
-                      {formatDate(books[0].arrival_date)}
-                    </span>
-                    {getDaysUntil(books[0].arrival_date) !== null && (
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                        style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}
-                      >
-                        {getDaysUntil(books[0].arrival_date)} days away
-                      </span>
-                    )}
+
+                {/* FIFO: Only show covers/prices/preorder for active batch */}
+                {isActive ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    {books.map(book => {
+                      const inList = isInList(book.id);
+                      const listItem = preorderList.find(i => i.book.id === book.id);
+                      const available = book.inventory - book.reserved;
+
+                      return (
+                        <div key={book.id} className="flex flex-col">
+                          <Link href={`/book-detail?id=${book.id}`} className="block group mb-2">
+                            <div className="card-glow rounded-xl overflow-hidden" style={{ background: 'var(--background-card)' }}>
+                              <div className="relative aspect-[2/3] overflow-hidden">
+                                <AppImage
+                                  src={book.cover_url || '/assets/images/no_image.png'}
+                                  alt={`Cover of ${book.title} by ${book.author}`}
+                                  fill
+                                  sizes="(max-width: 640px) 50vw, 20vw"
+                                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                />
+                                <div className="absolute bottom-2 left-2">
+                                  <StatusBadge status={book.status!} size="sm" />
+                                </div>
+                              </div>
+                              <div className="p-2.5">
+                                <p className="text-xs font-medium mb-0.5 truncate" style={{ color: 'var(--foreground-subtle)' }}>{book.genre}</p>
+                                <h3 className="font-display text-xs font-semibold leading-snug mb-0.5 line-clamp-2" style={{ color: 'var(--foreground)' }}>{book.title}</h3>
+                                <p className="text-xs mb-1.5 truncate" style={{ color: 'var(--foreground-muted)' }}>{book.author}</p>
+                                <p className="text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>₱{book.final_srp.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </Link>
+
+                          {available > 0 ? (
+                            inList ? (
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) - 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>−</button>
+                                <span className="flex-1 text-center text-xs font-bold" style={{ color: 'var(--foreground)' }}>{listItem?.qty}</span>
+                                <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) + 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>+</button>
+                                <button onClick={() => removeFromList(book.id)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>✕</button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => addToList(book)}
+                                className="btn-primary text-xs py-2 w-full"
+                              >
+                                + Preorder
+                              </button>
+                            )
+                          ) : (
+                            <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)', cursor: 'not-allowed' }}>
+                              Sold Out
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  // Future batch: name + ETA only, no covers/prices/preorder
+                  <div
+                    className="rounded-xl p-6 text-center"
+                    style={{ background: 'rgba(139,92,246,0.04)', border: '1px dashed rgba(139,92,246,0.2)' }}
+                  >
+                    <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+                      This batch will open for preorder once the current batch has substantially sold.
+                    </p>
+                    <p className="text-xs mt-2" style={{ color: 'var(--foreground-subtle)' }}>
+                      Estimated Arrival: <strong style={{ color: 'var(--foreground)' }}>{formatDate(batchEta)}</strong>
+                    </p>
                   </div>
                 )}
-                <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-                <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>
-                  {books.length} {books.length === 1 ? 'title' : 'titles'}
-                </span>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                {books.map(book => {
-                  const inList = preorderList.some(i => i.book.id === book.id);
-                  return (
-                    <div
-                      key={`preorder-${book.id}`}
-                      className="card-glow rounded-xl overflow-hidden flex gap-4 p-3"
-                      style={{ background: 'var(--background-card)' }}
-                    >
-                      <div className="relative w-16 h-24 rounded-lg overflow-hidden flex-shrink-0">
-                        <AppImage
-                          src={book.cover_url || '/assets/images/no_image.png'}
-                          alt={`Cover of ${book.title} by ${book.author}`}
-                          fill
-                          sizes="64px"
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0 flex flex-col">
-                        <div className="flex items-start justify-between gap-1 mb-1">
-                          <StatusBadge status="Pre-order" size="sm" />
-                          <span className="text-xs tabular-nums font-bold flex-shrink-0" style={{ color: 'var(--primary-bright)' }}>
-                            ₱{book.final_srp.toLocaleString()}
-                          </span>
-                        </div>
-                        <h3
-                          className="font-display text-sm font-semibold leading-snug line-clamp-2 mb-0.5"
-                          style={{ color: 'var(--foreground)' }}
-                        >
-                          {book.title}
-                        </h3>
-                        <p className="text-xs truncate mb-1" style={{ color: 'var(--foreground-muted)' }}>
-                          {book.author}
-                        </p>
-                        <p className="text-xs mb-2" style={{ color: 'var(--foreground-subtle)' }}>
-                          {book.format} · {book.genre}
-                        </p>
-                        <button
-                          onClick={() => addToList(book)}
-                          className={`mt-auto text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${inList ? 'btn-secondary' : 'btn-primary'}`}
-                        >
-                          {inList ? '✓ Added' : '+ Add to List'}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Bottom CTA */}
-      {preorderList.length > 0 && (
-        <div className="mt-12 text-center">
-          <button
-            onClick={() => setShowForm(true)}
-            className="btn-primary text-base px-10 py-3.5"
-          >
-            Submit Preorder ({totalListItems} {totalListItems === 1 ? 'item' : 'items'}) ✦
-          </button>
+            );
+          })}
         </div>
       )}
 
       {/* Preorder Form Modal */}
-      {showForm && (
+      {showForm && preorderList.length > 0 && (
         <PreorderFormModal
           items={preorderList}
           onClose={() => setShowForm(false)}

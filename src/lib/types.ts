@@ -19,8 +19,27 @@ export interface Book {
   reserved: number;
   synopsis: string;
   cover_url: string;
+  goodreads_url?: string;
+  goodreads_score?: number;
+  goodreads_ratings_count?: number;
+  spice_level?: number;
+  is_visible?: boolean;
+  visibility?: string;
   created_at: string;
   updated_at: string;
+  // Extended enrichment fields
+  reader_tags?: string[];
+  why_readers_love?: string;
+  emotional_intensity?: number;
+  romance_level?: number;
+  worldbuilding_complexity?: number;
+  pace?: number;
+  humor?: number;
+  darkness?: number;
+  action?: number;
+  quotes?: string[];
+  reading_age?: string;
+  content_warnings?: string;
   // Computed fields
   available?: number;
   status?: BookStatus;
@@ -49,4 +68,16 @@ export interface BookFilters {
 
 export interface AdminFilters extends BookFilters {
   batch: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  name: string;
+  tiktok_handle: string;
+  subject: string;
+  message: string;
+  status: 'New' | 'Open' | 'Waiting for Customer' | 'Resolved' | 'Closed';
+  admin_notes: string;
+  created_at: string;
+  updated_at: string;
 }
