@@ -2,14 +2,37 @@
 
 import React, { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
+import { supabase } from '@/lib/supabase';
 
 export default function ContactContent() {
   const [form, setForm] = useState({ name: '', tiktok: '', subject: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    if (!form.name.trim() || !form.message.trim() || !form.subject) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const { error: err } = await supabase.from('support_tickets').insert({
+        name: form.name.trim(),
+        tiktok_handle: form.tiktok.trim(),
+        subject: form.subject,
+        message: form.message.trim(),
+        status: 'New',
+      });
+      if (err) throw err;
+      setSubmitted(true);
+    } catch {
+      setError('Something went wrong. Please try again or message us on TikTok.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -60,7 +83,7 @@ export default function ContactContent() {
             </a>
           ))}
 
-          {/* Location */}
+          {/* Location — Tondo, Philippines per Master Appendix */}
           <div
             className="p-4 rounded-xl"
             style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
@@ -74,14 +97,14 @@ export default function ContactContent() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--foreground-subtle)' }}>Location</p>
-                <p className="font-semibold text-sm" style={{ color: 'var(--foreground)' }}>Manila, Philippines</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-muted)' }}>Shipping nationwide via J&T Express</p>
+                <p className="font-semibold text-sm" style={{ color: 'var(--foreground)' }}>Tondo, Manila, Philippines</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-muted)' }}>Shipping nationwide via J&T Express · Lalamove for Metro Manila</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Contact form */}
+        {/* Contact form — saves as support ticket */}
         <div>
           <h2 className="font-display text-xl font-bold mb-6" style={{ color: 'var(--foreground)' }}>
             Send a Message
@@ -94,13 +117,15 @@ export default function ContactContent() {
               <span className="text-4xl mb-4 block" aria-hidden="true">✦</span>
               <h3 className="font-display text-lg font-bold mb-2" style={{ color: '#10b981' }}>Message Sent!</h3>
               <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
-                Thank you for reaching out. We&apos;ll get back to you as soon as possible.
+                Thank you for reaching out. We&apos;ll get back to you as soon as possible via TikTok or the contact method you provided.
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Your Name</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                  Your Name <span style={{ color: 'var(--primary)' }}>*</span>
+                </label>
                 <input
                   type="text"
                   required
@@ -111,7 +136,9 @@ export default function ContactContent() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>TikTok Handle</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                  TikTok Handle <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(Optional)</span>
+                </label>
                 <input
                   type="text"
                   value={form.tiktok}
@@ -121,7 +148,9 @@ export default function ContactContent() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Subject</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                  Subject <span style={{ color: 'var(--primary)' }}>*</span>
+                </label>
                 <select
                   value={form.subject}
                   onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
@@ -138,7 +167,9 @@ export default function ContactContent() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Message</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                  Message <span style={{ color: 'var(--primary)' }}>*</span>
+                </label>
                 <textarea
                   required
                   rows={5}
@@ -148,8 +179,14 @@ export default function ContactContent() {
                   placeholder="Tell us how we can help..."
                 />
               </div>
-              <button type="submit" className="btn-primary w-full py-3 text-sm">
-                Send Message ✦
+              {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="btn-primary w-full py-3 text-sm"
+                style={{ opacity: submitting ? 0.7 : 1 }}
+              >
+                {submitting ? 'Sending...' : 'Send Message ✦'}
               </button>
             </form>
           )}

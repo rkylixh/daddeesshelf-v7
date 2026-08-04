@@ -19,6 +19,10 @@ export interface Book {
   reserved: number;
   synopsis: string;
   cover_url: string;
+  goodreads_url?: string;
+  goodreads_score?: number;
+  spice_level?: number;
+  is_visible?: boolean;
   created_at: string;
   updated_at: string;
   // Computed fields

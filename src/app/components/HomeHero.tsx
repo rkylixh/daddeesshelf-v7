@@ -4,15 +4,24 @@ import React from 'react';
 import Link from 'next/link';
 import AppLogo from '@/components/ui/AppLogo';
 
-export default function HomeHero() {
+interface SiteStats {
+  titlesAvailable: number;
+  activeBatchCount: number;
+  lowestPrice: number;
+  wishlistCount: number;
+}
+
+interface HomeHeroProps {
+  stats?: SiteStats | null;
+}
+
+export default function HomeHero({ stats }: HomeHeroProps) {
   return (
     <section className="relative min-h-[90vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
       {/* Radial glow behind hero */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(139,92,246,0.18) 0%, transparent 70%)',
-        }}
+        style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(139,92,246,0.18) 0%, transparent 70%)' }}
         aria-hidden="true"
       />
       {/* Decorative stars */}
@@ -25,14 +34,11 @@ export default function HomeHero() {
 
       {/* Hero content */}
       <div className="relative z-10 max-w-3xl mx-auto animate-fade-in-up">
-        <p
-          className="text-xs font-semibold uppercase tracking-widest mb-6"
-          style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}
-        >
+        <p className="text-xs font-semibold uppercase tracking-widest mb-6" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
           ✦ Your Cozy Online Bookstore ✦
         </p>
 
-        {/* Official Logo — prominent */}
+        {/* Official Logo */}
         <div className="flex justify-center mb-6">
           <div
             className="rounded-full p-4 animate-glow-pulse"
@@ -52,10 +58,7 @@ export default function HomeHero() {
           Daddee&apos;s Shelf
         </h1>
 
-        <p
-          className="text-lg sm:text-xl font-light mb-2 font-display italic"
-          style={{ color: 'var(--foreground-muted)' }}
-        >
+        <p className="text-lg sm:text-xl font-light mb-2 font-display italic" style={{ color: 'var(--foreground-muted)' }}>
           Your cozy corner for pre-loved and pre-ordered books
         </p>
 
@@ -64,23 +67,39 @@ export default function HomeHero() {
           all delivered to your door.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/shop" className="btn-primary text-base px-8 py-3 inline-block">
-            Browse Current Batch ✦
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
+          <Link href="/preorder-list" className="btn-primary text-base px-8 py-3 inline-block">
+            Preorder Now ✦
           </Link>
           <Link href="/orders" className="btn-secondary text-base px-8 py-3 inline-block">
-            View My Preorders
+            Track My Preorder
           </Link>
         </div>
+
+        {/* Dynamic Stats — no preorder count per Master Appendix */}
+        {stats && (
+          <div className="grid grid-cols-3 gap-4 max-w-xl mx-auto">
+            {[
+              { label: 'Titles Available', value: stats.titlesAvailable.toLocaleString() },
+              { label: 'Active Batches', value: stats.activeBatchCount.toLocaleString() },
+              { label: 'Starting From', value: stats.lowestPrice > 0 ? `₱${stats.lowestPrice.toLocaleString()}` : '—' },
+            ].map(stat => (
+              <div
+                key={stat.label}
+                className="rounded-xl p-3 text-center"
+                style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}
+              >
+                <p className="font-display text-xl font-bold" style={{ color: 'var(--primary-bright)' }}>{stat.value}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-subtle)' }}>{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Scroll indicator */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-float" style={{ animationDelay: '1.5s' }}>
-        <div
-          className="w-px h-12 mx-auto"
-          style={{ background: 'linear-gradient(180deg, var(--primary), transparent)' }}
-          aria-hidden="true"
-        />
+        <div className="w-px h-12 mx-auto" style={{ background: 'linear-gradient(180deg, var(--primary), transparent)' }} aria-hidden="true" />
       </div>
     </section>
   );

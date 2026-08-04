@@ -58,7 +58,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 function ReaderQuestionsSection() {
   const [questions, setQuestions] = useState<ReaderQuestion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ tiktok: '', name: '', comment: '' });
+  const [form, setForm] = useState({ preferred_name: '', comment: '' });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -83,21 +83,22 @@ function ReaderQuestionsSection() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.tiktok.trim()) { setError('TikTok Handle is required.'); return; }
     if (!form.comment.trim()) { setError('Question is required.'); return; }
     setSubmitting(true);
     setError('');
     try {
+      const preferredName = form.preferred_name.trim() || 'Anonymous';
       const { error: err } = await supabase.from('reader_comments').insert({
-        tiktok_handle: form.tiktok.trim(),
-        customer_name: form.name.trim(),
+        tiktok_handle: '',
+        customer_name: preferredName,
+        preferred_name: preferredName,
         comment: form.comment.trim(),
         status: 'Pending Review',
         is_published: false,
       });
       if (err) throw err;
       setSubmitted(true);
-      setForm({ tiktok: '', name: '', comment: '' });
+      setForm({ preferred_name: '', comment: '' });
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -107,6 +108,11 @@ function ReaderQuestionsSection() {
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const getDisplayName = (q: ReaderQuestion) => {
+    const name = (q as ReaderQuestion & { preferred_name?: string }).preferred_name || q.customer_name;
+    return name && name !== '' ? name : 'Anonymous';
+  };
 
   return (
     <div className="mt-16 max-w-3xl mx-auto">
@@ -131,7 +137,7 @@ function ReaderQuestionsSection() {
         <span className="text-lg flex-shrink-0" aria-hidden="true">✦</span>
         <p className="text-xs leading-relaxed" style={{ color: 'var(--foreground-muted)' }}>
           <strong style={{ color: 'var(--primary-bright)' }}>Moderation Notice:</strong>{' '}
-          To keep our community welcoming and helpful, every public question is reviewed before it appears on the website. Once approved, our team may also publish an official response so future readers can benefit from the same answer.
+          Every public question is reviewed before it appears on the website. Once approved, our team may also publish an official response so future readers can benefit from the same answer.
         </p>
       </div>
 
@@ -149,10 +155,7 @@ function ReaderQuestionsSection() {
               style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
             >
               <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="text-xs font-semibold" style={{ color: 'var(--primary-bright)' }}>{q.tiktok_handle}</span>
-                {q.customer_name && (
-                  <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>· {q.customer_name}</span>
-                )}
+                <span className="text-xs font-semibold" style={{ color: 'var(--primary-bright)' }}>{getDisplayName(q)}</span>
                 <span className="text-xs ml-auto" style={{ color: 'var(--foreground-subtle)' }}>{formatDate(q.created_at)}</span>
               </div>
               <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--foreground-muted)' }}>{q.comment}</p>
@@ -200,32 +203,17 @@ function ReaderQuestionsSection() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.tiktok}
-                  onChange={e => setForm(f => ({ ...f, tiktok: e.target.value }))}
-                  className="input-field text-sm"
-                  placeholder="@yourtiktok"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  Display Name <span style={{ color: 'var(--foreground-subtle)' }}>(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="input-field text-sm"
-                  placeholder="Your display name"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                Preferred Name <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(Optional — leave blank to appear as Anonymous)</span>
+              </label>
+              <input
+                type="text"
+                value={form.preferred_name}
+                onChange={e => setForm(f => ({ ...f, preferred_name: e.target.value }))}
+                className="input-field text-sm"
+                placeholder="Your name or nickname (optional)"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>

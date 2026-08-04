@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
@@ -8,7 +8,7 @@ import StatusBadge from '@/components/books/StatusBadge';
 import Icon from '@/components/ui/AppIcon';
 import { getBookById, getBooks } from '@/lib/books';
 import { Book } from '@/lib/types';
-import { toast } from 'sonner';
+import { CartContext } from '@/components/layout/Navbar';
 
 export default function BookDetailContent() {
   const params = useSearchParams();
@@ -17,8 +17,8 @@ export default function BookDetailContent() {
   const [book, setBook] = useState<Book | null>(null);
   const [relatedBooks, setRelatedBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
-  const [wishlisted, setWishlisted] = useState(false);
-  const [bundleExpanded, setBundleExpanded] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
+  const { addItem } = useContext(CartContext);
 
   useEffect(() => {
     async function load() {
@@ -38,10 +38,11 @@ export default function BookDetailContent() {
     load();
   }, [id]);
 
-  const handleWishlist = () => {
+  const handlePreorder = () => {
     if (!book) return;
-    setWishlisted(w => !w);
-    toast.success(wishlisted ? 'Removed from wishlist' : `"${book.title}" added to wishlist`);
+    addItem(book);
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 2000);
   };
 
   if (loading) {
@@ -72,8 +73,13 @@ export default function BookDetailContent() {
     { label: 'Format', value: book.format },
     { label: 'Edition', value: book.edition || '—' },
     { label: 'SKU', value: book.sku },
+    { label: 'Batch', value: book.batch || '—' },
     ...(book.arrival_date ? [{ label: 'Arrival Date', value: new Date(book.arrival_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) }] : []),
   ];
+
+  const spiceLevel = (book as Book & { spice_level?: number }).spice_level ?? 0;
+  const goodreadsUrl = (book as Book & { goodreads_url?: string }).goodreads_url ?? '';
+  const goodreadsScore = book.goodreads_score ?? 0;
 
   return (
     <div className="content-wrapper py-8">
@@ -103,24 +109,16 @@ export default function BookDetailContent() {
             />
           </div>
 
-          {/* Wishlist button */}
-          <button
-            onClick={handleWishlist}
-            className="w-full max-w-[320px] flex items-center justify-center gap-2 py-3 rounded-xl font-medium text-sm transition-all"
-            style={{
-              background: wishlisted ? 'rgba(139,92,246,0.15)' : 'transparent',
-              border: `1px solid ${wishlisted ? 'var(--primary)' : 'var(--border)'}`,
-              color: wishlisted ? 'var(--primary-bright)' : 'var(--foreground-muted)',
-            }}
-          >
-            <Icon
-              name="HeartIcon"
-              size={18}
-              variant={wishlisted ? 'solid' : 'outline'}
-              style={{ color: wishlisted ? 'var(--primary-bright)' : 'var(--foreground-muted)' } as React.CSSProperties}
-            />
-            {wishlisted ? 'Saved to Wishlist' : 'Add to Wishlist'}
-          </button>
+          {/* Preorder / Add to Cart button */}
+          {book.status !== 'Sold Out' && (
+            <button
+              onClick={handlePreorder}
+              className="w-full max-w-[320px] btn-primary flex items-center justify-center gap-2 py-3 text-sm"
+            >
+              <Icon name="ShoppingCartIcon" size={16} />
+              {addedToCart ? 'Added to Cart ✓' : book.status === 'Pre-order' ? 'Preorder This Book ✦' : 'Add to Cart ✦'}
+            </button>
+          )}
 
           {/* Share */}
           <button className="w-full max-w-[320px] btn-ghost flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm">
@@ -165,7 +163,7 @@ export default function BookDetailContent() {
           )}
 
           {/* Price */}
-          <div className="flex items-baseline gap-3 mb-6">
+          <div className="flex items-baseline gap-3 mb-4">
             <span className="font-display text-3xl font-bold tabular-nums" style={{ color: 'var(--primary-bright)' }}>
               ₱{book.final_srp.toLocaleString()}
             </span>
@@ -173,6 +171,41 @@ export default function BookDetailContent() {
               {book.format}
             </span>
           </div>
+
+          {/* Goodreads Rating */}
+          {goodreadsScore > 0 && (
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-1.5">
+                <Icon name="StarIcon" size={16} style={{ color: '#f59e0b' } as React.CSSProperties} />
+                <span className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>{goodreadsScore.toFixed(2)}</span>
+                <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>on Goodreads</span>
+              </div>
+              {goodreadsUrl && (
+                <a
+                  href={goodreadsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold"
+                  style={{ color: 'var(--primary-bright)' }}
+                >
+                  View on Goodreads →
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Spice Rating */}
+          {spiceLevel > 0 && (
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Spice Level:</span>
+              <div className="flex gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <span key={i} className="text-sm" style={{ opacity: i < spiceLevel ? 1 : 0.2 }}>🌶️</span>
+                ))}
+              </div>
+              <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>({spiceLevel}/5)</span>
+            </div>
+          )}
 
           {/* Order CTA */}
           <div
@@ -187,17 +220,21 @@ export default function BookDetailContent() {
                   : 'Currently out of stock'}
               </p>
               <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
-                Order via Facebook or Instagram · Full payment required to reserve
+                {book.status === 'Sold Out' ?'Join the wishlist to be notified when available' :'Add to cart · Pay via GCash · Shipping collected after arrival'}
               </p>
             </div>
-            <a
-              href="https://facebook.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-primary whitespace-nowrap text-sm px-6 py-2.5"
-            >
-              {book.status === 'Sold Out' ? 'Join Waitlist' : 'Order Now'}
-            </a>
+            {book.status !== 'Sold Out' ? (
+              <button
+                onClick={handlePreorder}
+                className="btn-primary whitespace-nowrap text-sm px-6 py-2.5"
+              >
+                {addedToCart ? 'Added ✓' : 'Preorder Now ✦'}
+              </button>
+            ) : (
+              <Link href="/wishlist" className="btn-secondary whitespace-nowrap text-sm px-6 py-2.5">
+                Join Waitlist
+              </Link>
+            )}
           </div>
 
           {/* Synopsis */}
