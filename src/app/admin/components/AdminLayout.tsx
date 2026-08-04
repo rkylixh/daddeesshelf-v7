@@ -21,6 +21,8 @@ const ADMIN_NAV = [
   { label: 'Title Requests', href: '/admin/requests', icon: 'DocumentTextIcon' },
   { label: 'Preorder Management', href: '/admin/preorders', icon: 'ClockIcon' },
   { label: 'Order Management', href: '/admin/orders', icon: 'ShoppingBagIcon' },
+  { label: 'Customer Management', href: '/admin/customers', icon: 'UsersIcon' },
+  { label: 'Store Credits', href: '/admin/store-credits', icon: 'CreditCardIcon' },
   { label: 'Admin Users', href: '/admin/users', icon: 'UserGroupIcon' },
   { label: 'Audit Log', href: '/admin/audit', icon: 'ClipboardDocumentListIcon' },
 ];

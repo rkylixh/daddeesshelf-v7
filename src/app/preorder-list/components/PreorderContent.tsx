@@ -31,6 +31,7 @@ interface ConfirmationData {
   items: PreorderItem[];
   payment_ref: string;
   status: string;
+  store_credit_applied?: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────
@@ -187,8 +188,37 @@ function PreorderFormModal({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [storeCredit, setStoreCredit] = useState<{ id: string; amount: number } | null>(null);
+  const [checkingCredit, setCheckingCredit] = useState(false);
 
-  const totalPrice = items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  const baseTotal = items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  const creditApplied = storeCredit ? Math.min(storeCredit.amount, baseTotal) : 0;
+  const totalPrice = Math.max(0, baseTotal - creditApplied);
+
+  // Check for active store credit when handle changes (debounced)
+  useEffect(() => {
+    const handle = form.tiktok_handle.trim().replace(/^@/, '');
+    if (!handle) { setStoreCredit(null); return; }
+    const timer = setTimeout(async () => {
+      setCheckingCredit(true);
+      try {
+        const { data } = await supabase
+          .from('store_credits')
+          .select('id, amount')
+          .eq('tiktok_handle', handle)
+          .eq('status', 'Active')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        setStoreCredit(data ? { id: data.id, amount: data.amount } : null);
+      } catch {
+        setStoreCredit(null);
+      } finally {
+        setCheckingCredit(false);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [form.tiktok_handle]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,7 +226,7 @@ function PreorderFormModal({
     if (form.customer_pin.length !== 4 || !/^\d{4}$/.test(form.customer_pin)) {
       setError('PIN must be exactly 4 digits.'); return;
     }
-    if (!form.payment_ref.trim()) { setError('GCash Reference Number is required.'); return; }
+    if (!form.payment_ref.trim() && totalPrice > 0) { setError('GCash Reference Number is required.'); return; }
 
     setSubmitting(true);
     setError('');
@@ -223,8 +253,19 @@ function PreorderFormModal({
         payment_ref: form.payment_ref,
         notes: form.notes,
         status: 'Pending Payment Verification',
+        store_credit_applied: creditApplied,
+        store_credit_id: storeCredit?.id ?? null,
       });
       if (err) throw err;
+
+      // Mark store credit as used
+      if (storeCredit && creditApplied > 0) {
+        await supabase.from('store_credits').update({
+          status: 'Used',
+          used_on_order_ref: orderRef,
+          updated_at: new Date().toISOString(),
+        }).eq('id', storeCredit.id);
+      }
 
       onSuccess({
         order_ref: orderRef,
@@ -233,6 +274,7 @@ function PreorderFormModal({
         items,
         payment_ref: form.payment_ref,
         status: 'Pending Payment Verification',
+        store_credit_applied: creditApplied,
       });
     } catch {
       setError('Something went wrong. Please try again or message us on TikTok @daddees.shelf.');
@@ -260,8 +302,14 @@ function PreorderFormModal({
               <span style={{ color: 'var(--primary-bright)' }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</span>
             </div>
           ))}
+          {creditApplied > 0 && (
+            <div className="flex justify-between text-xs mt-1.5 pt-1.5" style={{ borderTop: '1px solid rgba(16,185,129,0.2)' }}>
+              <span style={{ color: '#10b981' }}>✦ Store Credit Applied</span>
+              <span style={{ color: '#10b981', fontWeight: 700 }}>−₱{creditApplied.toLocaleString()}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm font-bold mt-2 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-            <span style={{ color: 'var(--foreground)' }}>Total</span>
+            <span style={{ color: 'var(--foreground)' }}>Total{creditApplied > 0 ? ' (after credit)' : ''}</span>
             <span style={{ color: 'var(--primary-bright)' }}>₱{totalPrice.toLocaleString()}</span>
           </div>
         </div>
@@ -283,6 +331,18 @@ function PreorderFormModal({
             <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
               You must be a follower of @daddees.shelf to place preorders.
             </p>
+            {/* Store credit notice */}
+            {checkingCredit && (
+              <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>Checking for store credits...</p>
+            )}
+            {!checkingCredit && storeCredit && (
+              <div
+                className="mt-2 rounded-lg px-3 py-2 text-xs font-semibold"
+                style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
+              >
+                ✦ You have ₱{storeCredit.amount.toLocaleString()} store credit — automatically applied to this order!
+              </div>
+            )}
           </div>
 
           {/* 4-digit PIN */}
