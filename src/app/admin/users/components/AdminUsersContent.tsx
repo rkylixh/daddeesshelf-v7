@@ -10,14 +10,23 @@ type Role = typeof ROLES[number];
 
 const ROLE_PERMISSIONS: Record<Role, string[]> = {
   Owner: [
+    'Support Tickets & Inquiries',
+    'Book Detail Management',
+    'Bundle Management',
+    'Genre Management',
     'Payment Verification',
     'Payment Confirmation',
     'Final Order Approval',
     'Tracking Number Updates',
     'Refund Reference Numbers',
     'Financial Reports',
+    'Issue & Cancel Store Credits',
   ],
   Developer: [
+    'Support Tickets & Inquiries',
+    'Book Detail Management',
+    'Bundle Management',
+    'Genre Management',
     'Homepage Configuration',
     'FAQ Management',
     'Feature Management',
@@ -30,6 +39,10 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'Backup / Restore',
   ],
   Administrator: [
+    'Support Tickets & Inquiries',
+    'Book Detail Management',
+    'Bundle Management',
+    'Genre Management',
     'View Orders',
     'Update Order Status',
     'Manage Inventory',
@@ -37,6 +50,7 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'Manage Wishlists',
     'View Audit Logs',
     'Manage Comments',
+    'View Store Credits (read-only)',
   ],
 };
 

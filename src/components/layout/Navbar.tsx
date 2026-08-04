@@ -71,14 +71,25 @@ export function useCart() {
 // ── Admin Access Overlay ───────────────────────────────────
 function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const [step, setStep] = useState<'code' | 'auth'>('code');
+  const [step, setStep] = useState<'code' | 'auth' | 'enter-pin' | 'set-pin'>('code');
   const [accessCode, setAccessCode] = useState('');
   const [tiktok, setTiktok] = useState('');
   const [adminPin, setAdminPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [pendingAdminId, setPendingAdminId] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const ADMIN_ACCESS_CODE = 'DADSHELF';
+
+  async function hashPin(pin: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
 
   const handleCodeVerify = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,28 +101,83 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
     setStep('auth');
   };
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
+  const handleCheckHandle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tiktok.trim()) { setError('TikTok Handle is required.'); return; }
-    if (adminPin.length !== 6) { setError('Admin PIN must be 6 digits.'); return; }
     setLoading(true);
     setError('');
     try {
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
-      const handle = tiktok.trim().replace(/^@/, '');
+      const rawHandle = tiktok.trim();
+      const handleNoAt = rawHandle.replace(/^@/, '');
+      const handleWithAt = '@' + handleNoAt;
+
+      let adminUser = null;
+
+      const { data: d1 } = await supabase
+        .from('admin_users')
+        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
+        .eq('tiktok_handle', handleNoAt)
+        .maybeSingle();
+
+      if (d1) {
+        adminUser = d1;
+      } else {
+        const { data: d2 } = await supabase
+          .from('admin_users')
+          .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
+          .eq('tiktok_handle', handleWithAt)
+          .maybeSingle();
+        if (d2) adminUser = d2;
+      }
+
+      if (!adminUser) {
+        setError('Administrator account not found. Please verify your TikTok handle.');
+        setLoading(false);
+        return;
+      }
+
+      if (!adminUser.is_active) {
+        setError('This admin account has been deactivated.');
+        setLoading(false);
+        return;
+      }
+
+      setPendingAdminId(adminUser.id);
+
+      const pinHashValue = (adminUser.pin_hash ?? '').trim();
+      const pinIsSet = adminUser.pin_set === true;
+
+      if (!pinIsSet || !pinHashValue) {
+        setStep('set-pin');
+      } else {
+        setStep('enter-pin');
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Verification failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPin.length !== 6 || !/^\d{6}$/.test(adminPin)) {
+      setError('Admin PIN must be exactly 6 digits.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
       const { data: adminUser, error: dbError } = await supabase
         .from('admin_users')
-        .select('id, tiktok_handle, pin_hash, role, is_active')
-        .eq('tiktok_handle', handle)
+        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
+        .eq('id', pendingAdminId)
         .single();
       if (dbError || !adminUser) throw new Error('Admin account not found.');
-      if (!adminUser.is_active) throw new Error('This admin account has been deactivated.');
-      const encoder = new TextEncoder();
-      const data = encoder.encode(adminPin);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const pinHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      const pinHash = await hashPin(adminPin);
       if (pinHash !== adminUser.pin_hash) throw new Error('Incorrect PIN. Please try again.');
       sessionStorage.setItem('admin_session', JSON.stringify({
         id: adminUser.id,
@@ -123,6 +189,49 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
       router.push('/admin/inventory');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
+      setError('PIN must be exactly 6 digits.');
+      return;
+    }
+    if (newPin !== confirmPin) {
+      setError('PINs do not match. Please try again.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const pinHash = await hashPin(newPin);
+      const { error: updateError } = await supabase
+        .from('admin_users')
+        .update({ pin_hash: pinHash, pin_set: true })
+        .eq('id', pendingAdminId);
+      if (updateError) throw updateError;
+      const { data: adminUser } = await supabase
+        .from('admin_users')
+        .select('id, tiktok_handle, role')
+        .eq('id', pendingAdminId)
+        .single();
+      if (adminUser) {
+        sessionStorage.setItem('admin_session', JSON.stringify({
+          id: adminUser.id,
+          tiktok_handle: adminUser.tiktok_handle,
+          role: adminUser.role,
+          authenticated_at: Date.now(),
+        }));
+        onClose();
+        router.push('/admin/inventory');
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to set PIN. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -148,7 +257,8 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-6">
-          {step === 'code' ? (
+          {/* Step 1: Access Code */}
+          {step === 'code' && (
             <form onSubmit={handleCodeVerify} className="space-y-4">
               <div className="text-center mb-4">
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--foreground-subtle)' }}>Step 1 of 2</p>
@@ -166,15 +276,43 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
               {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
               <button type="submit" className="btn-primary w-full py-2.5 text-sm">Verify Code</button>
             </form>
-          ) : (
-            <form onSubmit={handleAdminLogin} className="space-y-4">
+          )}
+
+          {/* Step 2: TikTok Handle only */}
+          {step === 'auth' && (
+            <form onSubmit={handleCheckHandle} className="space-y-4">
               <div className="text-center mb-4">
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--foreground-subtle)' }}>Step 2 of 2</p>
                 <h3 className="font-display text-base font-bold mt-1" style={{ color: 'var(--foreground)' }}>Admin Authentication</h3>
               </div>
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>TikTok Handle</label>
-                <input type="text" required value={tiktok} onChange={e => setTiktok(e.target.value)} className="input-field text-sm" placeholder="@yourtiktok" />
+                <input
+                  type="text"
+                  required
+                  value={tiktok}
+                  onChange={e => setTiktok(e.target.value)}
+                  className="input-field text-sm"
+                  placeholder="@yourtiktok"
+                  autoFocus
+                />
+              </div>
+              {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
+              <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 text-sm" style={{ opacity: loading ? 0.7 : 1 }}>
+                {loading ? 'Verifying...' : 'Continue →'}
+              </button>
+              <button type="button" onClick={() => { setStep('code'); setError(''); }} className="w-full text-xs text-center" style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                ← Back
+              </button>
+            </form>
+          )}
+
+          {/* Step 3a: Returning admin — Enter PIN */}
+          {step === 'enter-pin' && (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="text-center mb-4">
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--foreground-subtle)' }}>Admin PIN</p>
+                <h3 className="font-display text-base font-bold mt-1" style={{ color: 'var(--foreground)' }}>Enter Your PIN</h3>
               </div>
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>6-Digit Admin PIN</label>
@@ -186,13 +324,56 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
                   onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   className="input-field text-sm text-center tracking-widest"
                   placeholder="••••••"
+                  autoFocus
                 />
               </div>
               {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
               <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 text-sm" style={{ opacity: loading ? 0.7 : 1 }}>
                 {loading ? 'Verifying...' : 'Sign In ✦'}
               </button>
-              <button type="button" onClick={() => { setStep('code'); setError(''); }} className="w-full text-xs text-center" style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <button type="button" onClick={() => { setStep('auth'); setError(''); setAdminPin(''); }} className="w-full text-xs text-center" style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                ← Back
+              </button>
+            </form>
+          )}
+
+          {/* Step 3b: First-time admin — Create PIN */}
+          {step === 'set-pin' && (
+            <form onSubmit={handleSetPin} className="space-y-4">
+              <div className="text-center mb-4">
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--foreground-subtle)' }}>First Time Setup</p>
+                <h3 className="font-display text-base font-bold mt-1" style={{ color: 'var(--foreground)' }}>Create Admin PIN</h3>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Create 6-Digit PIN</label>
+                <input
+                  type="password"
+                  required
+                  maxLength={6}
+                  value={newPin}
+                  onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="input-field text-sm text-center tracking-widest"
+                  placeholder="••••••"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Confirm 6-Digit PIN</label>
+                <input
+                  type="password"
+                  required
+                  maxLength={6}
+                  value={confirmPin}
+                  onChange={e => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="input-field text-sm text-center tracking-widest"
+                  placeholder="••••••"
+                />
+              </div>
+              {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
+              <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 text-sm" style={{ opacity: loading ? 0.7 : 1 }}>
+                {loading ? 'Saving...' : 'Create PIN ✦'}
+              </button>
+              <button type="button" onClick={() => { setStep('auth'); setError(''); setNewPin(''); setConfirmPin(''); }} className="w-full text-xs text-center" style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 ← Back
               </button>
             </form>
@@ -520,6 +701,7 @@ const NAV_LINKS = [
   { label: 'Collections', href: '/collections' },
   { label: 'Wishlist', href: '/wishlist' },
   { label: 'My Orders', href: '/orders' },
+  { label: 'My Queries', href: '/my-queries' },
   { label: 'FAQs', href: '/faqs' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
@@ -559,6 +741,7 @@ export default function Navbar() {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 flex-shrink-0">
               <AppLogo size={44} />
+              <span className="font-display text-base font-bold hidden sm:block" style={{ color: 'var(--primary-bright)' }}>Daddee&apos;s Shelf</span>
             </Link>
 
             {/* Live Search Bar */}

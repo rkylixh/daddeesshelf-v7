@@ -301,7 +301,7 @@ export default function HomePage() {
             {bestSellers.length > 0 && (
               <>
                 <HomeCelestialDivider label="✦ Best Sellers ✦" />
-                <section className="content-wrapper mb-8">
+                <section className="content-wrapper py-12 mb-8">
                   <div className="flex items-end justify-between mb-6">
                     <div>
                       <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Best Sellers</h2>
@@ -322,7 +322,7 @@ export default function HomePage() {
             {batchInfo && (
               <>
                 <HomeCelestialDivider label="✦ Current Import Batch ✦" />
-                <section className="content-wrapper mb-8">
+                <section className="content-wrapper py-12 mb-8">
                   <div
                     className="rounded-2xl p-6 mb-8"
                     style={{
@@ -384,7 +384,7 @@ export default function HomePage() {
             {booktokFavorites.length > 0 && (
               <>
                 <HomeCelestialDivider label="✦ BookTok Favorites ✦" />
-                <section className="content-wrapper mb-8">
+                <section className="content-wrapper py-12 mb-8">
                   <div className="flex items-end justify-between mb-6">
                     <div>
                       <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>BookTok Favorites</h2>
@@ -402,8 +402,8 @@ export default function HomePage() {
             )}
 
             {/* ── 5. How Preordering Works ── */}
-            <HomeCelestialDivider label="✦ How It Works ✦" />
-            <section className="content-wrapper mb-8">
+            <div className="mt-16"><HomeCelestialDivider label="✦ How It Works ✦" /></div>
+            <section className="content-wrapper py-12 mb-8">
               <div className="text-center mb-8">
                 <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>How Preordering Works</h2>
                 <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
@@ -437,15 +437,9 @@ export default function HomePage() {
             </section>
 
             {/* ── 6. FAQ Preview ── */}
-            <HomeCelestialDivider label="✦ FAQ ✦" />
-            <section className="content-wrapper mb-16">
+            <div className="mt-16"><HomeCelestialDivider label="✦ FAQs ✦" /></div>
+            <section className="content-wrapper py-12 mb-16">
               <div className="text-center mb-6">
-                <span
-                  className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3"
-                  style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}
-                >
-                  ✦ FAQ
-                </span>
                 <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>Frequently Asked Questions</h2>
                 <p className="text-sm mb-4" style={{ color: 'var(--foreground-muted)' }}>Your guide to pre-orders, payments, shipping, and everything in between.</p>
                 <Link href="/faqs" className="btn-secondary text-sm px-8 py-3 inline-block">

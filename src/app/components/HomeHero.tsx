@@ -39,24 +39,9 @@ export default function HomeHero({ stats }: HomeHeroProps) {
         </p>
 
         {/* Official Logo */}
-        <div className="flex justify-center mb-6">
-          <div
-            className="rounded-full p-4 animate-glow-pulse"
-            style={{
-              background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)',
-              boxShadow: '0 0 60px rgba(139,92,246,0.25)',
-            }}
-          >
-            <AppLogo size={140} className="drop-shadow-lg" />
-          </div>
+        <div className="flex justify-center mb-8">
+          <AppLogo size={240} className="drop-shadow-lg" />
         </div>
-
-        <h1
-          className="font-display text-4xl sm:text-5xl md:text-6xl font-bold mb-3 leading-tight text-glow-purple animate-glow-pulse"
-          style={{ color: 'var(--primary-bright)' }}
-        >
-          Daddee&apos;s Shelf
-        </h1>
 
         <p className="text-lg sm:text-xl font-light mb-2 font-display italic" style={{ color: 'var(--foreground-muted)' }}>
           Your cozy corner for pre-loved and pre-ordered books
