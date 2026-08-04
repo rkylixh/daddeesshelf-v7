@@ -42,8 +42,11 @@ function TicketCard({ ticket }: { ticket: SupportTicket }) {
   const statusColor = STATUS_COLORS[ticket.status] ?? '#f59e0b';
   const hasResponse = ticket.admin_notes && ticket.admin_notes.trim().length > 0;
 
-  const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+  const formatDate = (d: string) => {
+    const date = new Date(d);
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
+  };
 
   return (
     <div
