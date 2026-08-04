@@ -749,7 +749,7 @@ export default function Navbar() {
 
             {/* Desktop Nav */}
             <div className="hidden xl:flex items-center gap-1 flex-shrink-0">
-              {NAV_LINKS.slice(0, 6).map(link => (
+              {NAV_LINKS.slice(0, 7).map(link => (
                 <Link
                   key={`nav-${link.href}`}
                   href={link.href}
