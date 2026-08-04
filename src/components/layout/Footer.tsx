@@ -51,7 +51,7 @@ export default function Footer() {
       className="relative z-10 mt-24"
       style={{ borderTop: '1px solid var(--border)', background: 'rgba(10,10,15,0.95)' }}
     >
-      <div className="content-wrapper pt-24 pb-12">
+      <div className="content-wrapper py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="md:col-span-1">
