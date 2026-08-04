@@ -1,0 +1,129 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import AdminLayout from '../../components/AdminLayout';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+
+interface TitleRequest {
+  id: string;
+  ref_number: string;
+  customer_name: string;
+  tiktok_handle: string;
+  requested_title: string;
+  requested_author: string;
+  notes: string;
+  status: string;
+  admin_notes: string;
+  is_reviewed: boolean;
+  created_at: string;
+}
+
+const STATUS_OPTIONS = ['Pending', 'Noted', 'Added to Batch', 'Declined'];
+
+export default function AdminRequestsContent() {
+  const [requests, setRequests] = useState<TitleRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => { loadRequests(); }, []);
+
+  const loadRequests = async () => {
+    setLoading(true);
+    const { data } = await supabase.from('title_requests').select('*').order('created_at', { ascending: false });
+    setRequests((data ?? []) as TitleRequest[]);
+    setLoading(false);
+  };
+
+  const updateStatus = async (id: string, status: string) => {
+    await supabase.from('title_requests').update({ status, is_reviewed: true }).eq('id', id);
+    loadRequests();
+    toast.success('Status updated');
+  };
+
+  const updateNotes = async (id: string, notes: string) => {
+    await supabase.from('title_requests').update({ admin_notes: notes }).eq('id', id);
+    toast.success('Notes saved');
+  };
+
+  const filtered = requests.filter(r =>
+    !search ||
+    r.requested_title.toLowerCase().includes(search.toLowerCase()) ||
+    r.tiktok_handle.toLowerCase().includes(search.toLowerCase()) ||
+    r.customer_name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const STATUS_COLORS: Record<string, string> = {
+    'Pending': '#f59e0b',
+    'Noted': '#3b82f6',
+    'Added to Batch': '#10b981',
+    'Declined': '#6b7280',
+  };
+
+  return (
+    <AdminLayout title="Title Requests">
+      <div className="flex items-center justify-between mb-6">
+        <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+          {requests.filter(r => !r.is_reviewed).length} unreviewed · {requests.length} total
+        </p>
+        <input
+          type="search"
+          placeholder="Search requests..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="input-field text-sm py-2 w-64"
+        />
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16" style={{ color: 'var(--foreground-muted)' }}>No requests found.</div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(req => (
+            <div
+              key={req.id}
+              className="rounded-xl p-5"
+              style={{ background: 'var(--background-card)', border: `1px solid ${req.is_reviewed ? 'var(--border)' : 'rgba(139,92,246,0.3)'}` }}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div>
+                  <p className="font-semibold" style={{ color: 'var(--foreground)' }}>{req.requested_title}</p>
+                  {req.requested_author && <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>by {req.requested_author}</p>}
+                  <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+                    {req.customer_name} · {req.tiktok_handle} · {new Date(req.created_at).toLocaleDateString('en-PH')}
+                  </p>
+                </div>
+                <select
+                  value={req.status}
+                  onChange={e => updateStatus(req.id, e.target.value)}
+                  className="select-field text-xs py-1.5 px-2"
+                  style={{ color: STATUS_COLORS[req.status] ?? 'var(--foreground)' }}
+                >
+                  {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              {req.notes && (
+                <p className="text-xs mb-3 p-2 rounded-lg" style={{ background: 'var(--muted)', color: 'var(--foreground-muted)' }}>
+                  Customer note: {req.notes}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  defaultValue={req.admin_notes}
+                  placeholder="Admin notes..."
+                  className="input-field text-xs py-1.5 flex-1"
+                  onBlur={e => updateNotes(req.id, e.target.value)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </AdminLayout>
+  );
+}

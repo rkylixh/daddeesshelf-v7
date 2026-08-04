@@ -1,0 +1,87 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import AppLogo from '@/components/ui/AppLogo';
+
+export default function HomeHero() {
+  return (
+    <section className="relative min-h-[90vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
+      {/* Radial glow behind hero */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(139,92,246,0.18) 0%, transparent 70%)',
+        }}
+        aria-hidden="true"
+      />
+      {/* Decorative stars */}
+      <div className="absolute top-20 left-1/4 text-2xl animate-float" style={{ color: 'var(--primary)', animationDelay: '0s' }} aria-hidden="true">✦</div>
+      <div className="absolute top-32 right-1/4 text-sm animate-float" style={{ color: 'var(--accent-light)', animationDelay: '1s' }} aria-hidden="true">✧</div>
+      <div className="absolute bottom-32 left-1/3 text-lg animate-float" style={{ color: 'var(--primary-bright)', animationDelay: '2s' }} aria-hidden="true">✤</div>
+      <div className="absolute bottom-20 right-1/3 text-xl animate-float" style={{ color: 'var(--accent)', animationDelay: '0.5s' }} aria-hidden="true">★</div>
+      <div className="absolute top-1/2 left-10 text-xs animate-float" style={{ color: 'var(--primary)', animationDelay: '1.5s' }} aria-hidden="true">✦</div>
+      <div className="absolute top-1/3 right-10 text-base animate-float" style={{ color: 'var(--accent-light)', animationDelay: '0.8s' }} aria-hidden="true">✧</div>
+
+      {/* Hero content */}
+      <div className="relative z-10 max-w-3xl mx-auto animate-fade-in-up">
+        <p
+          className="text-xs font-semibold uppercase tracking-widest mb-6"
+          style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}
+        >
+          ✦ Your Cozy Online Bookstore ✦
+        </p>
+
+        {/* Official Logo — prominent */}
+        <div className="flex justify-center mb-6">
+          <div
+            className="rounded-full p-4 animate-glow-pulse"
+            style={{
+              background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)',
+              boxShadow: '0 0 60px rgba(139,92,246,0.25)',
+            }}
+          >
+            <AppLogo size={140} className="drop-shadow-lg" />
+          </div>
+        </div>
+
+        <h1
+          className="font-display text-4xl sm:text-5xl md:text-6xl font-bold mb-3 leading-tight text-glow-purple animate-glow-pulse"
+          style={{ color: 'var(--primary-bright)' }}
+        >
+          Daddee&apos;s Shelf
+        </h1>
+
+        <p
+          className="text-lg sm:text-xl font-light mb-2 font-display italic"
+          style={{ color: 'var(--foreground-muted)' }}
+        >
+          Your cozy corner for pre-loved and pre-ordered books
+        </p>
+
+        <p className="text-sm mb-10 max-w-lg mx-auto" style={{ color: 'var(--foreground-subtle)', lineHeight: '1.7' }}>
+          Carefully curated titles for Filipino readers — from epic fantasy to heartwarming fiction,
+          all delivered to your door.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Link href="/shop" className="btn-primary text-base px-8 py-3 inline-block">
+            Browse Current Batch ✦
+          </Link>
+          <Link href="/orders" className="btn-secondary text-base px-8 py-3 inline-block">
+            View My Preorders
+          </Link>
+        </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-float" style={{ animationDelay: '1.5s' }}>
+        <div
+          className="w-px h-12 mx-auto"
+          style={{ background: 'linear-gradient(180deg, var(--primary), transparent)' }}
+          aria-hidden="true"
+        />
+      </div>
+    </section>
+  );
+}
