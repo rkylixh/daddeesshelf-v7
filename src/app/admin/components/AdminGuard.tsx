@@ -2,26 +2,34 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
+    try {
+      const raw = sessionStorage.getItem('admin_session');
+      if (!raw) {
         router.replace('/admin/login');
         return;
       }
-      const role = session.user?.user_metadata?.role ?? session.user?.app_metadata?.role;
-      if (role !== 'admin') {
+      const session = JSON.parse(raw);
+      if (!session?.id || !session?.authenticated_at) {
+        router.replace('/admin/login');
+        return;
+      }
+      // Optional: expire session after 8 hours
+      const eightHours = 8 * 60 * 60 * 1000;
+      if (Date.now() - session.authenticated_at > eightHours) {
+        sessionStorage.removeItem('admin_session');
         router.replace('/admin/login');
         return;
       }
       setChecking(false);
-    });
+    } catch {
+      router.replace('/admin/login');
+    }
   }, [router]);
 
   if (checking) {
