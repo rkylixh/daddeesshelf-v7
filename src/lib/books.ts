@@ -134,14 +134,18 @@ export async function getPreorderBooks(): Promise<Book[]> {
 
 export async function createBook(data: Omit<Book, 'id' | 'created_at' | 'updated_at' | 'available' | 'status'>): Promise<Book | null> {
   const supabase = getClient();
-  const { data: row, error } = await supabase.from('books').insert(data).select().single();
+  // Strip computed/virtual fields that don't exist as DB columns
+  const { available: _a, status: _s, ...insertData } = data as Record<string, unknown>;
+  const { data: row, error } = await supabase.from('books').insert(insertData).select().single();
   if (error) { console.error('createBook error:', error); return null; }
   return mapRow(row as Record<string, unknown>);
 }
 
 export async function updateBook(id: string, data: Partial<Book>): Promise<Book | null> {
   const supabase = getClient();
-  const { data: row, error } = await supabase.from('books').update(data).eq('id', id).select().single();
+  // Strip computed/virtual fields that don't exist as DB columns
+  const { available: _a, status: _s, id: _id, created_at: _c, updated_at: _u, ...updateData } = data as Record<string, unknown>;
+  const { data: row, error } = await supabase.from('books').update(updateData).eq('id', id).select().single();
   if (error) { console.error('updateBook error:', error); return null; }
   return mapRow(row as Record<string, unknown>);
 }
