@@ -12,7 +12,7 @@ const FOOTER_BROWSE_LINKS = [
 
 const FOOTER_ACCOUNT_LINKS = [
   { label: 'My Wishlist', href: '/wishlist' },
-  { label: 'My Preorders', href: '/orders' },
+  { label: 'My Orders', href: '/orders' },
   { label: 'Request a Title', href: '/request' },
 ];
 

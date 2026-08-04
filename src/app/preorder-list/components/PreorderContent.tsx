@@ -148,7 +148,7 @@ function SuccessOverlay({ data, onClose }: { data: ConfirmationData; onClose: ()
           <div className="rounded-xl p-4" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.25)' }}>
             <p className="text-xs font-bold mb-1" style={{ color: '#10b981' }}>✦ What Happens Next?</p>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--foreground-muted)' }}>
-              Your payment reference will be verified by our team. Shipping details will be collected once your books arrive. Use your 4-digit PIN to track your order at <strong>My Preorders</strong>.
+              Your payment reference will be verified by our team. Shipping details will be collected once your books arrive. Use your 4-digit PIN to track your order at <strong>My Orders</strong>.
             </p>
           </div>
 
@@ -301,7 +301,7 @@ function PreorderFormModal({
               inputMode="numeric"
             />
             <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
-              Remember this PIN — you will use it to track your preorder in My Preorders.
+              Remember this PIN — you will use it to track your preorder in My Orders.
             </p>
           </div>
 

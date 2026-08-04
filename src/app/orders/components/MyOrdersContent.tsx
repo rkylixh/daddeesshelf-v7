@@ -77,7 +77,7 @@ function PreorderTimeline({ status }: { status: string }) {
 
   return (
     <div className="mt-4">
-      <p className="text-xs font-semibold mb-3" style={{ color: 'var(--foreground-subtle)' }}>Preorder Timeline</p>
+      <p className="text-xs font-semibold mb-3" style={{ color: 'var(--foreground-subtle)' }}>Order Timeline</p>
       <div className="flex flex-wrap gap-1">
         {ORDER_STATUS_STEPS.map((step, i) => {
           const isDone = i <= currentIdx;
@@ -489,7 +489,7 @@ export default function MyOrdersContent() {
                   inputMode="numeric"
                 />
                 <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
-                  Use the PIN you set when placing your preorder.
+                  Use the PIN you set when placing your order.
                 </p>
               </div>
               {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
@@ -639,7 +639,7 @@ export default function MyOrdersContent() {
                 <div className="space-y-4">
                   {activeOrders.length === 0 ? (
                     <div className="rounded-xl p-10 text-center" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
-                      <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>No active preorders.</p>
+                      <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>No active orders.</p>
                     </div>
                   ) : activeOrders.map(o => <OrderCard key={o.id} order={o} />)}
                 </div>

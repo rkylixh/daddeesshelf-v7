@@ -37,14 +37,14 @@ const SOCIAL_PLATFORMS = [
 ];
 
 export default function ContactContent() {
-  const [form, setForm] = useState({ name: '', tiktok: '', subject: '', message: '' });
+  const [form, setForm] = useState({ display_name: '', tiktok: '', subject: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.message.trim() || !form.subject) {
+    if (!form.display_name.trim() || !form.tiktok.trim() || !form.message.trim() || !form.subject) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -52,8 +52,8 @@ export default function ContactContent() {
     setError('');
     try {
       const { error: err } = await supabase.from('support_tickets').insert({
-        name: form.name.trim(),
-        tiktok_handle: form.tiktok.trim(),
+        name: form.display_name.trim(),
+        tiktok_handle: form.tiktok.trim().replace(/^@/, ''),
         subject: form.subject,
         message: form.message.trim(),
         status: 'New',
@@ -158,23 +158,24 @@ export default function ContactContent() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  Your Name <span style={{ color: 'var(--primary)' }}>*</span>
+                  Display Name <span style={{ color: 'var(--primary)' }}>*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  value={form.display_name}
+                  onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))}
                   className="input-field"
-                  placeholder="Your full name"
+                  placeholder="Your display name"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  TikTok Handle <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(Optional)</span>
+                  TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={form.tiktok}
                   onChange={e => setForm(f => ({ ...f, tiktok: e.target.value }))}
                   className="input-field"
