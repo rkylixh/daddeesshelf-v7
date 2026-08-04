@@ -93,7 +93,11 @@ export default function AdminLoginContent() {
       setPendingAdminId(adminUser.id);
 
       // First login: PIN not yet set — prompt admin to create their PIN
-      if (!adminUser.pin_set || !adminUser.pin_hash) {
+      // Trim pin_hash to catch whitespace-only strings; coerce pin_set to boolean
+      const pinHashValue = (adminUser.pin_hash ?? '').trim();
+      const pinIsSet = adminUser.pin_set === true;
+
+      if (!pinIsSet || !pinHashValue) {
         setStep('set-pin');
         return;
       }
