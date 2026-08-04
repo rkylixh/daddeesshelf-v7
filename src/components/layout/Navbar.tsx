@@ -584,6 +584,7 @@ export default function Navbar() {
                 onClick={() => setCartOpen(true)}
                 className="btn-ghost p-2 rounded-lg hidden sm:flex relative"
                 aria-label="Preorder Cart"
+                suppressHydrationWarning
               >
                 <Icon name="ShoppingCartIcon" size={18} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
                 {cartCount > 0 && (
