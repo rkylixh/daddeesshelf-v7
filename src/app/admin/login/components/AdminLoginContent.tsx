@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 
 const ADMIN_ACCESS_CODE = 'DADSHELF';
 
-type LoginStep = 'code' | 'auth' | 'set-pin';
+type LoginStep = 'code' | 'auth' | 'enter-pin' | 'set-pin';
 
 async function hashPin(pin: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -32,11 +32,13 @@ export default function AdminLoginContent() {
 
   const codeInputRef = useRef<HTMLInputElement>(null);
   const tiktokInputRef = useRef<HTMLInputElement>(null);
+  const pinInputRef = useRef<HTMLInputElement>(null);
   const newPinInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (step === 'code') codeInputRef.current?.focus();
     else if (step === 'auth') tiktokInputRef.current?.focus();
+    else if (step === 'enter-pin') pinInputRef.current?.focus();
     else if (step === 'set-pin') newPinInputRef.current?.focus();
   }, [step]);
 
@@ -50,6 +52,62 @@ export default function AdminLoginContent() {
     setStep('auth');
   };
 
+  // Step 2: Check TikTok handle — determine if PIN exists or needs enrollment
+  const handleCheckHandle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const supabase = createClient();
+      const rawHandle = tiktokHandle.trim();
+      // Strip leading @ for lookup; also try with @ prefix for legacy records
+      const handleNoAt = rawHandle.replace(/^@/, '');
+      const handleWithAt = '@' + handleNoAt;
+
+      // Try without @ first, then with @
+      let adminUser = null;
+      const { data: d1 } = await supabase
+        .from('admin_users')
+        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
+        .eq('tiktok_handle', handleNoAt)
+        .maybeSingle();
+
+      if (d1) {
+        adminUser = d1;
+      } else {
+        const { data: d2 } = await supabase
+          .from('admin_users')
+          .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
+          .eq('tiktok_handle', handleWithAt)
+          .maybeSingle();
+        if (d2) adminUser = d2;
+      }
+
+      if (!adminUser) {
+        throw new Error('Admin account not found.');
+      }
+      if (!adminUser.is_active) {
+        throw new Error('This admin account has been deactivated.');
+      }
+
+      setPendingAdminId(adminUser.id);
+
+      // First login: PIN not yet set — prompt admin to create their PIN
+      if (!adminUser.pin_set || !adminUser.pin_hash) {
+        setStep('set-pin');
+        return;
+      }
+
+      // PIN already set — show PIN entry form
+      setStep('enter-pin');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Verification failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 3a: Authenticate with existing PIN
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adminPin.length !== 6 || !/^\d{6}$/.test(adminPin)) {
@@ -60,19 +118,15 @@ export default function AdminLoginContent() {
     setError('');
     try {
       const supabase = createClient();
-      const handle = tiktokHandle.trim().replace(/^@/, '');
 
       const { data: adminUser, error: dbError } = await supabase
         .from('admin_users')
         .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
-        .eq('tiktok_handle', handle)
+        .eq('id', pendingAdminId)
         .single();
 
       if (dbError || !adminUser) {
         throw new Error('Admin account not found.');
-      }
-      if (!adminUser.is_active) {
-        throw new Error('This admin account has been deactivated.');
       }
 
       const pinHash = await hashPin(adminPin);
@@ -96,45 +150,7 @@ export default function AdminLoginContent() {
     }
   };
 
-  // Step 2a: Check if handle exists and whether PIN has been set
-  const handleCheckHandle = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const supabase = createClient();
-      const handle = tiktokHandle.trim().replace(/^@/, '');
-
-      const { data: adminUser, error: dbError } = await supabase
-        .from('admin_users')
-        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
-        .eq('tiktok_handle', handle)
-        .single();
-
-      if (dbError || !adminUser) {
-        throw new Error('Admin account not found.');
-      }
-      if (!adminUser.is_active) {
-        throw new Error('This admin account has been deactivated.');
-      }
-
-      // First login: PIN not yet set — prompt admin to create their PIN
-      if (!adminUser.pin_set || !adminUser.pin_hash) {
-        setPendingAdminId(adminUser.id);
-        setStep('set-pin');
-        return;
-      }
-
-      // PIN already set — show PIN entry field (stay on auth step)
-      setPendingAdminId(adminUser.id);
-      // Show PIN input by setting a flag — we reuse the auth form
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Verification failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Step 3b: First-time PIN creation
   const handleSetPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
@@ -164,7 +180,7 @@ export default function AdminLoginContent() {
         action: 'PIN_CREATED',
         module: 'Admin Auth',
         explanation: 'Administrator created their initial login PIN.',
-      }).throwOnError().then(() => {}).catch(() => {});
+      }).then(() => {}).catch(() => {});
 
       // Auto-login after PIN creation
       const { data: adminUser } = await supabase
@@ -245,116 +261,108 @@ export default function AdminLoginContent() {
             </>
           )}
 
-          {/* Step 2: TikTok Handle + PIN */}
+          {/* Step 2: TikTok Handle lookup */}
           {step === 'auth' && (
             <>
               <h2 className="font-display text-lg font-bold mb-1 text-center" style={{ color: 'var(--foreground)' }}>
                 Admin Sign In
               </h2>
               <p className="text-xs text-center mb-6" style={{ color: 'var(--foreground-subtle)' }}>
-                Enter your TikTok handle and 6-digit admin PIN
+                Enter your TikTok handle to continue
               </p>
-
-              {/* If pendingAdminId is set, PIN has been verified to exist — show full form */}
-              {pendingAdminId ? (
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                      TikTok Handle
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: 'var(--foreground-subtle)' }}>@</span>
-                      <input
-                        type="text"
-                        value={tiktokHandle}
-                        readOnly
-                        className="input-field pl-7 opacity-70"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                      6-Digit Admin PIN
-                    </label>
+              <form onSubmit={handleCheckHandle} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                    TikTok Handle
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: 'var(--foreground-subtle)' }}>@</span>
                     <input
-                      type="password"
+                      ref={tiktokInputRef}
+                      type="text"
                       required
-                      maxLength={6}
-                      pattern="\d{6}"
-                      inputMode="numeric"
-                      value={adminPin}
-                      onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      className="input-field text-center tracking-widest text-lg"
-                      placeholder="••••••"
-                      autoComplete="current-password"
-                      autoFocus
+                      value={tiktokHandle}
+                      onChange={e => setTiktokHandle(e.target.value)}
+                      className="input-field pl-7"
+                      placeholder="your.tiktok.handle"
+                      autoComplete="username"
                     />
-                    <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
-                      Enter your personal 6-digit administrator PIN
-                    </p>
                   </div>
-                  {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn-primary w-full py-3"
-                    style={{ opacity: loading ? 0.7 : 1 }}
-                  >
-                    {loading ? 'Verifying...' : 'Sign In to Admin ✦'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setPendingAdminId(''); setAdminPin(''); setError(''); }}
-                    className="block w-full text-center text-xs mt-2"
-                    style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}
-                  >
-                    ← Change Handle
-                  </button>
-                </form>
-              ) : (
-                /* Handle lookup form */
-                <form onSubmit={handleCheckHandle} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                      TikTok Handle
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: 'var(--foreground-subtle)' }}>@</span>
-                      <input
-                        ref={tiktokInputRef}
-                        type="text"
-                        required
-                        value={tiktokHandle}
-                        onChange={e => setTiktokHandle(e.target.value)}
-                        className="input-field pl-7"
-                        placeholder="your.tiktok.handle"
-                        autoComplete="username"
-                      />
-                    </div>
-                  </div>
-                  {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="btn-primary w-full py-3"
-                    style={{ opacity: loading ? 0.7 : 1 }}
-                  >
-                    {loading ? 'Checking...' : 'Continue →'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setStep('code'); setError(''); }}
-                    className="block w-full text-center text-xs mt-2"
-                    style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}
-                  >
-                    ← Back
-                  </button>
-                </form>
-              )}
+                </div>
+                {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary w-full py-3"
+                  style={{ opacity: loading ? 0.7 : 1 }}
+                >
+                  {loading ? 'Checking...' : 'Continue →'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setStep('code'); setError(''); }}
+                  className="block w-full text-center text-xs mt-2"
+                  style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  ← Back
+                </button>
+              </form>
             </>
           )}
 
-          {/* Step 3: First-login PIN creation */}
+          {/* Step 3a: Enter existing PIN */}
+          {step === 'enter-pin' && (
+            <>
+              <h2 className="font-display text-lg font-bold mb-1 text-center" style={{ color: 'var(--foreground)' }}>
+                Enter Your PIN
+              </h2>
+              <p className="text-xs text-center mb-6" style={{ color: 'var(--foreground-subtle)' }}>
+                Welcome back, <strong style={{ color: 'var(--primary-bright)' }}>@{tiktokHandle.replace(/^@/, '')}</strong>
+              </p>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                    6-Digit Admin PIN
+                  </label>
+                  <input
+                    ref={pinInputRef}
+                    type="password"
+                    required
+                    maxLength={6}
+                    pattern="\d{6}"
+                    inputMode="numeric"
+                    value={adminPin}
+                    onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="input-field text-center tracking-widest text-lg"
+                    placeholder="••••••"
+                    autoComplete="current-password"
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+                    Enter your personal 6-digit administrator PIN
+                  </p>
+                </div>
+                {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary w-full py-3"
+                  style={{ opacity: loading ? 0.7 : 1 }}
+                >
+                  {loading ? 'Verifying...' : 'Sign In to Admin ✦'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setStep('auth'); setPendingAdminId(''); setAdminPin(''); setError(''); }}
+                  className="block w-full text-center text-xs mt-2"
+                  style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  ← Change Handle
+                </button>
+              </form>
+            </>
+          )}
+
+          {/* Step 3b: First-login PIN creation */}
           {step === 'set-pin' && (
             <>
               <h2 className="font-display text-lg font-bold mb-1 text-center" style={{ color: 'var(--foreground)' }}>

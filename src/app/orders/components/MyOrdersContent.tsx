@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
 
 // ── Types ──────────────────────────────────────────────────
 interface OrderItem {
@@ -29,6 +30,8 @@ interface Order {
   notes?: string;
   customer_pin?: string;
 }
+
+type AuthStep = 'handle' | 'enter-pin' | 'create-pin' | 'orders';
 
 // ── Status config ──────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -196,45 +199,206 @@ function OrderCard({ order }: { order: Order }) {
 
 // ── Main Component ─────────────────────────────────────────
 export default function MyOrdersContent() {
+  const [step, setStep] = useState<AuthStep>('handle');
   const [handle, setHandle] = useState('');
   const [pin, setPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [customerId, setCustomerId] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [searched, setSearched] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'cancelled'>('active');
 
-  const handleLookup = async (e: React.FormEvent) => {
+  const handleInputRef = useRef<HTMLInputElement>(null);
+  const pinInputRef = useRef<HTMLInputElement>(null);
+  const newPinInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (step === 'handle') handleInputRef.current?.focus();
+    else if (step === 'enter-pin') pinInputRef.current?.focus();
+    else if (step === 'create-pin') newPinInputRef.current?.focus();
+  }, [step]);
+
+  // Step 1: Check if TikTok handle exists and has a PIN
+  const handleCheckHandle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!handle.trim()) { setError('TikTok Handle is required.'); return; }
-    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { setError('PIN must be exactly 4 digits.'); return; }
     setLoading(true);
     setError('');
-    setOrders([]);
-    setSearched(false);
 
     try {
-      const hashedPin = await hashPin(pin);
+      const supabase = createClient();
+      const rawHandle = handle.trim().replace(/^@/, '');
 
-      const { data, error: dbErr } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('tiktok_handle', handle.trim())
-        .eq('customer_pin', hashedPin)
-        .order('created_at', { ascending: false });
+      // Check customers table first
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('id, tiktok_handle, pin_hash, pin_enrolled')
+        .eq('tiktok_handle', rawHandle)
+        .maybeSingle();
 
-      if (dbErr) throw dbErr;
-
-      if (!data || data.length === 0) {
-        setError('No orders found. Please check your TikTok handle and PIN.');
-        setLoading(false);
+      if (customer) {
+        setCustomerId(customer.id);
+        if (!customer.pin_enrolled || !customer.pin_hash) {
+          // Customer exists but no PIN yet — create PIN
+          setStep('create-pin');
+        } else {
+          // Customer has PIN — enter PIN
+          setStep('enter-pin');
+        }
         return;
       }
 
-      setOrders(data as Order[]);
-      setSearched(true);
-    } catch {
-      setError('Could not retrieve records. Please check your TikTok handle and PIN.');
+      // No customer record — check if they have any orders (legacy customers without customer record)
+      const { data: existingOrders } = await supabase
+        .from('orders')
+        .select('id, customer_pin')
+        .eq('tiktok_handle', rawHandle)
+        .limit(1);
+
+      if (existingOrders && existingOrders.length > 0) {
+        // Legacy customer with orders but no customer record — create customer record and prompt PIN creation
+        const { data: newCustomer, error: insertErr } = await supabase
+          .from('customers')
+          .insert({ tiktok_handle: rawHandle, pin_hash: '', pin_enrolled: false })
+          .select('id')
+          .single();
+
+        if (insertErr || !newCustomer) {
+          // If insert fails (e.g. already exists race condition), try select again
+          const { data: retryCustomer } = await supabase
+            .from('customers')
+            .select('id, pin_hash, pin_enrolled')
+            .eq('tiktok_handle', rawHandle)
+            .maybeSingle();
+          if (retryCustomer) {
+            setCustomerId(retryCustomer.id);
+            if (!retryCustomer.pin_enrolled || !retryCustomer.pin_hash) {
+              setStep('create-pin');
+            } else {
+              setStep('enter-pin');
+            }
+            return;
+          }
+          throw new Error('Could not initialize your account. Please try again.');
+        }
+
+        setCustomerId(newCustomer.id);
+        setStep('create-pin');
+        return;
+      }
+
+      // No customer record and no orders — handle not found
+      throw new Error('TikTok Handle not found. Please check your handle and try again.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Could not verify your handle. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2a: Authenticate with existing PIN
+  const handlePinLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { setError('PIN must be exactly 4 digits.'); return; }
+    setLoading(true);
+    setError('');
+
+    try {
+      const supabase = createClient();
+      const rawHandle = handle.trim().replace(/^@/, '');
+      const hashedPin = await hashPin(pin);
+
+      // Verify PIN against customers table
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('id, pin_hash, pin_enrolled')
+        .eq('id', customerId)
+        .maybeSingle();
+
+      if (!customer || !customer.pin_enrolled) {
+        throw new Error('Account not found. Please start over.');
+      }
+
+      if (hashedPin !== customer.pin_hash) {
+        throw new Error('Incorrect PIN.');
+      }
+
+      // Fetch orders
+      const { data: orderData, error: ordersErr } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('tiktok_handle', rawHandle)
+        .order('created_at', { ascending: false });
+
+      if (ordersErr) throw ordersErr;
+
+      setOrders((orderData ?? []) as Order[]);
+      setStep('orders');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2b: Create new PIN
+  const handleCreatePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) { setError('PIN must be exactly 4 digits.'); return; }
+    if (newPin !== confirmPin) { setError('PINs do not match. Please try again.'); return; }
+    setLoading(true);
+    setError('');
+
+    try {
+      const supabase = createClient();
+      const rawHandle = handle.trim().replace(/^@/, '');
+      const hashedPin = await hashPin(newPin);
+
+      let cid = customerId;
+
+      // If we don't have a customerId yet, create the customer record
+      if (!cid) {
+        const { data: newCustomer, error: insertErr } = await supabase
+          .from('customers')
+          .insert({ tiktok_handle: rawHandle, pin_hash: hashedPin, pin_enrolled: true })
+          .select('id')
+          .single();
+
+        if (insertErr) {
+          // Try upsert
+          const { data: upserted } = await supabase
+            .from('customers')
+            .upsert({ tiktok_handle: rawHandle, pin_hash: hashedPin, pin_enrolled: true }, { onConflict: 'tiktok_handle' })
+            .select('id')
+            .single();
+          if (upserted) cid = upserted.id;
+          else throw new Error('Could not create your account. Please try again.');
+        } else if (newCustomer) {
+          cid = newCustomer.id;
+        }
+      } else {
+        // Update existing customer record
+        const { error: updateErr } = await supabase
+          .from('customers')
+          .update({ pin_hash: hashedPin, pin_enrolled: true })
+          .eq('id', cid);
+
+        if (updateErr) throw updateErr;
+      }
+
+      // Fetch orders after PIN creation
+      const { data: orderData } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('tiktok_handle', rawHandle)
+        .order('created_at', { ascending: false });
+
+      setOrders((orderData ?? []) as Order[]);
+      setStep('orders');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create PIN. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -252,119 +416,255 @@ export default function MyOrdersContent() {
           ✦ Order Tracker ✦
         </p>
         <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>
-          My Preorders
+          My Orders
         </h1>
         <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
-          Track your preorder status using your TikTok handle and 4-digit PIN.
+          {step === 'handle' && 'Enter your TikTok handle to access your order history.'}
+          {step === 'enter-pin' && 'Enter your 4-digit PIN to view your orders.'}
+          {step === 'create-pin' && 'Create a 4-digit PIN to secure your order history.'}
+          {step === 'orders' && `Showing orders for @${handle.replace(/^@/, '')}`}
         </p>
       </div>
 
-      {/* Lookup form */}
-      <div className="max-w-md mx-auto mb-10">
-        <div
-          className="rounded-2xl p-6"
-          style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
-        >
-          <form onSubmit={handleLookup} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={handle}
-                onChange={e => setHandle(e.target.value)}
-                className="input-field"
-                placeholder="@yourtiktok"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                4-Digit PIN <span style={{ color: 'var(--primary)' }}>*</span>
-              </label>
-              <input
-                type="password"
-                required
-                maxLength={4}
-                value={pin}
-                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                className="input-field text-center tracking-widest"
-                placeholder="••••"
-                inputMode="numeric"
-              />
-              <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
-                Use the PIN you set when placing your preorder.
-              </p>
-            </div>
-            {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full py-3 text-sm"
-              style={{ opacity: loading ? 0.7 : 1 }}
-            >
-              {loading ? 'Looking up...' : 'Track My Preorders ✦'}
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Results */}
-      {searched && (
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-semibold" style={{ color: 'var(--foreground-muted)' }}>
-              Found <strong style={{ color: 'var(--foreground)' }}>{orders.length}</strong> preorder{orders.length !== 1 ? 's' : ''} for <strong style={{ color: 'var(--primary-bright)' }}>{handle}</strong>
-            </p>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-2 mb-6 flex-wrap">
-            {[
-              { key: 'active', label: `Active (${activeOrders.length})` },
-              { key: 'completed', label: `Completed (${completedOrders.length})` },
-              { key: 'cancelled', label: `Cancelled (${cancelledOrders.length})` },
-            ].map(tab => (
+      {/* Step 1: Handle lookup */}
+      {step === 'handle' && (
+        <div className="max-w-md mx-auto mb-10">
+          <div
+            className="rounded-2xl p-6"
+            style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+          >
+            <form onSubmit={handleCheckHandle} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                  TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
+                </label>
+                <input
+                  ref={handleInputRef}
+                  type="text"
+                  required
+                  value={handle}
+                  onChange={e => setHandle(e.target.value)}
+                  className="input-field"
+                  placeholder="@yourtiktok"
+                />
+              </div>
+              {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
               <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === tab.key ? 'btn-primary' : 'btn-secondary'}`}
+                type="submit"
+                disabled={loading}
+                className="btn-primary w-full py-3 text-sm"
+                style={{ opacity: loading ? 0.7 : 1 }}
               >
-                {tab.label}
+                {loading ? 'Checking...' : 'Continue →'}
               </button>
-            ))}
+            </form>
           </div>
+        </div>
+      )}
 
-          {/* Order list */}
-          {activeTab === 'active' && (
-            <div className="space-y-4">
-              {activeOrders.length === 0 ? (
-                <div className="rounded-xl p-10 text-center" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
-                  <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>No active preorders.</p>
-                </div>
-              ) : activeOrders.map(o => <OrderCard key={o.id} order={o} />)}
-            </div>
-          )}
+      {/* Step 2a: Enter existing PIN */}
+      {step === 'enter-pin' && (
+        <div className="max-w-md mx-auto mb-10">
+          <div
+            className="rounded-2xl p-6"
+            style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+          >
+            <p className="text-xs text-center mb-4" style={{ color: 'var(--foreground-subtle)' }}>
+              Welcome back, <strong style={{ color: 'var(--primary-bright)' }}>@{handle.replace(/^@/, '')}</strong>
+            </p>
+            <form onSubmit={handlePinLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                  4-Digit PIN <span style={{ color: 'var(--primary)' }}>*</span>
+                </label>
+                <input
+                  ref={pinInputRef}
+                  type="password"
+                  required
+                  maxLength={4}
+                  value={pin}
+                  onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="input-field text-center tracking-widest"
+                  placeholder="••••"
+                  inputMode="numeric"
+                />
+                <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+                  Use the PIN you set when placing your preorder.
+                </p>
+              </div>
+              {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary w-full py-3 text-sm"
+                style={{ opacity: loading ? 0.7 : 1 }}
+              >
+                {loading ? 'Verifying...' : 'View My Orders ✦'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStep('handle'); setPin(''); setError(''); setCustomerId(''); }}
+                className="block w-full text-center text-xs mt-2"
+                style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                ← Change Handle
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
-          {activeTab === 'completed' && (
-            <div className="space-y-4">
-              {completedOrders.length === 0 ? (
-                <div className="rounded-xl p-10 text-center" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
-                  <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>No completed orders yet.</p>
-                </div>
-              ) : completedOrders.map(o => <OrderCard key={o.id} order={o} />)}
-            </div>
-          )}
+      {/* Step 2b: Create new PIN */}
+      {step === 'create-pin' && (
+        <div className="max-w-md mx-auto mb-10">
+          <div
+            className="rounded-2xl p-6"
+            style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+          >
+            <p className="text-xs text-center mb-1" style={{ color: 'var(--foreground-subtle)' }}>
+              Welcome, <strong style={{ color: 'var(--primary-bright)' }}>@{handle.replace(/^@/, '')}</strong>!
+            </p>
+            <p className="text-xs text-center mb-4" style={{ color: 'var(--foreground-subtle)' }}>
+              Create a 4-digit PIN to secure your order history.
+            </p>
+            <form onSubmit={handleCreatePin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                  New 4-Digit PIN <span style={{ color: 'var(--primary)' }}>*</span>
+                </label>
+                <input
+                  ref={newPinInputRef}
+                  type="password"
+                  required
+                  maxLength={4}
+                  value={newPin}
+                  onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="input-field text-center tracking-widest"
+                  placeholder="••••"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                  Confirm PIN <span style={{ color: 'var(--primary)' }}>*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  maxLength={4}
+                  value={confirmPin}
+                  onChange={e => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="input-field text-center tracking-widest"
+                  placeholder="••••"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                />
+              </div>
+              {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
+              <div
+                className="rounded-lg p-3 text-xs"
+                style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: 'var(--foreground-subtle)' }}
+              >
+                ✦ Your PIN is hashed and stored securely. It cannot be viewed by anyone.
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary w-full py-3 text-sm"
+                style={{ opacity: loading ? 0.7 : 1 }}
+              >
+                {loading ? 'Saving...' : 'Create PIN & View Orders ✦'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStep('handle'); setNewPin(''); setConfirmPin(''); setError(''); setCustomerId(''); }}
+                className="block w-full text-center text-xs mt-2"
+                style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                ← Change Handle
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
-          {activeTab === 'cancelled' && (
-            <div className="space-y-4">
-              {cancelledOrders.length === 0 ? (
-                <div className="rounded-xl p-10 text-center" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
-                  <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>No cancelled orders.</p>
-                </div>
-              ) : cancelledOrders.map(o => <OrderCard key={o.id} order={o} />)}
+      {/* Step 3: Orders view */}
+      {step === 'orders' && (
+        <div className="max-w-3xl mx-auto">
+          {orders.length === 0 ? (
+            /* Empty state — not an error */
+            <div
+              className="rounded-2xl p-12 text-center"
+              style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+            >
+              <div className="text-4xl mb-4">📚</div>
+              <h2 className="font-display text-xl font-bold mb-3" style={{ color: 'var(--foreground)' }}>
+                No orders recorded yet
+              </h2>
+              <p className="text-sm max-w-sm mx-auto mb-6" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
+                You haven&apos;t placed any orders yet. Once you reserve your first book, you&apos;ll be able to track your payment status, estimated arrival, shipping updates, and complete order history here.
+              </p>
+              <Link href="/shop" className="btn-primary inline-flex items-center gap-2 px-6 py-3 text-sm">
+                Browse Books
+              </Link>
             </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold" style={{ color: 'var(--foreground-muted)' }}>
+                  Found <strong style={{ color: 'var(--foreground)' }}>{orders.length}</strong> order{orders.length !== 1 ? 's' : ''} for <strong style={{ color: 'var(--primary-bright)' }}>@{handle.replace(/^@/, '')}</strong>
+                </p>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-2 mb-6 flex-wrap">
+                {[
+                  { key: 'active', label: `Active (${activeOrders.length})` },
+                  { key: 'completed', label: `Completed (${completedOrders.length})` },
+                  { key: 'cancelled', label: `Cancelled (${cancelledOrders.length})` },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                    className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === tab.key ? 'btn-primary' : 'btn-secondary'}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Order list */}
+              {activeTab === 'active' && (
+                <div className="space-y-4">
+                  {activeOrders.length === 0 ? (
+                    <div className="rounded-xl p-10 text-center" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
+                      <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>No active preorders.</p>
+                    </div>
+                  ) : activeOrders.map(o => <OrderCard key={o.id} order={o} />)}
+                </div>
+              )}
+
+              {activeTab === 'completed' && (
+                <div className="space-y-4">
+                  {completedOrders.length === 0 ? (
+                    <div className="rounded-xl p-10 text-center" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
+                      <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>No completed orders yet.</p>
+                    </div>
+                  ) : completedOrders.map(o => <OrderCard key={o.id} order={o} />)}
+                </div>
+              )}
+
+              {activeTab === 'cancelled' && (
+                <div className="space-y-4">
+                  {cancelledOrders.length === 0 ? (
+                    <div className="rounded-xl p-10 text-center" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
+                      <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>No cancelled orders.</p>
+                    </div>
+                  ) : cancelledOrders.map(o => <OrderCard key={o.id} order={o} />)}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
