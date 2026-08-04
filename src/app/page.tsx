@@ -402,7 +402,7 @@ export default function HomePage() {
             )}
 
             {/* ── 5. How Preordering Works ── */}
-            <HomeCelestialDivider label="✦ How It Works ✦" />
+            <div className="mt-16"><HomeCelestialDivider label="✦ How It Works ✦" /></div>
             <section className="content-wrapper py-12 mb-8">
               <div className="text-center mb-8">
                 <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>How Preordering Works</h2>
@@ -437,14 +437,14 @@ export default function HomePage() {
             </section>
 
             {/* ── 6. FAQ Preview ── */}
-            <HomeCelestialDivider label="✦ FAQ ✦" />
+            <div className="mt-16"><HomeCelestialDivider label="✦ FAQs ✦" /></div>
             <section className="content-wrapper py-12 mb-16">
               <div className="text-center mb-6">
                 <span
                   className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3"
                   style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}
                 >
-                  ✦ FAQ
+                  ✦ FAQs
                 </span>
                 <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>Frequently Asked Questions</h2>
                 <p className="text-sm mb-4" style={{ color: 'var(--foreground-muted)' }}>Your guide to pre-orders, payments, shipping, and everything in between.</p>
