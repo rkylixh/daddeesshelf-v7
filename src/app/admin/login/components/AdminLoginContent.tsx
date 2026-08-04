@@ -250,6 +250,7 @@ export default function AdminLoginContent() {
                     onChange={e => setAccessCode(e.target.value)}
                     className="input-field text-center tracking-widest text-lg"
                     placeholder="••••••••"
+                    suppressHydrationWarning
                   />
                 </div>
                 {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
@@ -291,6 +292,7 @@ export default function AdminLoginContent() {
                       className="input-field pl-7"
                       placeholder="your.tiktok.handle"
                       autoComplete="username"
+                      suppressHydrationWarning
                     />
                   </div>
                 </div>
@@ -341,6 +343,7 @@ export default function AdminLoginContent() {
                     className="input-field text-center tracking-widest text-lg"
                     placeholder="••••••"
                     autoComplete="current-password"
+                    suppressHydrationWarning
                   />
                   <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
                     Enter your personal 6-digit administrator PIN
@@ -396,6 +399,7 @@ export default function AdminLoginContent() {
                     className="input-field text-center tracking-widest text-lg"
                     placeholder="••••••"
                     autoComplete="new-password"
+                    suppressHydrationWarning
                   />
                 </div>
                 <div>
@@ -413,6 +417,7 @@ export default function AdminLoginContent() {
                     className="input-field text-center tracking-widest text-lg"
                     placeholder="••••••"
                     autoComplete="new-password"
+                    suppressHydrationWarning
                   />
                 </div>
                 {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
