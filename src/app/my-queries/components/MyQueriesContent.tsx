@@ -371,6 +371,8 @@ export default function MyQueriesContent() {
               onChange={e => { setHandle(e.target.value); setError(''); }}
               className="input-field text-sm"
               placeholder="@yourtiktok"
+              autoComplete="off"
+              suppressHydrationWarning
             />
           </div>
           {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
@@ -416,6 +418,8 @@ export default function MyQueriesContent() {
               onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(''); }}
               className="input-field text-sm text-center tracking-widest"
               placeholder="••••"
+              autoComplete="off"
+              suppressHydrationWarning
             />
           </div>
           {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
@@ -469,6 +473,8 @@ export default function MyQueriesContent() {
               onChange={e => { setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(''); }}
               className="input-field text-sm text-center tracking-widest"
               placeholder="••••"
+              autoComplete="new-password"
+              suppressHydrationWarning
             />
           </div>
           <div>
@@ -483,6 +489,8 @@ export default function MyQueriesContent() {
               onChange={e => { setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(''); }}
               className="input-field text-sm text-center tracking-widest"
               placeholder="••••"
+              autoComplete="new-password"
+              suppressHydrationWarning
             />
           </div>
           {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
