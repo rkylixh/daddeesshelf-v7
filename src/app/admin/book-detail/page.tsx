@@ -100,6 +100,7 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
     try {
       const adminHandle = getAdminHandle();
       const { error } = await supabase.from('books').update({
+        cover_url: form.cover_url,
         synopsis: form.synopsis,
         goodreads_url: form.goodreads_url,
         goodreads_score: form.goodreads_score,
@@ -178,6 +179,38 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
       </div>
 
       <div className="p-5 space-y-6">
+        {/* Cover Image URL */}
+        <div>
+          <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--foreground-subtle)' }}>
+            Book Cover Image URL
+          </label>
+          <div className="flex gap-3 items-start">
+            <div className="flex-1">
+              <input
+                type="url"
+                value={form.cover_url}
+                onChange={e => setForm(f => ({ ...f, cover_url: e.target.value }))}
+                className="input-field text-sm"
+                placeholder="https://example.com/book-cover.jpg"
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+                Paste a direct image URL (e.g. from Goodreads or Open Library). Changes preview instantly.
+              </p>
+            </div>
+            {form.cover_url ? (
+              <div className="relative w-14 h-20 rounded-lg overflow-hidden flex-shrink-0" style={{ background: 'var(--muted)', border: '1px solid var(--border)' }}>
+                <AppImage
+                  src={form.cover_url}
+                  alt="Cover preview"
+                  fill
+                  sizes="56px"
+                  className="object-cover"
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+
         {/* Synopsis */}
         <div>
           <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--foreground-subtle)' }}>
