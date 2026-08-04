@@ -10,6 +10,88 @@ import { getBookById, getBooks } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { CartContext } from '@/components/layout/Navbar';
 
+// ── Reader Tags ────────────────────────────────────────────
+const READER_TAG_COLORS: Record<string, string> = {
+  'Slow Burn Romance': '#8b5cf6',
+  'Enemies to Lovers': '#ef4444',
+  'Found Family': '#10b981',
+  'Morally Gray Characters': '#6b7280',
+  'Strong Female Lead': '#f59e0b',
+  'Emotional Rollercoaster': '#3b82f6',
+  'Plot Twists': '#ec4899',
+  'Political Intrigue': '#6366f1',
+  'Cozy Fantasy': '#84cc16',
+  'Whimsical World': '#a78bfa',
+  'Heartbreaking Ending': '#64748b',
+  'High Stakes': '#dc2626',
+  'Dual POV': '#0ea5e9',
+  'Single POV': '#0ea5e9',
+  'Multi POV': '#0ea5e9',
+  'Fantasy Romance': '#d946ef',
+  'Dark Academia': '#78716c',
+  'Gothic Atmosphere': '#44403c',
+  'Mystery': '#7c3aed',
+  'Adventure': '#f97316',
+  'Banter': '#facc15',
+  'Grumpy x Sunshine': '#fb923c',
+  'Marriage of Convenience': '#f472b6',
+  'Fake Dating': '#fb7185',
+  'Friends to Lovers': '#34d399',
+  'Forbidden Romance': '#f43f5e',
+  'Rivals to Lovers': '#e879f9',
+  'Dragons': '#dc2626',
+  'Vampires': '#991b1b',
+  'Witches': '#7c3aed',
+  'Fae': '#a78bfa',
+  'Academy Setting': '#3b82f6',
+  'Slow Worldbuilding': '#6b7280',
+  'Fast-Paced': '#f97316',
+  'Character-Driven': '#10b981',
+  'Plot-Driven': '#6366f1',
+  'Touch Her and Die': '#ef4444',
+  "Who Did This to You?": '#dc2626',
+};
+
+// ── Reading Experience Bar ─────────────────────────────────
+function ExperienceBar({ label, value, max = 5 }: { label: string; value: number; max?: number }) {
+  const pct = Math.min(Math.max(value / max, 0), 1);
+  const getColor = () => {
+    if (pct < 0.3) return '#10b981';
+    if (pct < 0.6) return '#f59e0b';
+    if (pct < 0.85) return '#f97316';
+    return '#ef4444';
+  };
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs w-36 flex-shrink-0" style={{ color: 'var(--foreground-muted)' }}>{label}</span>
+      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'var(--muted)' }}>
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${pct * 100}%`, background: `linear-gradient(90deg, ${getColor()}, ${getColor()}cc)` }}
+        />
+      </div>
+      <span className="text-xs w-8 text-right tabular-nums" style={{ color: 'var(--foreground-subtle)' }}>
+        {value}/{max}
+      </span>
+    </div>
+  );
+}
+
+// ── ETA Disclaimer ─────────────────────────────────────────
+function ETADisclaimer() {
+  return (
+    <div
+      className="rounded-lg p-3 mt-2"
+      style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}
+    >
+      <p className="text-xs leading-relaxed" style={{ color: 'var(--foreground-subtle)' }}>
+        <span className="font-semibold" style={{ color: '#f59e0b' }}>⚠ ETA Disclaimer: </span>
+        Dates are approximate and may change due to international shipping, customs clearance, weather conditions, or courier delays. ETA should never be interpreted as a guaranteed arrival date.
+      </p>
+    </div>
+  );
+}
+
 export default function BookDetailContent() {
   const params = useSearchParams();
   const id = params.get('id') ?? '';
@@ -23,10 +105,7 @@ export default function BookDetailContent() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      if (!id) {
-        setLoading(false);
-        return;
-      }
+      if (!id) { setLoading(false); return; }
       const data = await getBookById(id);
       setBook(data);
       if (data) {
@@ -64,6 +143,34 @@ export default function BookDetailContent() {
     );
   }
 
+  const extBook = book as Book & {
+    spice_level?: number;
+    goodreads_url?: string;
+    content_warnings?: string;
+    reading_age?: string;
+    quotes?: string[];
+    reader_tags?: string[];
+    why_readers_love?: string;
+    emotional_intensity?: number;
+    romance_level?: number;
+    worldbuilding_complexity?: number;
+    pace?: number;
+    humor?: number;
+    darkness?: number;
+    action?: number;
+  };
+
+  const spiceLevel = extBook.spice_level ?? 0;
+  const goodreadsUrl = extBook.goodreads_url ?? '';
+  const goodreadsScore = book.goodreads_score ?? 0;
+  const readerTags: string[] = extBook.reader_tags ?? [];
+  const quotes: string[] = extBook.quotes ?? [];
+  const whyReadersLove = extBook.why_readers_love ?? '';
+  const hasReadingExperience = (extBook.emotional_intensity ?? 0) > 0 ||
+    (extBook.romance_level ?? 0) > 0 ||
+    (extBook.worldbuilding_complexity ?? 0) > 0 ||
+    (extBook.pace ?? 0) > 0;
+
   const metaRows = [
     { label: 'Author', value: book.author },
     { label: 'Genre', value: book.genre },
@@ -72,14 +179,12 @@ export default function BookDetailContent() {
     { label: 'Series Order', value: book.series_order ? `Book ${book.series_order}` : '—' },
     { label: 'Format', value: book.format },
     { label: 'Edition', value: book.edition || '—' },
-    { label: 'SKU', value: book.sku },
+    { label: 'Book Code', value: book.sku },
     { label: 'Batch', value: book.batch || '—' },
-    ...(book.arrival_date ? [{ label: 'Arrival Date', value: new Date(book.arrival_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) }] : []),
+    ...(extBook.reading_age ? [{ label: 'Reading Age', value: extBook.reading_age }] : []),
+    ...(extBook.content_warnings ? [{ label: 'Content Warnings', value: extBook.content_warnings }] : []),
+    ...(book.arrival_date ? [{ label: 'Estimated Arrival (ETA)', value: new Date(book.arrival_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) }] : []),
   ];
-
-  const spiceLevel = (book as Book & { spice_level?: number }).spice_level ?? 0;
-  const goodreadsUrl = (book as Book & { goodreads_url?: string }).goodreads_url ?? '';
-  const goodreadsScore = book.goodreads_score ?? 0;
 
   return (
     <div className="content-wrapper py-8">
@@ -93,7 +198,7 @@ export default function BookDetailContent() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] xl:grid-cols-[380px_1fr] gap-10">
-        {/* Cover */}
+        {/* Cover column */}
         <div className="flex flex-col items-center lg:items-start gap-4">
           <div
             className="relative w-full max-w-[320px] aspect-[2/3] rounded-xl overflow-hidden"
@@ -127,7 +232,7 @@ export default function BookDetailContent() {
           </button>
         </div>
 
-        {/* Details */}
+        {/* Details column */}
         <div>
           {/* Status + Genre tags */}
           <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -220,7 +325,7 @@ export default function BookDetailContent() {
                   : 'Currently out of stock'}
               </p>
               <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
-                {book.status === 'Sold Out' ?'Join the wishlist to be notified when available' :'Add to cart · Pay via GCash · Shipping collected after arrival'}
+                {book.status === 'Sold Out' ?'Join the wishlist to be notified when available' :'Add to cart · Pay via GCash · Shipping information is requested only after your books arrive in the Philippines.'}
               </p>
             </div>
             {book.status !== 'Sold Out' ? (
@@ -237,15 +342,110 @@ export default function BookDetailContent() {
             )}
           </div>
 
-          {/* Synopsis */}
+          {/* ETA if available */}
+          {book.arrival_date && (
+            <ETADisclaimer />
+          )}
+
+          {/* About the Book */}
           {book.synopsis && (
-            <div className="mb-8">
+            <div className="mt-8 mb-8">
               <h2 className="font-display text-lg font-semibold mb-3" style={{ color: 'var(--foreground)' }}>
-                Synopsis
+                About the Book
               </h2>
               <p className="text-sm leading-relaxed" style={{ color: 'var(--foreground-muted)', lineHeight: '1.8' }}>
                 {book.synopsis}
               </p>
+            </div>
+          )}
+
+          {/* Quotes */}
+          {quotes.length > 0 && (
+            <div className="mb-8">
+              {quotes.slice(0, 2).map((quote, i) => (
+                <blockquote
+                  key={i}
+                  className="rounded-xl px-5 py-4 mb-3 italic text-sm leading-relaxed"
+                  style={{
+                    background: 'rgba(139,92,246,0.06)',
+                    border: '1px solid rgba(139,92,246,0.2)',
+                    borderLeft: '3px solid var(--primary)',
+                    color: 'var(--foreground-muted)',
+                  }}
+                >
+                  &ldquo;{quote}&rdquo;
+                </blockquote>
+              ))}
+            </div>
+          )}
+
+          {/* Why Readers Love This Book */}
+          {(readerTags.length > 0 || whyReadersLove) && (
+            <div className="mb-8">
+              <h2 className="font-display text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
+                <span aria-hidden="true">❤️</span> Why Readers Love This Book
+              </h2>
+
+              {/* Reader tags */}
+              {readerTags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {readerTags.map(tag => (
+                    <span
+                      key={tag}
+                      className="text-xs px-3 py-1.5 rounded-full font-medium"
+                      style={{
+                        background: `${READER_TAG_COLORS[tag] ?? '#8b5cf6'}22`,
+                        color: READER_TAG_COLORS[tag] ?? 'var(--primary-bright)',
+                        border: `1px solid ${READER_TAG_COLORS[tag] ?? '#8b5cf6'}44`,
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Why readers love paragraph */}
+              {whyReadersLove && (
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--foreground-muted)', lineHeight: '1.8' }}>
+                  {whyReadersLove}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Reading Experience */}
+          {hasReadingExperience && (
+            <div className="mb-8">
+              <h2 className="font-display text-lg font-semibold mb-4" style={{ color: 'var(--foreground)' }}>
+                Reading Experience
+              </h2>
+              <div
+                className="rounded-xl p-5 space-y-3"
+                style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+              >
+                {(extBook.emotional_intensity ?? 0) > 0 && (
+                  <ExperienceBar label="Emotional Intensity" value={extBook.emotional_intensity!} />
+                )}
+                {(extBook.romance_level ?? 0) > 0 && (
+                  <ExperienceBar label="Romance Level" value={extBook.romance_level!} />
+                )}
+                {(extBook.worldbuilding_complexity ?? 0) > 0 && (
+                  <ExperienceBar label="Worldbuilding" value={extBook.worldbuilding_complexity!} />
+                )}
+                {(extBook.pace ?? 0) > 0 && (
+                  <ExperienceBar label="Pace" value={extBook.pace!} />
+                )}
+                {(extBook.humor ?? 0) > 0 && (
+                  <ExperienceBar label="Humor" value={extBook.humor!} />
+                )}
+                {(extBook.darkness ?? 0) > 0 && (
+                  <ExperienceBar label="Darkness" value={extBook.darkness!} />
+                )}
+                {(extBook.action ?? 0) > 0 && (
+                  <ExperienceBar label="Action" value={extBook.action!} />
+                )}
+              </div>
             </div>
           )}
 
@@ -268,7 +468,7 @@ export default function BookDetailContent() {
                   key={`detail-${row.label}`}
                   className="flex px-4 py-2.5 text-sm"
                 >
-                  <span className="w-32 flex-shrink-0 font-medium" style={{ color: 'var(--foreground-subtle)' }}>
+                  <span className="w-40 flex-shrink-0 font-medium" style={{ color: 'var(--foreground-subtle)' }}>
                     {row.label}
                   </span>
                   <span style={{ color: 'var(--foreground-muted)' }}>{row.value}</span>
@@ -276,6 +476,11 @@ export default function BookDetailContent() {
               ))}
             </div>
           </div>
+
+          {/* ETA disclaimer in metadata if arrival date shown */}
+          {book.arrival_date && (
+            <ETADisclaimer />
+          )}
         </div>
       </div>
 
@@ -285,7 +490,7 @@ export default function BookDetailContent() {
           <div className="celestial-divider">
             <span className="text-sm tracking-widest">✦ More in {book.genre} ✦</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-6">
             {relatedBooks.map(related => (
               <Link key={`related-${related.id}`} href={`/book-detail?id=${related.id}`} className="block group">
                 <div className="card-glow rounded-xl overflow-hidden" style={{ background: 'var(--background-card)' }}>

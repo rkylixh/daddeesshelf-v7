@@ -28,8 +28,8 @@ function SkeletonCard() {
 export default function BookGrid({ books, loading = false, emptyMessage }: BookGridProps) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-        {Array.from({ length: 12 }, (_, i) => (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {Array.from({ length: 20 }, (_, i) => (
           <SkeletonCard key={`skeleton-${i + 1}`} />
         ))}
       </div>
@@ -54,7 +54,7 @@ export default function BookGrid({ books, loading = false, emptyMessage }: BookG
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
       {books.map(book => (
         <BookCard key={book.id} book={book} />
       ))}

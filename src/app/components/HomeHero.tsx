@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+
 import AppLogo from '@/components/ui/AppLogo';
 
 interface SiteStats {
@@ -66,15 +66,6 @@ export default function HomeHero({ stats }: HomeHeroProps) {
           Carefully curated titles for Filipino readers — from epic fantasy to heartwarming fiction,
           all delivered to your door.
         </p>
-
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
-          <Link href="/preorder-list" className="btn-primary text-base px-8 py-3 inline-block">
-            Preorder Now ✦
-          </Link>
-          <Link href="/orders" className="btn-secondary text-base px-8 py-3 inline-block">
-            Track My Preorder
-          </Link>
-        </div>
 
         {/* Dynamic Stats — no preorder count per Master Appendix */}
         {stats && (

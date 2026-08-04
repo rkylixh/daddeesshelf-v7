@@ -74,7 +74,6 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<'code' | 'auth'>('code');
   const [accessCode, setAccessCode] = useState('');
   const [tiktok, setTiktok] = useState('');
-  const [password, setPassword] = useState('');
   const [adminPin, setAdminPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -94,23 +93,32 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tiktok.trim()) { setError('TikTok Handle is required.'); return; }
-    if (!password.trim()) { setError('Password is required.'); return; }
     if (adminPin.length !== 6) { setError('Admin PIN must be 6 digits.'); return; }
     setLoading(true);
     setError('');
     try {
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: `${tiktok.replace('@', '').toLowerCase()}@daddeesshelf.admin`,
-        password,
-      });
-      if (authError) throw new Error('Invalid credentials.');
-      const role = data.user?.user_metadata?.role ?? data.user?.app_metadata?.role;
-      if (role !== 'admin') {
-        await supabase.auth.signOut();
-        throw new Error('Access denied.');
-      }
+      const handle = tiktok.trim().replace(/^@/, '');
+      const { data: adminUser, error: dbError } = await supabase
+        .from('admin_users')
+        .select('id, tiktok_handle, pin_hash, role, is_active')
+        .eq('tiktok_handle', handle)
+        .single();
+      if (dbError || !adminUser) throw new Error('Admin account not found.');
+      if (!adminUser.is_active) throw new Error('This admin account has been deactivated.');
+      const encoder = new TextEncoder();
+      const data = encoder.encode(adminPin);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const pinHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      if (pinHash !== adminUser.pin_hash) throw new Error('Incorrect PIN. Please try again.');
+      sessionStorage.setItem('admin_session', JSON.stringify({
+        id: adminUser.id,
+        tiktok_handle: adminUser.tiktok_handle,
+        role: adminUser.role,
+        authenticated_at: Date.now(),
+      }));
       onClose();
       router.push('/admin/inventory');
     } catch (err: unknown) {
@@ -169,10 +177,6 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
                 <input type="text" required value={tiktok} onChange={e => setTiktok(e.target.value)} className="input-field text-sm" placeholder="@yourtiktok" />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Password</label>
-                <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="input-field text-sm" placeholder="••••••••" />
-              </div>
-              <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>6-Digit Admin PIN</label>
                 <input
                   type="password"
@@ -186,7 +190,7 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
               </div>
               {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
               <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 text-sm" style={{ opacity: loading ? 0.7 : 1 }}>
-                {loading ? 'Signing in...' : 'Sign In ✦'}
+                {loading ? 'Verifying...' : 'Sign In ✦'}
               </button>
               <button type="button" onClick={() => { setStep('code'); setError(''); }} className="w-full text-xs text-center" style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 ← Back
@@ -281,7 +285,7 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
               Proceed to Checkout ✦
             </button>
             <p className="text-xs text-center mt-2" style={{ color: 'var(--foreground-subtle)' }}>
-              GCash payment · Shipping collected after arrival
+              GCash payment · Shipping details collected after books arrive in the Philippines
             </p>
           </div>
         )}
@@ -355,7 +359,7 @@ function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
       <Icon name="MagnifyingGlassIcon" size={16} className="absolute left-3 z-10 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
       <input
         type="search"
-        placeholder="Search books, authors, genres, SKU..."
+        placeholder="Search books, authors, genres, Book Code..."
         value={query}
         onChange={handleChange}
         onKeyDown={handleKeyDown}

@@ -18,11 +18,23 @@ interface FAQ {
 interface ReaderQuestion {
   id: string;
   customer_name: string;
+  preferred_name?: string;
   tiktok_handle: string;
   comment: string;
   admin_reply: string;
   created_at: string;
 }
+
+// ── Ordered categories ─────────────────────────────────────
+const CATEGORY_ORDER = [
+  'About Our Books',
+  'Ordering & Eligibility',
+  'Payment & Reservation',
+  'Importation',
+  'Shipping',
+  'TikTok Live Layaway',
+  'Important Notices',
+];
 
 // ── FAQ Item ───────────────────────────────────────────────
 function FAQItem({ q, a }: { q: string; a: string }) {
@@ -110,12 +122,12 @@ function ReaderQuestionsSection() {
     new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const getDisplayName = (q: ReaderQuestion) => {
-    const name = (q as ReaderQuestion & { preferred_name?: string }).preferred_name || q.customer_name;
-    return name && name !== '' ? name : 'Anonymous';
+    const name = q.preferred_name || q.customer_name;
+    return name && name.trim() !== '' ? name : 'Anonymous';
   };
 
   return (
-    <div className="mt-16 max-w-3xl mx-auto">
+    <div id="reader-questions" className="mt-16 max-w-3xl mx-auto">
       {/* Section header */}
       <div className="text-center mb-8">
         <div className="celestial-divider mb-6">
@@ -124,24 +136,9 @@ function ReaderQuestionsSection() {
         <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>
           Reader Questions &amp; Inquiries
         </h2>
-        <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
-          Have a question not covered above? Submit it below and we&apos;ll answer publicly so everyone benefits.
-        </p>
       </div>
 
-      {/* Moderation disclaimer */}
-      <div
-        className="rounded-xl p-4 mb-8 flex gap-3"
-        style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}
-      >
-        <span className="text-lg flex-shrink-0" aria-hidden="true">✦</span>
-        <p className="text-xs leading-relaxed" style={{ color: 'var(--foreground-muted)' }}>
-          <strong style={{ color: 'var(--primary-bright)' }}>Moderation Notice:</strong>{' '}
-          Every public question is reviewed before it appears on the website. Once approved, our team may also publish an official response so future readers can benefit from the same answer.
-        </p>
-      </div>
-
-      {/* Published questions */}
+      {/* Published questions or empty state */}
       {loading ? (
         <div className="flex justify-center py-8">
           <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
@@ -174,19 +171,43 @@ function ReaderQuestionsSection() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 mb-8" style={{ color: 'var(--foreground-subtle)' }}>
-          <p className="text-sm">No approved questions yet. Be the first to ask!</p>
+        <div
+          className="rounded-xl p-8 text-center mb-10"
+          style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+        >
+          <p className="text-sm italic" style={{ color: 'var(--foreground-muted)' }}>
+            No reader questions published yet. Be the first to leave a friendly inquiry or note!
+          </p>
         </div>
       )}
 
+      {/* Invitation to submit */}
+      <div className="mb-8">
+        <h3 className="font-display text-base font-bold mb-2" style={{ color: 'var(--foreground)' }}>
+          Have a question that&apos;s not covered here?
+        </h3>
+        <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--foreground-muted)' }}>
+          Leave it in the comments below! Our team reviews all submissions, and if your question could help other readers, we&apos;ll post it in our FAQs along with our answer.
+        </p>
+        <p className="text-sm leading-relaxed" style={{ color: 'var(--foreground-muted)' }}>
+          If your concern is specific to your order or requires immediate assistance, please message us on TikTok at{' '}
+          <a
+            href="https://tiktok.com/@daddees.shelf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold"
+            style={{ color: 'var(--primary-bright)' }}
+          >
+            @daddees.shelf
+          </a>.
+        </p>
+      </div>
+
       {/* Question submission form */}
       <div
-        className="rounded-2xl p-6"
+        className="rounded-2xl p-6 mb-8"
         style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
       >
-        <h3 className="font-display text-base font-bold mb-4" style={{ color: 'var(--foreground)' }}>
-          Submit a Question
-        </h3>
         {submitted ? (
           <div className="text-center py-6">
             <span className="text-3xl mb-3 block" aria-hidden="true">✦</span>
@@ -205,19 +226,19 @@ function ReaderQuestionsSection() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                Preferred Name <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(Optional — leave blank to appear as Anonymous)</span>
+                Preferred Name <span className="text-xs font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
               </label>
               <input
                 type="text"
                 value={form.preferred_name}
                 onChange={e => setForm(f => ({ ...f, preferred_name: e.target.value }))}
                 className="input-field text-sm"
-                placeholder="Your name or nickname (optional)"
+                placeholder="Your name or nickname (leave blank to appear as Anonymous)"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                Your Question <span style={{ color: 'var(--primary)' }}>*</span>
+                Question <span style={{ color: 'var(--primary)' }}>*</span>
               </label>
               <textarea
                 required
@@ -240,6 +261,33 @@ function ReaderQuestionsSection() {
           </form>
         )}
       </div>
+
+      {/* Promise card */}
+      <div
+        className="rounded-2xl p-6"
+        style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(79,70,229,0.08))', border: '1px solid rgba(139,92,246,0.25)' }}
+      >
+        <div className="flex items-start gap-3">
+          <span className="text-2xl flex-shrink-0" aria-hidden="true">✨</span>
+          <div>
+            <h4 className="font-display text-base font-bold mb-2" style={{ color: 'var(--primary-bright)' }}>
+              Our Promise
+            </h4>
+            <p className="text-sm font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+              Every reader&apos;s voice matters to us!
+            </p>
+            <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--foreground-muted)' }}>
+              To keep our community space helpful, friendly, and clean, submitted questions are gently reviewed by our team before appearing publicly.
+            </p>
+            <p className="text-sm leading-relaxed mb-2" style={{ color: 'var(--foreground-muted)' }}>
+              If you don&apos;t see your question published, it&apos;s often because a quick instant answer is already waiting for you in our comprehensive FAQs above!
+            </p>
+            <p className="text-sm font-medium" style={{ color: 'var(--primary-bright)' }}>
+              We are so excited to connect with you!
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -248,8 +296,8 @@ function ReaderQuestionsSection() {
 export default function FAQsContent() {
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [loadingFaqs, setLoadingFaqs] = useState(true);
-  const [activeCategory, setActiveCategory] = useState('All Questions');
   const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const loadFaqs = useCallback(async () => {
     try {
@@ -270,28 +318,48 @@ export default function FAQsContent() {
 
   useEffect(() => { loadFaqs(); }, [loadFaqs]);
 
-  // Dynamic categories from Supabase data
-  const categories = useMemo(() => {
-    const cats = [...new Set(faqs.map(f => f.category).filter(Boolean))];
-    return ['All Questions', ...cats];
-  }, [faqs]);
-
   // Featured / Most Popular questions
   const featuredFaqs = useMemo(() => faqs.filter(f => f.is_featured), [faqs]);
 
-  const filtered = useMemo(() => {
-    let list = faqs;
-    if (activeCategory !== 'All Questions') list = list.filter(f => f.category === activeCategory);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(f =>
-        f.question.toLowerCase().includes(q) ||
-        f.answer.toLowerCase().includes(q) ||
-        f.category.toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [faqs, activeCategory, search]);
+  // Build ordered categories from data
+  const categories = useMemo(() => {
+    const fromData = [...new Set(faqs.map(f => f.category).filter(Boolean))];
+    // Sort by predefined order, then append any extras
+    const ordered = CATEGORY_ORDER.filter(c => fromData.includes(c));
+    const extras = fromData.filter(c => !CATEGORY_ORDER.includes(c));
+    return [...ordered, ...extras];
+  }, [faqs]);
+
+  // Filter faqs by search
+  const searchFiltered = useMemo(() => {
+    if (!search.trim()) return faqs;
+    const q = search.toLowerCase();
+    return faqs.filter(f =>
+      f.question.toLowerCase().includes(q) ||
+      f.answer.toLowerCase().includes(q) ||
+      f.category.toLowerCase().includes(q)
+    );
+  }, [faqs, search]);
+
+  // Group by category
+  const groupedFaqs = useMemo(() => {
+    const groups: Record<string, FAQ[]> = {};
+    searchFiltered.forEach(f => {
+      if (!groups[f.category]) groups[f.category] = [];
+      groups[f.category].push(f);
+    });
+    return groups;
+  }, [searchFiltered]);
+
+  // Visible categories (those that have results after search)
+  const visibleCategories = useMemo(() => {
+    if (activeCategory) return [activeCategory];
+    return categories.filter(c => (groupedFaqs[c]?.length ?? 0) > 0);
+  }, [categories, groupedFaqs, activeCategory]);
+
+  const scrollToReaderQuestions = () => {
+    document.getElementById('reader-questions')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   return (
     <div className="content-wrapper py-12">
@@ -303,9 +371,16 @@ export default function FAQsContent() {
         <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>
           Pre-Order Frequently Asked Questions
         </h1>
-        <p className="text-sm max-w-lg mx-auto" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
+        <p className="text-sm max-w-lg mx-auto mb-6" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
           Everything you need to know about preordering, shipping, and payment at Daddee&apos;s Shelf.
         </p>
+        {/* Jump to Reader Questions */}
+        <button
+          onClick={scrollToReaderQuestions}
+          className="btn-secondary text-sm px-6 py-2.5 inline-flex items-center gap-2"
+        >
+          <span>💬</span> Jump to Reader Questions
+        </button>
       </div>
 
       {loadingFaqs ? (
@@ -343,18 +418,30 @@ export default function FAQsContent() {
               type="search"
               placeholder="Search questions, answers, categories..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setActiveCategory(null); }}
               className="input-field pl-11 py-3 text-sm"
               style={{ borderRadius: '9999px' }}
             />
           </div>
 
-          {/* Category tabs — dynamic from Supabase */}
+          {/* Category chips */}
           <div className="flex flex-wrap gap-2 justify-center mb-10">
+            <button
+              onClick={() => setActiveCategory(null)}
+              className="text-xs px-4 py-2 rounded-full font-semibold transition-all"
+              style={{
+                background: activeCategory === null ? 'linear-gradient(135deg, #8b5cf6, #4f46e5)' : 'var(--muted)',
+                color: activeCategory === null ? '#fff' : 'var(--foreground-muted)',
+                border: `1px solid ${activeCategory === null ? 'transparent' : 'var(--border)'}`,
+                boxShadow: activeCategory === null ? '0 4px 15px rgba(139,92,246,0.3)' : 'none',
+              }}
+            >
+              All Categories
+            </button>
             {categories.map(cat => (
               <button
                 key={cat}
-                onClick={() => setActiveCategory(cat)}
+                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
                 className="text-xs px-4 py-2 rounded-full font-semibold transition-all"
                 style={{
                   background: activeCategory === cat ? 'linear-gradient(135deg, #8b5cf6, #4f46e5)' : 'var(--muted)',
@@ -368,19 +455,44 @@ export default function FAQsContent() {
             ))}
           </div>
 
-          {/* FAQ list */}
-          {filtered.length === 0 ? (
+          {/* Questions grouped by category */}
+          {visibleCategories.length === 0 ? (
             <div className="text-center py-16">
               <span className="text-4xl mb-4 block">✦</span>
               <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
-                {search ? `No questions found for "${search}". Try a different search.` : 'No questions in this category yet.'}
+                {search ? `No questions found for "${search}". Try a different search.` : 'No questions available yet.'}
               </p>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto space-y-3">
-              {filtered.map(faq => (
-                <FAQItem key={faq.id} q={faq.question} a={faq.answer} />
-              ))}
+            <div className="max-w-3xl mx-auto space-y-12">
+              {visibleCategories.map(category => {
+                const items = groupedFaqs[category] ?? [];
+                if (items.length === 0) return null;
+                return (
+                  <div key={category}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div
+                        className="h-px flex-1"
+                        style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.4), transparent)' }}
+                        aria-hidden="true"
+                      />
+                      <h2 className="font-display text-base font-bold px-2 whitespace-nowrap" style={{ color: 'var(--primary-bright)' }}>
+                        ✦ {category}
+                      </h2>
+                      <div
+                        className="h-px flex-1"
+                        style={{ background: 'linear-gradient(270deg, rgba(139,92,246,0.4), transparent)' }}
+                        aria-hidden="true"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      {items.map(faq => (
+                        <FAQItem key={faq.id} q={faq.question} a={faq.answer} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
