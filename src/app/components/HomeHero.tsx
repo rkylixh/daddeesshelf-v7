@@ -40,15 +40,7 @@ export default function HomeHero({ stats }: HomeHeroProps) {
 
         {/* Official Logo */}
         <div className="flex justify-center mb-8">
-          <div
-            className="rounded-full p-5 animate-glow-pulse"
-            style={{
-              background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)',
-              boxShadow: '0 0 80px rgba(139,92,246,0.3)',
-            }}
-          >
-            <AppLogo size={200} className="drop-shadow-lg" />
-          </div>
+          <AppLogo size={240} className="drop-shadow-lg" />
         </div>
 
         <p className="text-lg sm:text-xl font-light mb-2 font-display italic" style={{ color: 'var(--foreground-muted)' }}>

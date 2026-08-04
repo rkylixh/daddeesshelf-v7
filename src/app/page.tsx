@@ -301,7 +301,7 @@ export default function HomePage() {
             {bestSellers.length > 0 && (
               <>
                 <HomeCelestialDivider label="✦ Best Sellers ✦" />
-                <section className="content-wrapper mb-8">
+                <section className="content-wrapper py-12 mb-8">
                   <div className="flex items-end justify-between mb-6">
                     <div>
                       <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Best Sellers</h2>
@@ -322,7 +322,7 @@ export default function HomePage() {
             {batchInfo && (
               <>
                 <HomeCelestialDivider label="✦ Current Import Batch ✦" />
-                <section className="content-wrapper mb-8">
+                <section className="content-wrapper py-12 mb-8">
                   <div
                     className="rounded-2xl p-6 mb-8"
                     style={{
@@ -384,7 +384,7 @@ export default function HomePage() {
             {booktokFavorites.length > 0 && (
               <>
                 <HomeCelestialDivider label="✦ BookTok Favorites ✦" />
-                <section className="content-wrapper mb-8">
+                <section className="content-wrapper py-12 mb-8">
                   <div className="flex items-end justify-between mb-6">
                     <div>
                       <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>BookTok Favorites</h2>
@@ -403,7 +403,7 @@ export default function HomePage() {
 
             {/* ── 5. How Preordering Works ── */}
             <HomeCelestialDivider label="✦ How It Works ✦" />
-            <section className="content-wrapper mb-8">
+            <section className="content-wrapper py-12 mb-8">
               <div className="text-center mb-8">
                 <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>How Preordering Works</h2>
                 <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
@@ -438,7 +438,7 @@ export default function HomePage() {
 
             {/* ── 6. FAQ Preview ── */}
             <HomeCelestialDivider label="✦ FAQ ✦" />
-            <section className="content-wrapper mb-16">
+            <section className="content-wrapper py-12 mb-16">
               <div className="text-center mb-6">
                 <span
                   className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3"
