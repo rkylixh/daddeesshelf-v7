@@ -519,7 +519,7 @@ const NAV_LINKS = [
   { label: 'Genres', href: '/genres' },
   { label: 'Collections', href: '/collections' },
   { label: 'Wishlist', href: '/wishlist' },
-  { label: 'Request a Title', href: '/request' },
+  { label: 'My Orders', href: '/orders' },
   { label: 'FAQs', href: '/faqs' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
@@ -558,10 +558,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-              <AppLogo size={32} />
-              <span className="font-display text-lg font-semibold animate-glow-pulse hidden sm:block" style={{ color: 'var(--primary-bright)' }}>
-                Daddee&apos;s Shelf
-              </span>
+              <AppLogo size={44} />
             </Link>
 
             {/* Live Search Bar */}

@@ -8,6 +8,7 @@ import Footer from '@/components/layout/Footer';
 import HomeHero from './components/HomeHero';
 import HomeCelestialDivider from './components/HomeCelestialDivider';
 import BookGrid from '@/components/books/BookGrid';
+import BookCard from '@/components/books/BookCard';
 import { getBooks } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
@@ -372,7 +373,7 @@ export default function HomePage() {
                           View all →
                         </Link>
                       </div>
-                      <BookGrid books={batchBooks} />
+                      <BalancedBookGrid books={batchBooks} />
                     </>
                   )}
                 </section>
@@ -438,21 +439,62 @@ export default function HomePage() {
             {/* ── 6. FAQ Preview ── */}
             <HomeCelestialDivider label="✦ FAQ ✦" />
             <section className="content-wrapper mb-16">
-              <div className="text-center mb-8">
+              <div className="text-center mb-6">
+                <span
+                  className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3"
+                  style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}
+                >
+                  ✦ FAQ
+                </span>
                 <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>Frequently Asked Questions</h2>
-                <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>Quick answers to common questions</p>
-              </div>
-              <FAQPreview />
-              <div className="text-center mt-6">
+                <p className="text-sm mb-4" style={{ color: 'var(--foreground-muted)' }}>Your guide to pre-orders, payments, shipping, and everything in between.</p>
                 <Link href="/faqs" className="btn-secondary text-sm px-8 py-3 inline-block">
                   View All FAQs ✦
                 </Link>
               </div>
+              <FAQPreview />
             </section>
           </>
         )}
       </main>
       <Footer />
+    </div>
+  );
+}
+
+// ── Balanced Book Grid (avoids orphan rows) ───────────────
+function getBalancedCols(count: number): number {
+  if (count <= 2) return count;
+  if (count === 3) return 3;
+  if (count === 4) return 4;
+  if (count === 5) return 5;
+  if (count === 6) return 3; // 3×2
+  if (count === 7) return 4; // 4+3 — best balance
+  if (count === 8) return 4; // 4×2
+  if (count === 9) return 3; // 3×3
+  if (count === 10) return 5; // 5×2
+  if (count === 11) return 4; // 4+4+3 — best balance
+  if (count === 12) return 4; // 4×3
+  // For larger counts: prefer 5 cols (standard shop grid)
+  return 5;
+}
+
+const COL_CLASSES: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-2 sm:grid-cols-3',
+  4: 'grid-cols-2 sm:grid-cols-4',
+  5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+};
+
+function BalancedBookGrid({ books }: { books: Book[] }) {
+  const cols = getBalancedCols(books.length);
+  const colClass = COL_CLASSES[cols] ?? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5';
+  return (
+    <div className={`grid ${colClass} gap-4`}>
+      {books.map(book => (
+        <BookCard key={book.id} book={book} />
+      ))}
     </div>
   );
 }
