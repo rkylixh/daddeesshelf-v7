@@ -20,6 +20,7 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'Tracking Number Updates',
     'Refund Reference Numbers',
     'Financial Reports',
+    'Issue & Cancel Store Credits',
   ],
   Developer: [
     'Support Tickets & Inquiries',
@@ -49,6 +50,7 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'Manage Wishlists',
     'View Audit Logs',
     'Manage Comments',
+    'View Store Credits (read-only)',
   ],
 };
 

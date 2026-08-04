@@ -296,6 +296,7 @@ export default function AdminStoreCreditsContent() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<StoreCredit | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
 
   const loadCredits = useCallback(async () => {
     setLoading(true);
@@ -313,7 +314,16 @@ export default function AdminStoreCreditsContent() {
     }
   }, []);
 
-  useEffect(() => { loadCredits(); }, [loadCredits]);
+  useEffect(() => {
+    loadCredits();
+    // Check if current admin is Owner
+    try {
+      const session = JSON.parse(sessionStorage.getItem('admin_session') ?? '{}');
+      setIsOwner(session.role === 'Owner');
+    } catch {
+      setIsOwner(false);
+    }
+  }, [loadCredits]);
 
   const filtered = credits.filter(c => {
     const matchesStatus = !statusFilter || c.status === statusFilter;
@@ -343,6 +353,17 @@ export default function AdminStoreCreditsContent() {
         </div>
       </div>
 
+      {/* Owner-only notice for non-owners */}
+      {!isOwner && (
+        <div
+          className="rounded-xl p-3 mb-5 text-xs flex items-center gap-2"
+          style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}
+        >
+          <span>🔒</span>
+          <span><strong>View Only:</strong> Only the Owner can issue or cancel store credits.</span>
+        </div>
+      )}
+
       {/* Filters + Issue Button */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <div className="relative flex-1 min-w-[200px]">
@@ -365,15 +386,17 @@ export default function AdminStoreCreditsContent() {
           className="select-field text-sm py-2"
         >
           <option value="">All Statuses</option>
-          {['Active', 'Used', 'Expired', 'Cancelled'].map(s => <option key={s}>{s}</option>)}
+          {['Active', 'Used', 'Cancelled'].map(s => <option key={s}>{s}</option>)}
         </select>
-        <button
-          onClick={() => setShowIssueModal(true)}
-          className="btn-primary text-sm px-5 py-2 flex items-center gap-2"
-        >
-          <Icon name="PlusIcon" size={15} />
-          Issue Credit
-        </button>
+        {isOwner && (
+          <button
+            onClick={() => setShowIssueModal(true)}
+            className="btn-primary text-sm px-5 py-2 flex items-center gap-2"
+          >
+            <Icon name="PlusIcon" size={15} />
+            Issue Credit
+          </button>
+        )}
       </div>
 
       {/* Info banner */}
@@ -381,7 +404,7 @@ export default function AdminStoreCreditsContent() {
         className="rounded-xl p-3 mb-5 text-xs"
         style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--foreground-muted)' }}
       >
-        <strong style={{ color: '#10b981' }}>✦ Auto-Apply:</strong> Active store credits automatically apply as a discount when the customer submits their next preorder using their TikTok handle.
+        <strong style={{ color: '#10b981' }}>✦ Auto-Apply:</strong> Active store credits automatically apply as a discount when the customer submits their next preorder using their TikTok handle. Credits have <strong style={{ color: '#10b981' }}>no expiry date</strong>.
       </div>
 
       {/* Table */}
@@ -408,7 +431,9 @@ export default function AdminStoreCreditsContent() {
                   <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Linked Order</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Issued</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Actions</th>
+                  {isOwner && (
+                    <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -445,17 +470,19 @@ export default function AdminStoreCreditsContent() {
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--foreground-subtle)' }}>
                       {new Date(credit.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
                     </td>
-                    <td className="px-4 py-3">
-                      {credit.status === 'Active' && (
-                        <button
-                          onClick={() => setCancelTarget(credit)}
-                          className="text-xs px-3 py-1.5 rounded-lg transition-all"
-                          style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </td>
+                    {isOwner && (
+                      <td className="px-4 py-3">
+                        {credit.status === 'Active' && (
+                          <button
+                            onClick={() => setCancelTarget(credit)}
+                            className="text-xs px-3 py-1.5 rounded-lg transition-all"
+                            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -464,14 +491,14 @@ export default function AdminStoreCreditsContent() {
         </div>
       )}
 
-      {showIssueModal && (
+      {showIssueModal && isOwner && (
         <IssueCreditModal
           onClose={() => setShowIssueModal(false)}
           onSuccess={loadCredits}
         />
       )}
 
-      {cancelTarget && (
+      {cancelTarget && isOwner && (
         <CancelCreditModal
           credit={cancelTarget}
           onClose={() => setCancelTarget(null)}
