@@ -519,7 +519,6 @@ const NAV_LINKS = [
   { label: 'Genres', href: '/genres' },
   { label: 'Collections', href: '/collections' },
   { label: 'Wishlist', href: '/wishlist' },
-  { label: 'My Preorders', href: '/orders' },
   { label: 'Request a Title', href: '/request' },
   { label: 'FAQs', href: '/faqs' },
   { label: 'About', href: '/about' },

@@ -8,7 +8,9 @@ function getClient() {
   );
 }
 
-function computeStatus(book: Partial<Book>): Book['status'] {
+function computeStatus(book: Partial<Book> & { visibility?: string }): Book['status'] {
+  // If visibility is explicitly 'Reserved', treat as Sold Out
+  if (book.visibility === 'Reserved') return 'Sold Out';
   const available = (book.inventory ?? 0) - (book.reserved ?? 0);
   if (book.arrival_date && new Date(book.arrival_date) > new Date()) return 'Pre-order';
   if (available > 0) return 'On Hand';
@@ -35,9 +37,9 @@ function mapRow(row: Record<string, unknown>): Book {
     reserved: Number(row.reserved ?? 0),
     synopsis: String(row.synopsis ?? ''),
     cover_url: String(row.cover_url ?? ''),
-    goodreads_url: row.goodreads_url ? String(row.goodreads_url) : undefined,
+    goodreads_url: row.goodreads_url ? String(row.goodreads_url) : (row.goodreads_link ? String(row.goodreads_link) : undefined),
     goodreads_score: row.goodreads_score != null ? Number(row.goodreads_score) : undefined,
-    spice_level: row.spice_level != null ? Number(row.spice_level) : undefined,
+    spice_level: row.spice_level != null ? Number(row.spice_level) : (row.spice_rating != null ? Number(row.spice_rating) : undefined),
     is_visible: row.is_visible !== false,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
@@ -46,8 +48,24 @@ function mapRow(row: Record<string, unknown>): Book {
       inventory: Number(row.inventory ?? 0),
       reserved: Number(row.reserved ?? 0),
       arrival_date: row.arrival_date ? String(row.arrival_date) : null,
+      visibility: row.visibility ? String(row.visibility) : undefined,
     }),
-  };
+    // Extended fields
+    goodreads_ratings_count: row.goodreads_ratings_count != null ? Number(row.goodreads_ratings_count) : 0,
+    reader_tags: Array.isArray(row.reader_tags) ? row.reader_tags as string[] : [],
+    why_readers_love: row.why_readers_love ? String(row.why_readers_love) : '',
+    emotional_intensity: row.emotional_intensity != null ? Number(row.emotional_intensity) : 0,
+    romance_level: row.romance_level != null ? Number(row.romance_level) : 0,
+    worldbuilding_complexity: row.worldbuilding_complexity != null ? Number(row.worldbuilding_complexity) : 0,
+    pace: row.pace != null ? Number(row.pace) : 0,
+    humor: row.humor != null ? Number(row.humor) : 0,
+    darkness: row.darkness != null ? Number(row.darkness) : 0,
+    action: row.action != null ? Number(row.action) : 0,
+    quotes: Array.isArray(row.quotes) ? row.quotes as string[] : [],
+    reading_age: row.reading_age ? String(row.reading_age) : '',
+    content_warnings: row.content_warnings ? String(row.content_warnings) : '',
+    visibility: row.visibility ? String(row.visibility) : 'Available',
+  } as Book & Record<string, unknown>;
 }
 
 export async function getBooks(filters?: Partial<BookFilters>): Promise<Book[]> {

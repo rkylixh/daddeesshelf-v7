@@ -17,6 +17,7 @@ const ADMIN_NAV = [
   { label: 'BookTok Favorites', href: '/admin/booktok', icon: 'HeartIcon' },
   { label: 'Homepage Content', href: '/admin/homepage', icon: 'HomeIcon' },
   { label: 'FAQ Management', href: '/admin/faqs', icon: 'QuestionMarkCircleIcon' },
+  { label: 'Support Tickets', href: '/admin/support-tickets', icon: 'EnvelopeIcon' },
   { label: 'Title Requests', href: '/admin/requests', icon: 'DocumentTextIcon' },
   { label: 'Preorder Management', href: '/admin/preorders', icon: 'ClockIcon' },
   { label: 'Order Management', href: '/admin/orders', icon: 'ShoppingBagIcon' },

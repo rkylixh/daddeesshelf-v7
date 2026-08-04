@@ -369,7 +369,7 @@ export default function FAQsContent() {
           ✦ Help Center ✦
         </p>
         <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>
-          Pre-Order Frequently Asked Questions
+          Frequently Asked Questions
         </h1>
         <p className="text-sm max-w-lg mx-auto mb-6" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
           Everything you need to know about preordering, shipping, and payment at Daddee&apos;s Shelf.
