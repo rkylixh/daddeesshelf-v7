@@ -134,6 +134,31 @@ function TicketCard({ ticket }: { ticket: SupportTicket }) {
   );
 }
 
+// ── Auth card wrapper ──────────────────────────────────────
+function AuthCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4 py-24">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
+            ✦ Customer Portal ✦
+          </p>
+          <h1 className="font-display text-3xl font-bold" style={{ color: 'var(--foreground)' }}>My Queries</h1>
+          <p className="text-sm mt-2" style={{ color: 'var(--foreground-muted)' }}>
+            View your support tickets and admin responses
+          </p>
+        </div>
+        <div
+          className="rounded-2xl p-6"
+          style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.3)', boxShadow: '0 8px 40px rgba(139,92,246,0.1)' }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────
 export default function MyQueriesContent() {
   const [step, setStep] = useState<AuthStep>('handle');
@@ -306,29 +331,6 @@ export default function MyQueriesContent() {
     setTickets([]);
     setError('');
   };
-
-  // ── Auth card wrapper ──────────────────────────────────
-  const AuthCard = ({ children }: { children: React.ReactNode }) => (
-    <div className="min-h-screen flex items-center justify-center px-4 py-24">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
-            ✦ Customer Portal ✦
-          </p>
-          <h1 className="font-display text-3xl font-bold" style={{ color: 'var(--foreground)' }}>My Queries</h1>
-          <p className="text-sm mt-2" style={{ color: 'var(--foreground-muted)' }}>
-            View your support tickets and admin responses
-          </p>
-        </div>
-        <div
-          className="rounded-2xl p-6"
-          style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.3)', boxShadow: '0 8px 40px rgba(139,92,246,0.1)' }}
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  );
 
   // ── Step: Handle ──────────────────────────────────────
   if (step === 'handle') {
