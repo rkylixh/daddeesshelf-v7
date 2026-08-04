@@ -4,6 +4,38 @@ import React, { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import { supabase } from '@/lib/supabase';
 
+// ── Social platform config ─────────────────────────────────
+// To re-enable a platform, set enabled: true via Admin Dashboard in the future.
+const SOCIAL_PLATFORMS = [
+  {
+    id: 'tiktok',
+    icon: 'ChatBubbleLeftRightIcon' as const,
+    label: 'TikTok',
+    value: '@daddees.shelf',
+    href: 'https://tiktok.com/@daddees.shelf',
+    desc: 'Best for preorder inquiries, updates, live selling, announcements, and customer support.',
+    enabled: true,
+  },
+  {
+    id: 'facebook',
+    icon: 'EnvelopeIcon' as const,
+    label: 'Facebook',
+    value: "Daddee\'s Shelf",
+    href: 'https://facebook.com',
+    desc: 'Message us for pre-order support.',
+    enabled: false, // Hidden — can be re-enabled via Admin Dashboard
+  },
+  {
+    id: 'instagram',
+    icon: 'CameraIcon' as const,
+    label: 'Instagram',
+    value: '@daddeesshelf',
+    href: 'https://instagram.com',
+    desc: 'Follow for book updates and announcements.',
+    enabled: false, // Hidden — can be re-enabled via Admin Dashboard
+  },
+];
+
 export default function ContactContent() {
   const [form, setForm] = useState({ name: '', tiktok: '', subject: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
@@ -35,6 +67,8 @@ export default function ContactContent() {
     }
   };
 
+  const visiblePlatforms = SOCIAL_PLATFORMS.filter(p => p.enabled);
+
   return (
     <div className="content-wrapper py-12">
       {/* Header */}
@@ -56,13 +90,11 @@ export default function ContactContent() {
           <h2 className="font-display text-xl font-bold mb-6" style={{ color: 'var(--foreground)' }}>
             Reach Us Directly
           </h2>
-          {[
-            { icon: 'ChatBubbleLeftRightIcon', label: 'TikTok', value: '@daddees.shelf', href: 'https://tiktok.com/@daddees.shelf', desc: 'Best for order inquiries and live drops' },
-            { icon: 'EnvelopeIcon', label: 'Facebook', value: 'Daddee\'s Shelf', href: 'https://facebook.com', desc: 'Message us for pre-order support' },
-            { icon: 'CameraIcon', label: 'Instagram', value: '@daddeesshelf', href: 'https://instagram.com', desc: 'Follow for book updates and announcements' },
-          ].map(c => (
+
+          {/* Visible social platforms only */}
+          {visiblePlatforms.map(c => (
             <a
-              key={c.label}
+              key={c.id}
               href={c.href}
               target="_blank"
               rel="noopener noreferrer"
@@ -73,7 +105,7 @@ export default function ContactContent() {
                 className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)' }}
               >
-                <Icon name={c.icon as 'EnvelopeIcon'} size={18} />
+                <Icon name={c.icon} size={18} />
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--foreground-subtle)' }}>{c.label}</p>
@@ -83,7 +115,7 @@ export default function ContactContent() {
             </a>
           ))}
 
-          {/* Location — Tondo, Philippines per Master Appendix */}
+          {/* Location */}
           <div
             className="p-4 rounded-xl"
             style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
@@ -98,7 +130,9 @@ export default function ContactContent() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--foreground-subtle)' }}>Location</p>
                 <p className="font-semibold text-sm" style={{ color: 'var(--foreground)' }}>Tondo, Manila, Philippines</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-muted)' }}>Shipping nationwide via J&T Express · Lalamove for Metro Manila</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-muted)' }}>
+                  Location provided for general reference only. Pickup instructions (if applicable) will be communicated separately after your preorder is ready.
+                </p>
               </div>
             </div>
           </div>

@@ -50,6 +50,10 @@ const READER_TAG_COLORS: Record<string, string> = {
   'Plot-Driven': '#6366f1',
   'Touch Her and Die': '#ef4444',
   "Who Did This to You?": '#dc2626',
+  'Slow Burn': '#8b5cf6',
+  'Emotional': '#3b82f6',
+  'Political Fantasy': '#6366f1',
+  'Character Driven': '#10b981',
 };
 
 // ── Reading Experience Bar ─────────────────────────────────
@@ -77,7 +81,7 @@ function ExperienceBar({ label, value, max = 5 }: { label: string; value: number
   );
 }
 
-// ── ETA Disclaimer ─────────────────────────────────────────
+// ── ETA Disclaimer — displayed ONCE, directly beneath the ETA field ──
 function ETADisclaimer() {
   return (
     <div
@@ -86,7 +90,7 @@ function ETADisclaimer() {
     >
       <p className="text-xs leading-relaxed" style={{ color: 'var(--foreground-subtle)' }}>
         <span className="font-semibold" style={{ color: '#f59e0b' }}>⚠ ETA Disclaimer: </span>
-        Dates are approximate and may change due to international shipping, customs clearance, weather conditions, or courier delays. ETA should never be interpreted as a guaranteed arrival date.
+        Estimated arrival dates are tentative and may change due to international shipping, customs clearance, weather conditions, carrier delays, or other unforeseen circumstances. ETAs are provided for planning purposes only and should not be interpreted as guaranteed arrival dates.
       </p>
     </div>
   );
@@ -146,6 +150,7 @@ export default function BookDetailContent() {
   const extBook = book as Book & {
     spice_level?: number;
     goodreads_url?: string;
+    goodreads_ratings_count?: number;
     content_warnings?: string;
     reading_age?: string;
     quotes?: string[];
@@ -161,8 +166,9 @@ export default function BookDetailContent() {
   };
 
   const spiceLevel = extBook.spice_level ?? 0;
-  const goodreadsUrl = extBook.goodreads_url ?? '';
+  const goodreadsUrl = extBook.goodreads_url ?? (book as any).goodreads_link ?? '';
   const goodreadsScore = book.goodreads_score ?? 0;
+  const goodreadsRatingsCount = extBook.goodreads_ratings_count ?? 0;
   const readerTags: string[] = extBook.reader_tags ?? [];
   const quotes: string[] = extBook.quotes ?? [];
   const whyReadersLove = extBook.why_readers_love ?? '';
@@ -171,6 +177,7 @@ export default function BookDetailContent() {
     (extBook.worldbuilding_complexity ?? 0) > 0 ||
     (extBook.pace ?? 0) > 0;
 
+  // Metadata rows — ETA is the last row so the disclaimer appears directly beneath it
   const metaRows = [
     { label: 'Author', value: book.author },
     { label: 'Genre', value: book.genre },
@@ -284,6 +291,11 @@ export default function BookDetailContent() {
                 <Icon name="StarIcon" size={16} style={{ color: '#f59e0b' } as React.CSSProperties} />
                 <span className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>{goodreadsScore.toFixed(2)}</span>
                 <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>on Goodreads</span>
+                {goodreadsRatingsCount > 0 && (
+                  <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>
+                    ({goodreadsRatingsCount.toLocaleString()} ratings)
+                  </span>
+                )}
               </div>
               {goodreadsUrl && (
                 <a
@@ -342,11 +354,6 @@ export default function BookDetailContent() {
             )}
           </div>
 
-          {/* ETA if available */}
-          {book.arrival_date && (
-            <ETADisclaimer />
-          )}
-
           {/* About the Book */}
           {book.synopsis && (
             <div className="mt-8 mb-8">
@@ -359,7 +366,7 @@ export default function BookDetailContent() {
             </div>
           )}
 
-          {/* Quotes */}
+          {/* Quotes — fair use only, omit section if no quotes */}
           {quotes.length > 0 && (
             <div className="mb-8">
               {quotes.slice(0, 2).map((quote, i) => (
@@ -451,7 +458,7 @@ export default function BookDetailContent() {
 
           {/* Metadata table */}
           <div
-            className="rounded-xl overflow-hidden mb-6"
+            className="rounded-xl overflow-hidden mb-4"
             style={{ border: '1px solid var(--border)' }}
           >
             <div
@@ -477,10 +484,8 @@ export default function BookDetailContent() {
             </div>
           </div>
 
-          {/* ETA disclaimer in metadata if arrival date shown */}
-          {book.arrival_date && (
-            <ETADisclaimer />
-          )}
+          {/* ETA Disclaimer — displayed ONCE, directly beneath the metadata table (which ends with ETA row) */}
+          {book.arrival_date && <ETADisclaimer />}
         </div>
       </div>
 
