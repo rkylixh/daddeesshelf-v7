@@ -2,6 +2,34 @@ import React from 'react';
 import Link from 'next/link';
 import AppLogo from '@/components/ui/AppLogo';
 
+// Navigation data — keep in sync with Navbar.tsx NAV_LINKS
+const FOOTER_BROWSE_LINKS = [
+  { label: 'Shop All Books', href: '/shop' },
+  { label: 'Genres', href: '/genres' },
+  { label: 'Collections', href: '/collections' },
+  { label: 'Available Now', href: '/available-now' },
+];
+
+const FOOTER_ACCOUNT_LINKS = [
+  { label: 'My Wishlist', href: '/wishlist' },
+  { label: 'My Preorders', href: '/orders' },
+  { label: 'Request a Title', href: '/request' },
+];
+
+const FOOTER_SUPPORT_LINKS = [
+  { label: 'FAQs', href: '/faqs' },
+  { label: 'About Us', href: '/about' },
+  { label: 'Contact', href: '/contact' },
+];
+
+// Helper: only render links that have both a label and an href
+function isValidLink(link: unknown): link is { label: string; href: string } {
+  if (!link || typeof link !== 'object') return false;
+  const l = link as Record<string, unknown>;
+  return typeof l.label === 'string' && l.label.trim() !== '' &&
+         typeof l.href === 'string' && l.href.trim() !== '';
+}
+
 export default function Footer() {
   return (
     <footer
@@ -49,15 +77,9 @@ export default function Footer() {
               Browse
             </h4>
             <div className="flex flex-col gap-2">
-              {[
-                { label: 'Shop All Books', href: '/shop' },
-                { label: 'Genres', href: '/genres' },
-                { label: 'Collections', href: '/collections' },
-                { label: 'Preorder List', href: '/preorder-list' },
-                { label: 'Available Now', href: '/shop' },
-              ]?.map(link => (
-                <Link key={`footer-browse-${link?.href}`} href={link?.href} className="nav-link text-sm">
-                  {link?.label}
+              {FOOTER_BROWSE_LINKS.filter(isValidLink).map(link => (
+                <Link key={`footer-browse-${link.href}`} href={link.href} className="nav-link text-sm">
+                  {link.label}
                 </Link>
               ))}
             </div>
@@ -69,13 +91,9 @@ export default function Footer() {
               Account
             </h4>
             <div className="flex flex-col gap-2">
-              {[
-                { label: 'My Wishlist', href: '/wishlist' },
-                { label: 'My Preorders', href: '/orders' },
-                { label: 'Request a Title', href: '/request' },
-              ]?.map(link => (
-                <Link key={`footer-account-${link?.href}`} href={link?.href} className="nav-link text-sm">
-                  {link?.label}
+              {FOOTER_ACCOUNT_LINKS.filter(isValidLink).map(link => (
+                <Link key={`footer-account-${link.href}`} href={link.href} className="nav-link text-sm">
+                  {link.label}
                 </Link>
               ))}
             </div>
@@ -87,13 +105,9 @@ export default function Footer() {
               Support
             </h4>
             <div className="flex flex-col gap-2">
-              {[
-                { label: 'FAQs', href: '/faqs' },
-                { label: 'About Us', href: '/about' },
-                { label: 'Contact', href: '/contact' },
-              ]?.map(link => (
-                <Link key={`footer-support-${link?.href}`} href={link?.href} className="nav-link text-sm">
-                  {link?.label}
+              {FOOTER_SUPPORT_LINKS.filter(isValidLink).map(link => (
+                <Link key={`footer-support-${link.href}`} href={link.href} className="nav-link text-sm">
+                  {link.label}
                 </Link>
               ))}
             </div>
