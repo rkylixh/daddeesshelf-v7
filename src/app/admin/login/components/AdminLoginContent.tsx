@@ -42,6 +42,7 @@ export default function AdminLoginContent() {
     else if (step === 'set-pin') newPinInputRef.current?.focus();
   }, [step]);
 
+  // Step 1: Verify access code
   const handleCodeVerify = (e: React.FormEvent) => {
     e.preventDefault();
     if (accessCode.trim().toUpperCase() !== ADMIN_ACCESS_CODE) {
@@ -52,7 +53,7 @@ export default function AdminLoginContent() {
     setStep('auth');
   };
 
-  // Step 2: Check TikTok handle — determine if PIN exists or needs enrollment
+  // Step 2: Validate TikTok handle against admin_users — no PIN asked yet
   const handleCheckHandle = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -60,12 +61,11 @@ export default function AdminLoginContent() {
     try {
       const supabase = createClient();
       const rawHandle = tiktokHandle.trim();
-      // Strip leading @ for lookup; also try with @ prefix for legacy records
       const handleNoAt = rawHandle.replace(/^@/, '');
       const handleWithAt = '@' + handleNoAt;
 
-      // Try without @ first, then with @
       let adminUser = null;
+
       const { data: d1 } = await supabase
         .from('admin_users')
         .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
@@ -84,26 +84,29 @@ export default function AdminLoginContent() {
       }
 
       if (!adminUser) {
-        throw new Error('Admin account not found.');
+        setError('Administrator account not found. Please verify your TikTok handle.');
+        setLoading(false);
+        return;
       }
+
       if (!adminUser.is_active) {
-        throw new Error('This admin account has been deactivated.');
+        setError('This admin account has been deactivated.');
+        setLoading(false);
+        return;
       }
 
       setPendingAdminId(adminUser.id);
 
-      // First login: PIN not yet set — prompt admin to create their PIN
-      // Trim pin_hash to catch whitespace-only strings; coerce pin_set to boolean
       const pinHashValue = (adminUser.pin_hash ?? '').trim();
       const pinIsSet = adminUser.pin_set === true;
 
       if (!pinIsSet || !pinHashValue) {
+        // First-time administrator — go to Create PIN screen
         setStep('set-pin');
-        return;
+      } else {
+        // Returning administrator — go to Enter PIN screen
+        setStep('enter-pin');
       }
-
-      // PIN already set — show PIN entry form
-      setStep('enter-pin');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Verification failed. Please try again.');
     } finally {
@@ -111,7 +114,7 @@ export default function AdminLoginContent() {
     }
   };
 
-  // Step 3a: Authenticate with existing PIN
+  // Step 3a: Returning admin — verify existing PIN
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (adminPin.length !== 6 || !/^\d{6}$/.test(adminPin)) {
@@ -136,7 +139,7 @@ export default function AdminLoginContent() {
       const pinHash = await hashPin(adminPin);
 
       if (pinHash !== adminUser.pin_hash) {
-        throw new Error('Incorrect PIN.');
+        throw new Error('Incorrect PIN. Please try again.');
       }
 
       sessionStorage.setItem('admin_session', JSON.stringify({
@@ -154,7 +157,7 @@ export default function AdminLoginContent() {
     }
   };
 
-  // Step 3b: First-time PIN creation
+  // Step 3b: First-time admin — create and save PIN
   const handleSetPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
@@ -178,7 +181,6 @@ export default function AdminLoginContent() {
 
       if (updateError) throw updateError;
 
-      // Log PIN creation in audit log
       await supabase.from('audit_logs').insert({
         admin_handle: tiktokHandle.trim().replace(/^@/, ''),
         action: 'PIN_CREATED',
@@ -186,7 +188,6 @@ export default function AdminLoginContent() {
         explanation: 'Administrator created their initial login PIN.',
       }).then(() => {}).catch(() => {});
 
-      // Auto-login after PIN creation
       const { data: adminUser } = await supabase
         .from('admin_users')
         .select('id, tiktok_handle, role')
@@ -230,7 +231,7 @@ export default function AdminLoginContent() {
           className="rounded-2xl p-8"
           style={{ background: 'var(--background-card)', border: '1px solid var(--border)', boxShadow: '0 8px 40px rgba(139,92,246,0.15)' }}
         >
-          {/* Step 1: Access Code */}
+          {/* Step 1: Admin Access Code */}
           {step === 'code' && (
             <>
               <h2 className="font-display text-lg font-bold mb-1 text-center" style={{ color: 'var(--foreground)' }}>
@@ -265,7 +266,7 @@ export default function AdminLoginContent() {
             </>
           )}
 
-          {/* Step 2: TikTok Handle lookup */}
+          {/* Step 2: TikTok Handle only — no PIN field */}
           {step === 'auth' && (
             <>
               <h2 className="font-display text-lg font-bold mb-1 text-center" style={{ color: 'var(--foreground)' }}>
@@ -314,7 +315,7 @@ export default function AdminLoginContent() {
             </>
           )}
 
-          {/* Step 3a: Enter existing PIN */}
+          {/* Step 3a: Returning admin — Enter existing PIN */}
           {step === 'enter-pin' && (
             <>
               <h2 className="font-display text-lg font-bold mb-1 text-center" style={{ color: 'var(--foreground)' }}>
@@ -366,22 +367,22 @@ export default function AdminLoginContent() {
             </>
           )}
 
-          {/* Step 3b: First-login PIN creation */}
+          {/* Step 3b: First-time admin — Create PIN */}
           {step === 'set-pin' && (
             <>
               <h2 className="font-display text-lg font-bold mb-1 text-center" style={{ color: 'var(--foreground)' }}>
-                Create Your Admin PIN
+                Create Admin PIN
               </h2>
               <p className="text-xs text-center mb-2" style={{ color: 'var(--foreground-subtle)' }}>
                 Welcome! This is your first login.
               </p>
               <p className="text-xs text-center mb-6" style={{ color: 'var(--foreground-subtle)' }}>
-                Please create a unique 6-digit PIN. You will use this PIN for all future logins and to confirm privileged actions.
+                Please create a unique 6-digit PIN. You will use this PIN for all future logins.
               </p>
               <form onSubmit={handleSetPin} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                    New 6-Digit PIN
+                    Create 6-Digit PIN
                   </label>
                   <input
                     ref={newPinInputRef}
@@ -399,7 +400,7 @@ export default function AdminLoginContent() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                    Confirm PIN
+                    Confirm 6-Digit PIN
                   </label>
                   <input
                     type="password"
