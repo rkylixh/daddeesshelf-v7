@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AppImage from '@/components/ui/AppImage';
 import { getBooks } from '@/lib/books';
 import { Book } from '@/lib/types';
 
@@ -23,6 +22,59 @@ const GENRE_ICONS: Record<string, string> = {
   'Religion': '✝️',
 };
 
+// Distinct icons per subgenre
+const SUBGENRE_ICONS: Record<string, string> = {
+  // Fantasy
+  'Romantasy': '🌹',
+  'Epic Fantasy': '⚔️',
+  'Dark Fantasy': '🌑',
+  'Urban Fantasy': '🏙️',
+  'Cozy Fantasy': '🍵',
+  'Historical Fantasy': '🗡️',
+  'High Fantasy': '🏰',
+  'Fae Fantasy': '🧚',
+  // Romance
+  'Contemporary Romance': '💌',
+  'Historical Romance': '🕯️',
+  'Paranormal Romance': '🌙',
+  'Dark Romance': '🖤',
+  'Sports Romance': '🏆',
+  'Small Town Romance': '🌻',
+  // Thriller
+  'Psychological Thriller': '🧠',
+  'Crime Thriller': '🔫',
+  'Legal Thriller': '⚖️',
+  'Political Thriller': '🏛️',
+  'Domestic Thriller': '🏠',
+  // Mystery
+  'Cozy Mystery': '☕',
+  'Detective Mystery': '🕵️',
+  'Crime Mystery': '🔎',
+  'Paranormal Mystery': '👁️',
+  // Horror
+  'Gothic Horror': '🦇',
+  'Psychological Horror': '😱',
+  'Supernatural Horror': '👁️',
+  'Dark Fantasy': '🌑',
+  // Science Fiction
+  'Space Opera': '🌌',
+  'Dystopian': '🏚️',
+  'Cyberpunk': '🤖',
+  'Hard Sci-Fi': '🔬',
+  'Time Travel': '⏳',
+  // Historical Fiction
+  'Medieval': '🛡️',
+  'Victorian': '🎩',
+  'World War': '🎖️',
+  'Ancient World': '🏺',
+  'Renaissance': '🎨',
+  // Literary Fiction
+  'Contemporary': '🌆',
+  'Coming of Age': '🌱',
+  'Family Saga': '🏡',
+  'Magical Realism': '✨',
+};
+
 // Predefined subgenres per genre
 const GENRE_SUBGENRES: Record<string, string[]> = {
   'Fantasy': ['Romantasy', 'Epic Fantasy', 'Dark Fantasy', 'Urban Fantasy', 'Cozy Fantasy', 'Historical Fantasy', 'High Fantasy', 'Fae Fantasy'],
@@ -38,8 +90,6 @@ const GENRE_SUBGENRES: Record<string, string[]> = {
 interface SubgenreCard {
   name: string;
   count: number;
-  coverUrl: string | null;
-  coverAlt: string;
 }
 
 interface GenreDetailViewProps {
@@ -51,26 +101,19 @@ interface GenreDetailViewProps {
 function GenreDetailView({ genre, books, onBack }: GenreDetailViewProps) {
   const router = useRouter();
 
-  // Build subgenre cards from actual book data + predefined list
-  const subgenreMap = books.reduce<Record<string, { count: number; coverUrl: string | null; coverAlt: string }>>((acc, b) => {
+  const subgenreMap = books.reduce<Record<string, number>>((acc, b) => {
     if (!b.subgenre) return acc;
-    if (!acc[b.subgenre]) {
-      acc[b.subgenre] = { count: 0, coverUrl: b.cover_url || null, coverAlt: `${b.title} cover` };
-    }
-    acc[b.subgenre].count += 1;
+    acc[b.subgenre] = (acc[b.subgenre] ?? 0) + 1;
     return acc;
   }, {});
 
-  // Also include predefined subgenres with 0 count if not in data
   const predefined = GENRE_SUBGENRES[genre] ?? [];
   predefined.forEach(sg => {
-    if (!subgenreMap[sg]) {
-      subgenreMap[sg] = { count: 0, coverUrl: null, coverAlt: `${sg} books` };
-    }
+    if (!(sg in subgenreMap)) subgenreMap[sg] = 0;
   });
 
   const subgenres: SubgenreCard[] = Object.entries(subgenreMap)
-    .map(([name, data]) => ({ name, ...data }))
+    .map(([name, count]) => ({ name, count }))
     .sort((a, b) => b.count - a.count);
 
   const handleSubgenreClick = (subgenre: string) => {
@@ -106,44 +149,28 @@ function GenreDetailView({ genre, books, onBack }: GenreDetailViewProps) {
           <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>No subgenres found for {genre} yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
           {subgenres.map(sg => (
             <button
               key={sg.name}
               onClick={() => handleSubgenreClick(sg.name)}
-              className="group flex flex-col rounded-2xl overflow-hidden text-left transition-all duration-300 card-glow"
+              className="group flex flex-col items-center gap-2 p-3 rounded-xl text-center transition-all duration-300 card-glow"
               style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
             >
-              {/* Representative cover or placeholder */}
-              <div className="relative w-full aspect-[3/2] overflow-hidden">
-                {sg.coverUrl ? (
-                  <AppImage
-                    src={sg.coverUrl}
-                    alt={sg.coverAlt}
-                    fill
-                    sizes="200px"
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                ) : (
-                  <div
-                    className="w-full h-full flex items-center justify-center text-3xl"
-                    style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(79,70,229,0.1))' }}
-                    aria-hidden="true"
-                  >
-                    {GENRE_ICONS[genre] ?? '📚'}
-                  </div>
-                )}
-                <div
-                  className="absolute inset-0"
-                  style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 60%)' }}
-                  aria-hidden="true"
-                />
-              </div>
-              <div className="p-3">
-                <p className="font-display text-sm font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>
+              <span
+                className="text-2xl leading-none"
+                style={{
+                  filter: 'drop-shadow(0 0 6px rgba(139,92,246,0.4))',
+                }}
+                aria-hidden="true"
+              >
+                {SUBGENRE_ICONS[sg.name] ?? GENRE_ICONS[genre] ?? '📚'}
+              </span>
+              <div>
+                <p className="font-display text-xs font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>
                   {sg.name}
                 </p>
-                <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-subtle)', fontSize: '0.65rem' }}>
                   {sg.count > 0 ? `${sg.count} title${sg.count !== 1 ? 's' : ''}` : 'Coming soon'}
                 </p>
               </div>
@@ -152,7 +179,6 @@ function GenreDetailView({ genre, books, onBack }: GenreDetailViewProps) {
         </div>
       )}
 
-      {/* View all in genre button */}
       <div className="text-center mt-10">
         <button
           onClick={() => router.push(`/shop?genre=${encodeURIComponent(genre)}`)}

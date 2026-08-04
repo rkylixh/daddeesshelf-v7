@@ -19,7 +19,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Daddee's Shelf — Your Cozy Corner for Books",
+  title: "Daddee's Shelf | Your Cozy Corner for Books",
   description:
     "Browse pre-orders, on-hand titles, and curated book bundles from Daddee's Shelf — the cozy online bookstore for Filipino readers.",
   icons: {
