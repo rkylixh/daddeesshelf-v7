@@ -117,22 +117,22 @@
     text-shadow: 0 1px 8px rgba(168,116,69,0.3), 0 0 16px rgba(168,116,69,0.12);
   }
 
-  /* Premium book card — parchment style */
+  /* Premium book card — parchment style (always visible, not hover-only) */
   .card-glow {
-    box-shadow: 0 2px 12px rgba(75,53,42,0.12), 0 0 0 1px var(--border);
+    box-shadow: 0 2px 12px rgba(75,53,42,0.18), 0 0 0 1px var(--border), inset 0 1px 0 rgba(255,255,255,0.45);
     transition: box-shadow 0.35s ease, transform 0.35s ease;
   }
 
   .card-glow:hover {
-    box-shadow: 0 8px 32px rgba(75,53,42,0.18), 0 0 0 1px var(--primary), 0 4px 20px rgba(200,164,91,0.2);
+    box-shadow: 0 8px 32px rgba(75,53,42,0.22), 0 0 0 1px var(--primary), 0 4px 20px rgba(200,164,91,0.2);
     transform: translateY(-4px);
   }
 
   /* Buttons — leather-journal / antique brass style */
   .btn-primary {
-    background: linear-gradient(135deg, #C8A45B, #A87445);
+    background: linear-gradient(135deg, #D8B46C 0%, #C8A45B 50%, #B8903F 100%);
     color: #FFF8F0;
-    border: 1px solid rgba(200,164,91,0.5);
+    border: 1px solid rgba(200,164,91,0.55);
     border-radius: var(--radius-sm);
     padding: 0.625rem 1.25rem;
     font-family: var(--font-sans);
@@ -140,13 +140,13 @@
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.25s ease;
-    box-shadow: 0 2px 8px rgba(75,53,42,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
+    box-shadow: 0 2px 8px rgba(75,53,42,0.18), inset 0 1px 0 rgba(255,255,255,0.22);
     letter-spacing: 0.02em;
   }
 
   .btn-primary:hover {
-    background: linear-gradient(135deg, #D8B46C, #B8903F);
-    box-shadow: 0 4px 16px rgba(200,164,91,0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+    background: linear-gradient(135deg, #E2C07A 0%, #D4B06A 50%, #C8A45B 100%);
+    box-shadow: 0 4px 16px rgba(200,164,91,0.35), inset 0 1px 0 rgba(255,255,255,0.28);
     transform: translateY(-1px);
   }
 
@@ -198,11 +198,32 @@
     color: var(--foreground);
     font-family: var(--font-sans);
     font-size: 0.875rem;
-    padding: 0.625rem 0.875rem;
+    /* Longhand so pl-/pr-/py- compound rules can override cleanly */
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+    padding-left: 0.875rem;
+    padding-right: 0.875rem;
     width: 100%;
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
+
+  /*
+   * Affixed-icon / prefix inputs.
+   * Compound selectors beat .input-field alone so absolute left icons
+   * (search, @, etc.) never overlap placeholder/text.
+   */
+  .input-field.pl-7 { padding-left: 1.75rem; }
+  .input-field.pl-8 { padding-left: 2rem; }
+  .input-field.pl-9 { padding-left: 2.25rem; }
+  .input-field.pl-10 { padding-left: 2.5rem; }
+  .input-field.pl-11 { padding-left: 2.75rem; }
+  .input-field.pl-12 { padding-left: 3rem; }
+  .input-field.pr-4 { padding-right: 1rem; }
+  .input-field.pr-8 { padding-right: 2rem; }
+  .input-field.pr-10 { padding-right: 2.5rem; }
+  .input-field.py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  .input-field.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 
   .input-field::placeholder {
     color: var(--foreground-subtle);
@@ -220,12 +241,19 @@
     color: var(--foreground);
     font-family: var(--font-sans);
     font-size: 0.875rem;
-    padding: 0.625rem 0.875rem;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+    padding-left: 0.875rem;
+    padding-right: 0.875rem;
     outline: none;
     transition: border-color 0.2s ease;
     cursor: pointer;
     appearance: none;
   }
+
+  .select-field.pl-3 { padding-left: 0.75rem; }
+  .select-field.pr-8 { padding-right: 2rem; }
+  .select-field.py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 
   .select-field:focus {
     border-color: var(--primary);
@@ -266,12 +294,13 @@
     75% { transform: translate(7px, -22px); opacity: 0.28; }
   }
 
-  /* Dust particles background */
+  /* Dust particles background — must stay behind page content.
+     Fixed + z-index:0 paints ABOVE in-flow main (blank non-home pages). */
   .starfield-bg {
     position: fixed;
     inset: 0;
     pointer-events: none;
-    z-index: 0;
+    z-index: -1;
     overflow: hidden;
   }
 
@@ -432,6 +461,12 @@
     position: relative;
     z-index: 1;
     min-height: 100vh;
+  }
+
+  /* Keep page content above the fixed StarField ambience layer */
+  .page-container > main {
+    position: relative;
+    z-index: 1;
   }
 
   .content-wrapper {

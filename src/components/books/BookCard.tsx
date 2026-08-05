@@ -61,7 +61,7 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
       <div
         className="card-glow rounded-xl overflow-hidden"
         style={{
-          background: 'var(--background-card)',
+          background: '#FFFAF4',
           border: '1px solid var(--border)',
         }}
       >

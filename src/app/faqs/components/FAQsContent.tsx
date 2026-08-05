@@ -42,7 +42,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   return (
     <div
       className="rounded-xl overflow-hidden transition-all duration-200"
-      style={{ background: 'var(--background-card)', border: `1px solid ${open ? 'rgba(139,92,246,0.4)' : 'var(--border)'}` }}
+      style={{ background: 'var(--background-card)', border: `1px solid ${open ? 'rgba(200,164,91,0.5)' : 'var(--border)'}` }}
     >
       <button
         onClick={() => setOpen(o => !o)}
@@ -51,7 +51,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
         <span className="text-sm font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>{q}</span>
         <span
           className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-all"
-          style={{ background: open ? 'rgba(139,92,246,0.2)' : 'var(--muted)', color: 'var(--primary-bright)' }}
+          style={{ background: open ? 'rgba(200,164,91,0.2)' : 'var(--muted)', color: 'var(--primary-bright)' }}
         >
           <Icon name={open ? 'ChevronUpIcon' : 'ChevronDownIcon'} size={14} />
         </span>
@@ -159,7 +159,7 @@ function ReaderQuestionsSection() {
               {q.admin_reply && (
                 <div
                   className="rounded-lg p-3 mt-2"
-                  style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}
+                  style={{ background: 'rgba(200,164,91,0.08)', border: '1px solid rgba(200,164,91,0.25)' }}
                 >
                   <p className="text-xs font-semibold mb-1" style={{ color: 'var(--primary-bright)' }}>
                     ✦ Daddee&apos;s Shelf replied:
@@ -265,7 +265,7 @@ function ReaderQuestionsSection() {
       {/* Promise card */}
       <div
         className="rounded-2xl p-6"
-        style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(79,70,229,0.08))', border: '1px solid rgba(139,92,246,0.25)' }}
+        style={{ background: 'linear-gradient(135deg, rgba(200,164,91,0.12), rgba(168,116,69,0.08))', border: '1px solid rgba(200,164,91,0.3)' }}
       >
         <div className="flex items-start gap-3">
           <span className="text-2xl flex-shrink-0" aria-hidden="true">✨</span>
@@ -430,10 +430,10 @@ export default function FAQsContent() {
               onClick={() => setActiveCategory(null)}
               className="text-xs px-4 py-2 rounded-full font-semibold transition-all"
               style={{
-                background: activeCategory === null ? 'linear-gradient(135deg, #8b5cf6, #4f46e5)' : 'var(--muted)',
-                color: activeCategory === null ? '#fff' : 'var(--foreground-muted)',
-                border: `1px solid ${activeCategory === null ? 'transparent' : 'var(--border)'}`,
-                boxShadow: activeCategory === null ? '0 4px 15px rgba(139,92,246,0.3)' : 'none',
+                background: activeCategory === null ? 'linear-gradient(135deg, #D8B46C 0%, #C8A45B 50%, #B8903F 100%)' : 'var(--muted)',
+                color: activeCategory === null ? '#FFF8F0' : 'var(--foreground-muted)',
+                border: `1px solid ${activeCategory === null ? 'rgba(200,164,91,0.55)' : 'var(--border)'}`,
+                boxShadow: activeCategory === null ? '0 4px 15px rgba(200,164,91,0.3)' : 'none',
               }}
             >
               All Categories
@@ -444,10 +444,10 @@ export default function FAQsContent() {
                 onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
                 className="text-xs px-4 py-2 rounded-full font-semibold transition-all"
                 style={{
-                  background: activeCategory === cat ? 'linear-gradient(135deg, #8b5cf6, #4f46e5)' : 'var(--muted)',
-                  color: activeCategory === cat ? '#fff' : 'var(--foreground-muted)',
-                  border: `1px solid ${activeCategory === cat ? 'transparent' : 'var(--border)'}`,
-                  boxShadow: activeCategory === cat ? '0 4px 15px rgba(139,92,246,0.3)' : 'none',
+                  background: activeCategory === cat ? 'linear-gradient(135deg, #D8B46C 0%, #C8A45B 50%, #B8903F 100%)' : 'var(--muted)',
+                  color: activeCategory === cat ? '#FFF8F0' : 'var(--foreground-muted)',
+                  border: `1px solid ${activeCategory === cat ? 'rgba(200,164,91,0.55)' : 'var(--border)'}`,
+                  boxShadow: activeCategory === cat ? '0 4px 15px rgba(200,164,91,0.3)' : 'none',
                 }}
               >
                 {cat}
@@ -473,7 +473,7 @@ export default function FAQsContent() {
                     <div className="flex items-center gap-3 mb-4">
                       <div
                         className="h-px flex-1"
-                        style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.4), transparent)' }}
+                        style={{ background: 'linear-gradient(90deg, rgba(200,164,91,0.45), transparent)' }}
                         aria-hidden="true"
                       />
                       <h2 className="font-display text-base font-bold px-2 whitespace-nowrap" style={{ color: 'var(--primary-bright)' }}>
@@ -481,7 +481,7 @@ export default function FAQsContent() {
                       </h2>
                       <div
                         className="h-px flex-1"
-                        style={{ background: 'linear-gradient(270deg, rgba(139,92,246,0.4), transparent)' }}
+                        style={{ background: 'linear-gradient(270deg, rgba(200,164,91,0.45), transparent)' }}
                         aria-hidden="true"
                       />
                     </div>
@@ -499,7 +499,7 @@ export default function FAQsContent() {
           {/* Contact CTA */}
           <div
             className="mt-16 rounded-2xl p-8 text-center max-w-2xl mx-auto"
-            style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(79,70,229,0.08))', border: '1px solid rgba(139,92,246,0.25)' }}
+            style={{ background: 'linear-gradient(135deg, rgba(200,164,91,0.12), rgba(168,116,69,0.08))', border: '1px solid rgba(200,164,91,0.3)' }}
           >
             <span className="text-3xl mb-4 block" aria-hidden="true">✦</span>
             <h2 className="font-display text-xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>

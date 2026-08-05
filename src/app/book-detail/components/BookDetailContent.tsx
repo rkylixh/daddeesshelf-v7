@@ -252,10 +252,10 @@ export default function BookDetailContent() {
           {book.status !== 'Sold Out' && (
             <button
               onClick={handlePreorder}
-              className="w-full max-w-[320px] btn-primary flex items-center justify-center gap-2 py-3 text-sm"
+              className="w-full max-w-[320px] btn-primary flex items-center justify-center gap-3 py-3 text-sm"
             >
               <Icon name="ShoppingCartIcon" size={16} />
-              {addedToCart ? 'Added to Cart ✓' : book.status === 'Pre-order' ? 'Preorder This Book ✦' : 'Add to Cart ✦'}
+              <span>{addedToCart ? 'Added to Cart' : book.status === 'Pre-order' ? 'Preorder This Book' : 'Add to Cart'}</span>
             </button>
           )}
 

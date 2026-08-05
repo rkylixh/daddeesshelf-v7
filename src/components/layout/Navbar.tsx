@@ -544,8 +544,8 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
         value={query}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        className="input-field py-2 text-sm w-full"
-        style={{ borderRadius: '9999px', paddingLeft: '2.25rem', paddingRight: '1rem' }}
+        className="input-field pl-9 py-2 text-sm w-full"
+        style={{ borderRadius: '9999px', paddingRight: '1rem' }}
         autoComplete="off"
       />
       {loading && (
@@ -657,8 +657,7 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
           placeholder="Search books..."
           value={query}
           onChange={handleChange}
-          className="input-field text-sm"
-          style={{ paddingLeft: '2.25rem' }}
+          className="input-field pl-9 text-sm"
           autoComplete="off"
         />
         {loading && (
