@@ -248,7 +248,7 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
       >
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-2">
-            <AppLogo size={24} />
+            <AppLogo size={24} variant="full" />
             <span className="font-display text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>Admin Portal</span>
           </div>
           <button onClick={onClose} className="btn-ghost p-1 rounded-lg">
@@ -740,7 +740,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-              <AppLogo size={44} />
+              <AppLogo size={44} variant="full" />
               <span className="font-display text-base font-bold hidden sm:block" style={{ color: 'var(--primary-bright)' }}>Daddee&apos;s Shelf</span>
             </Link>
 

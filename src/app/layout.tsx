@@ -23,7 +23,9 @@ export const metadata: Metadata = {
   description:
     "Browse pre-orders, on-hand titles, and curated book bundles from Daddee's Shelf — the cozy online bookstore for Filipino readers.",
   icons: {
-    icon: [{ url: '/favicon.ico', type: 'image/x-icon' }],
+    icon: [
+      { url: '/assets/images/ChatGPT_Image_Aug_5__2026__03_56_22_PM-1785916609214.png', type: 'image/png' },
+    ],
   },
 };
 

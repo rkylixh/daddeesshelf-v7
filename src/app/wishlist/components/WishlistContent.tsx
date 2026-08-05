@@ -1,39 +1,46 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
-import { supabase } from '@/lib/supabase';
+import { getBooks } from '@/lib/books';
+import { Book } from '@/lib/types';
 
-function genRef() {
-  return 'WL-' + Date.now().toString(36).toUpperCase();
+function getWishlistIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem('wishlist_ids') ?? '[]'); } catch { return []; }
+}
+
+function removeFromWishlist(id: string) {
+  const current = getWishlistIds();
+  localStorage.setItem('wishlist_ids', JSON.stringify(current.filter(i => i !== id)));
 }
 
 export default function WishlistContent() {
-  const [form, setForm] = useState({ name: '', tiktok: '', sku: '', title: '' });
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState('');
+  const [books, setBooks] = useState<Book[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const { error: err } = await supabase.from('wishlists').insert({
-        ref_number: genRef(),
-        customer_name: form.name,
-        tiktok_handle: form.tiktok,
-        book_sku: form.sku,
-        book_title: form.title,
-      });
-      if (err) throw err;
-      setSubmitted(true);
-    } catch {
-      setError('Something went wrong. Please try again.');
-    } finally {
+  useEffect(() => {
+    const ids = getWishlistIds();
+    setWishlistIds(ids);
+    if (ids.length === 0) {
+      setLoading(false);
+      return;
+    }
+    async function loadBooks() {
+      const all = await getBooks({});
+      setBooks(all.filter(b => ids.includes(b.id)));
       setLoading(false);
     }
+    loadBooks();
+  }, []);
+
+  const handleRemove = (id: string) => {
+    removeFromWishlist(id);
+    setBooks(prev => prev.filter(b => b.id !== id));
+    setWishlistIds(prev => prev.filter(i => i !== id));
   };
 
   return (
@@ -41,123 +48,103 @@ export default function WishlistContent() {
       {/* Header */}
       <div className="text-center mb-12">
         <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
-          ✦ Save for Later ✦
+          ✦ Saved Titles ✦
         </p>
         <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>
-          Wishlist
+          My Wishlist
         </h1>
         <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
-          Found a sold-out title you love? Add it to your wishlist and we&apos;ll notify you when it&apos;s back in stock
-          or included in an upcoming batch.
+          Books you&apos;ve saved for later. Your wishlist persists across visits until you remove a title.
         </p>
       </div>
 
-      <div className="max-w-xl mx-auto">
-        {submitted ? (
-          <div
-            className="rounded-2xl p-10 text-center"
-            style={{ background: 'rgba(184,134,11,0.08)', border: '1px solid rgba(184,134,11,0.3)' }}
-          >
-            <span className="text-5xl mb-6 block" aria-hidden="true">♡</span>
-            <h2 className="font-display text-2xl font-bold mb-3" style={{ color: 'var(--primary-bright)' }}>
-              Added to Wishlist!
-            </h2>
-            <p className="text-sm mb-6" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
-              We&apos;ve noted your interest. You&apos;ll be among the first to know when this title becomes available.
-              Follow us on TikTok for real-time updates.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                onClick={() => { setSubmitted(false); setForm({ name: '', tiktok: '', sku: '', title: '' }); }}
-                className="btn-secondary text-sm px-6 py-2.5"
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
+        </div>
+      ) : books.length === 0 ? (
+        <div
+          className="max-w-md mx-auto rounded-2xl p-12 text-center"
+          style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+        >
+          <span className="text-5xl mb-6 block" aria-hidden="true">♡</span>
+          <h2 className="font-display text-xl font-bold mb-3" style={{ color: 'var(--foreground)' }}>
+            Your wishlist is empty
+          </h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
+            Browse our collection and tap the heart icon on any book to save it here.
+          </p>
+          <Link href="/shop" className="btn-primary text-sm px-6 py-2.5 inline-block">
+            Browse Books
+          </Link>
+        </div>
+      ) : (
+        <div>
+          <p className="text-sm mb-6" style={{ color: 'var(--foreground-muted)' }}>
+            {books.length} {books.length === 1 ? 'title' : 'titles'} saved
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            {books.map(book => (
+              <div
+                key={book.id}
+                className="rounded-xl overflow-hidden group relative"
+                style={{ background: 'var(--background-card)', border: '1px solid var(--border)', boxShadow: '0 2px 12px rgba(75,53,42,0.08)' }}
               >
-                Add Another Title
-              </button>
-              <Link href="/shop" className="btn-primary text-sm px-6 py-2.5 inline-block">
-                Browse Available Books
-              </Link>
-            </div>
+                {/* Remove button */}
+                <button
+                  onClick={() => handleRemove(book.id)}
+                  className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200"
+                  style={{ background: 'rgba(243,231,213,0.9)', border: '1px solid var(--border)' }}
+                  title="Remove from wishlist"
+                >
+                  <Icon name="XMarkIcon" size={14} style={{ color: 'var(--foreground-muted)' } as React.CSSProperties} />
+                </button>
+
+                <Link href={`/book-detail?id=${book.id}`}>
+                  <div className="relative aspect-[2/3]">
+                    <AppImage
+                      src={book.cover_url || '/assets/images/no_image.png'}
+                      alt={`Cover of ${book.title} by ${book.author}`}
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="p-3">
+                    <p className="text-xs font-semibold leading-snug mb-0.5 line-clamp-2" style={{ color: 'var(--foreground)' }}>
+                      {book.title}
+                    </p>
+                    <p className="text-xs italic mb-1" style={{ color: 'var(--foreground-muted)' }}>
+                      {book.author}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--primary-bright)' }}>
+                        ₱{book.final_srp.toLocaleString()}
+                      </span>
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded-full"
+                        style={{
+                          background: book.status === 'On Hand' ? 'rgba(16,185,129,0.12)' : 'rgba(200,164,91,0.12)',
+                          color: book.status === 'On Hand' ? '#10b981' : 'var(--primary-bright)',
+                          border: `1px solid ${book.status === 'On Hand' ? 'rgba(16,185,129,0.3)' : 'rgba(200,164,91,0.3)'}`,
+                        }}
+                      >
+                        {book.status}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            ))}
           </div>
-        ) : (
-          <div
-            className="rounded-2xl p-8"
-            style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <Icon name="HeartIcon" size={20} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
-              <h2 className="font-display text-lg font-bold" style={{ color: 'var(--foreground)' }}>
-                Add to Wishlist
-              </h2>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                    Your Name <span style={{ color: 'var(--primary)' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="input-field"
-                    placeholder="Your full name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                    TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={form.tiktok}
-                    onChange={e => setForm(f => ({ ...f, tiktok: e.target.value }))}
-                    className="input-field"
-                    placeholder="@yourtiktok"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  Book Title <span style={{ color: 'var(--primary)' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.title}
-                  onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                  className="input-field"
-                  placeholder="Title of the book"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  SKU (if known)
-                </label>
-                <input
-                  type="text"
-                  value={form.sku}
-                  onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
-                  className="input-field"
-                  placeholder="e.g. RMT-010"
-                />
-              </div>
-              {error && (
-                <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>
-              )}
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary w-full py-3 text-sm"
-                style={{ opacity: loading ? 0.7 : 1 }}
-              >
-                {loading ? 'Saving...' : '♡ Add to Wishlist'}
-              </button>
-            </form>
+
+          <div className="mt-10 text-center">
+            <Link href="/shop" className="btn-secondary text-sm px-6 py-2.5 inline-block">
+              Continue Browsing
+            </Link>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

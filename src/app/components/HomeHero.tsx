@@ -46,14 +46,15 @@ export default function HomeHero({ stats }: HomeHeroProps) {
           ❧ Your Cozy Independent Bookstore ❧
         </p>
 
-        {/* Official Logo */}
+        {/* Outline Logo — white background removed via mix-blend-multiply */}
         <div className="flex justify-center mb-8">
           <AppImage
-            src="/assets/images/image-1785915949797.png"
+            src="/assets/images/ChatGPT_Image_Aug_5__2026__03_55_49_PM-1785916605536.png"
             alt="Daddee's Shelf — cozy independent bookstore logo"
             width={260}
             height={260}
             className="object-contain drop-shadow-lg"
+            style={{ mixBlendMode: 'multiply' } as React.CSSProperties}
             priority
           />
         </div>
