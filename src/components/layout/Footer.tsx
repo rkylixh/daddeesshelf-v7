@@ -61,8 +61,8 @@ export default function Footer() {
         aria-hidden="true"
       />
 
-      <div className="content-wrapper pt-20 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
+      <div className="content-wrapper pt-28 pb-24">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-10 md:gap-8">
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 mb-4">

@@ -339,16 +339,36 @@
     filter: blur(12px);
   }
 
-  /* Paper vignette — aged deckled paper edges */
+  /* Paper vignette — top and bottom only, no side rectangles */
   .paper-vignette {
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse 110% 110% at 50% 50%, transparent 42%, rgba(195,160,100,0.06) 68%, rgba(175,140,85,0.14) 100%),
+      /* Top edge warm toning */
       radial-gradient(ellipse 140% 22% at 50% 0%,   rgba(235,215,170,0.10) 0%, transparent 55%),
+      /* Bottom edge warm toning */
       radial-gradient(ellipse 140% 18% at 50% 100%, rgba(220,190,140,0.10) 0%, transparent 55%),
-      radial-gradient(ellipse 18% 140% at 0%   50%, rgba(230,205,155,0.08) 0%, transparent 55%),
-      radial-gradient(ellipse 16% 140% at 100% 50%, rgba(225,200,150,0.07) 0%, transparent 55%);
+      /* Very subtle outer corner darkening — no visible rectangles */
+      radial-gradient(ellipse 120% 120% at 50% 50%, transparent 55%, rgba(175,140,85,0.07) 100%);
+  }
+
+  /* Deckled / ragged torn-paper edges — left and right sides */
+  .deckled-edge {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 48px;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .deckled-left {
+    left: 0;
+  }
+
+  .deckled-right {
+    right: 0;
+    transform: scaleX(-1);
   }
 
   /* Floating dust motes — golden particles drifting slowly */

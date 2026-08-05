@@ -33,6 +33,33 @@ function generateParticles() {
 
 const { motes, petals } = generateParticles();
 
+// Deterministic ragged edge points for left side (torn paper / deckled edge)
+// These are x,y pairs where x is the inward bite (0=edge, positive=inward)
+// and y is the vertical position as a percentage of height
+const LEFT_EDGE_POINTS = [
+  [0,0],[18,3],[8,7],[22,11],[5,15],[16,19],[10,23],[24,27],[6,31],[19,35],
+  [11,39],[23,43],[7,47],[17,51],[9,55],[21,59],[4,63],[18,67],[12,71],[25,75],
+  [8,79],[20,83],[6,87],[15,91],[10,95],[0,100]
+];
+
+const RIGHT_EDGE_POINTS = [
+  [0,0],[14,4],[6,8],[20,12],[9,16],[17,20],[5,24],[22,28],[11,32],[16,36],
+  [7,40],[21,44],[4,48],[18,52],[10,56],[23,60],[8,64],[15,68],[12,72],[19,76],
+  [6,80],[22,84],[9,88],[17,92],[5,96],[0,100]
+];
+
+function buildRaggedPath(points: number[][], side: 'left' | 'right', width: number): string {
+  // Build an SVG path for a ragged torn-paper edge
+  // The path covers the outer strip and has an organic inner edge
+  if (side === 'left') {
+    const inner = points.map(([x, y]) => `${x},${y}`).join(' L ');
+    return `M 0,0 L ${inner} L 0,100 Z`;
+  } else {
+    const inner = points.map(([x, y]) => `${width - x},${y}`).join(' L ');
+    return `M ${width},0 L ${inner} L ${width},100 Z`;
+  }
+}
+
 export default function StarField() {
   return (
     <div className="parchment-bg" aria-hidden="true">
@@ -48,8 +75,62 @@ export default function StarField() {
       {/* ── Honey-gold center warmth ── */}
       <div className="center-warmth" />
 
-      {/* ── Soft vignette edges — aged paper feel ── */}
+      {/* ── Soft top/bottom vignette only — no side rectangles ── */}
       <div className="paper-vignette" />
+
+      {/* ── Ragged deckled left edge — torn aged paper ── */}
+      <svg
+        className="deckled-edge deckled-left"
+        viewBox="0 0 30 100"
+        preserveAspectRatio="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <linearGradient id="leftEdgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#C8A060" stopOpacity="0.22" />
+            <stop offset="40%" stopColor="#D4AA70" stopOpacity="0.10" />
+            <stop offset="100%" stopColor="#D4AA70" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* Torn paper shadow/depth */}
+        <path
+          d="M 0,0 L 20,3 L 9,7 L 23,11 L 6,15 L 17,19 L 11,23 L 25,27 L 7,31 L 20,35 L 12,39 L 24,43 L 8,47 L 18,51 L 10,55 L 22,59 L 5,63 L 19,67 L 13,71 L 26,75 L 9,79 L 21,83 L 7,87 L 16,91 L 11,95 L 0,100 Z"
+          fill="url(#leftEdgeGrad)"
+        />
+        {/* Subtle inner shadow line for depth */}
+        <path
+          d="M 20,3 L 9,7 L 23,11 L 6,15 L 17,19 L 11,23 L 25,27 L 7,31 L 20,35 L 12,39 L 24,43 L 8,47 L 18,51 L 10,55 L 22,59 L 5,63 L 19,67 L 13,71 L 26,75 L 9,79 L 21,83 L 7,87 L 16,91 L 11,95"
+          fill="none"
+          stroke="rgba(160,110,50,0.12)"
+          strokeWidth="0.5"
+        />
+      </svg>
+
+      {/* ── Ragged deckled right edge — torn aged paper ── */}
+      <svg
+        className="deckled-edge deckled-right"
+        viewBox="0 0 30 100"
+        preserveAspectRatio="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <linearGradient id="rightEdgeGrad" x1="100%" y1="0%" x2="0%" y2="0%">
+            <stop offset="0%" stopColor="#C8A060" stopOpacity="0.22" />
+            <stop offset="40%" stopColor="#D4AA70" stopOpacity="0.10" />
+            <stop offset="100%" stopColor="#D4AA70" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M 30,0 L 16,4 L 24,8 L 10,12 L 21,16 L 13,20 L 25,24 L 8,28 L 19,32 L 14,36 L 23,40 L 9,44 L 26,48 L 12,52 L 20,56 L 7,60 L 22,64 L 15,68 L 18,72 L 11,76 L 24,80 L 8,84 L 21,88 L 13,92 L 25,96 L 30,100 Z"
+          fill="url(#rightEdgeGrad)"
+        />
+        <path
+          d="M 16,4 L 24,8 L 10,12 L 21,16 L 13,20 L 25,24 L 8,28 L 19,32 L 14,36 L 23,40 L 9,44 L 26,48 L 12,52 L 20,56 L 7,60 L 22,64 L 15,68 L 18,72 L 11,76 L 24,80 L 8,84 L 21,88 L 13,92 L 25,96"
+          fill="none"
+          stroke="rgba(160,110,50,0.12)"
+          strokeWidth="0.5"
+        />
+      </svg>
 
       {/* ── Floating dust motes ── */}
       {motes.map(mote => (
