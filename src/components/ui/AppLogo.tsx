@@ -24,7 +24,6 @@ const AppLogo = memo(function AppLogo({ size = 64, className = '', onClick, vari
         width={size}
         height={size}
         className="object-contain"
-        style={{ mixBlendMode: 'multiply' }}
         priority
       />
     </div>
