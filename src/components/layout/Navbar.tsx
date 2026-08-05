@@ -478,7 +478,7 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
 // ── Nav Search with Admin Trigger ─────────────────────────
 const ADMIN_TRIGGER = '1DS-ADMIN***';
 
-function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
+const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
@@ -607,9 +607,9 @@ function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
       )}
     </div>
   );
-}
+});
 
-function MobileNavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
+const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
@@ -692,7 +692,7 @@ function MobileNavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
       )}
     </div>
   );
-}
+});
 
 // ── Nav Links (no admin) ───────────────────────────────────
 const NAV_LINKS = [
