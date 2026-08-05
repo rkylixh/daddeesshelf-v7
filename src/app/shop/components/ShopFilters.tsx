@@ -7,14 +7,29 @@ interface Props {
   filters: BookFilters;
   genres: string[];
   formats: string[];
+  authors: string[];
   onFilterChange: (key: keyof BookFilters, value: string) => void;
+  onPriceChange: (min: string, max: string) => void;
   onClear: () => void;
   activeCount: number;
+  priceMin: string;
+  priceMax: string;
 }
 
 const STATUSES = ['Pre-order', 'On Hand', 'Sold Out'];
 
-export default function ShopFilters({ filters, genres, formats, onFilterChange, onClear, activeCount }: Props) {
+export default function ShopFilters({
+  filters,
+  genres,
+  formats,
+  authors,
+  onFilterChange,
+  onPriceChange,
+  onClear,
+  activeCount,
+  priceMin,
+  priceMax,
+}: Props) {
   return (
     <div
       className="rounded-xl p-4 space-y-5 sticky top-20"
@@ -48,6 +63,23 @@ export default function ShopFilters({ filters, genres, formats, onFilterChange, 
           <option value="">All Genres</option>
           {genres.map(g => (
             <option key={`filter-genre-${g}`} value={g}>{g}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Author */}
+      <div>
+        <label className="block text-xs font-medium mb-2" style={{ color: 'var(--foreground-muted)' }}>
+          Author
+        </label>
+        <select
+          value={filters.author ?? ''}
+          onChange={e => onFilterChange('author', e.target.value)}
+          className="select-field text-sm py-2 w-full"
+        >
+          <option value="">All Authors</option>
+          {authors.map(a => (
+            <option key={`filter-author-${a}`} value={a}>{a}</option>
           ))}
         </select>
       </div>
@@ -105,18 +137,32 @@ export default function ShopFilters({ filters, genres, formats, onFilterChange, 
         </div>
       </div>
 
-      {/* Series */}
+      {/* Price Range */}
       <div>
         <label className="block text-xs font-medium mb-2" style={{ color: 'var(--foreground-muted)' }}>
-          Series
+          Price Range (₱)
         </label>
-        <input
-          type="text"
-          placeholder="Filter by series..."
-          value={filters.series}
-          onChange={e => onFilterChange('series', e.target.value)}
-          className="input-field text-sm py-2"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="0"
+            placeholder="Min"
+            value={priceMin}
+            onChange={e => onPriceChange(e.target.value, priceMax)}
+            className="input-field text-sm py-2 w-full"
+            style={{ minWidth: 0 }}
+          />
+          <span className="text-xs flex-shrink-0" style={{ color: 'var(--foreground-subtle)' }}>–</span>
+          <input
+            type="number"
+            min="0"
+            placeholder="Max"
+            value={priceMax}
+            onChange={e => onPriceChange(priceMin, e.target.value)}
+            className="input-field text-sm py-2 w-full"
+            style={{ minWidth: 0 }}
+          />
+        </div>
       </div>
     </div>
   );

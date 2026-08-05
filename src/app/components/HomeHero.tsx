@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-
 import AppLogo from '@/components/ui/AppLogo';
 
 interface SiteStats {
@@ -18,19 +17,19 @@ interface HomeHeroProps {
 export default function HomeHero({ stats }: HomeHeroProps) {
   return (
     <section className="relative min-h-[90vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
-      {/* Radial glow behind hero */}
+      {/* Warm candlelight glow behind hero */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(139,92,246,0.18) 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 40%, rgba(184,134,11,0.12) 0%, rgba(139,69,19,0.06) 40%, transparent 70%)' }}
         aria-hidden="true"
       />
-      {/* Decorative stars */}
-      <div className="absolute top-20 left-1/4 text-2xl animate-float" style={{ color: 'var(--primary)', animationDelay: '0s' }} aria-hidden="true">✦</div>
-      <div className="absolute top-32 right-1/4 text-sm animate-float" style={{ color: 'var(--accent-light)', animationDelay: '1s' }} aria-hidden="true">✧</div>
-      <div className="absolute bottom-32 left-1/3 text-lg animate-float" style={{ color: 'var(--primary-bright)', animationDelay: '2s' }} aria-hidden="true">✤</div>
-      <div className="absolute bottom-20 right-1/3 text-xl animate-float" style={{ color: 'var(--accent)', animationDelay: '0.5s' }} aria-hidden="true">★</div>
-      <div className="absolute top-1/2 left-10 text-xs animate-float" style={{ color: 'var(--primary)', animationDelay: '1.5s' }} aria-hidden="true">✦</div>
-      <div className="absolute top-1/3 right-10 text-base animate-float" style={{ color: 'var(--accent-light)', animationDelay: '0.8s' }} aria-hidden="true">✧</div>
+      {/* Warm decorative accents — bookshelf / library motifs */}
+      <div className="absolute top-20 left-1/4 text-2xl animate-float" style={{ color: 'var(--primary)', animationDelay: '0s', opacity: 0.5 }} aria-hidden="true">✦</div>
+      <div className="absolute top-32 right-1/4 text-sm animate-float" style={{ color: 'var(--accent-light)', animationDelay: '1s', opacity: 0.4 }} aria-hidden="true">✧</div>
+      <div className="absolute bottom-32 left-1/3 text-lg animate-float" style={{ color: 'var(--primary-bright)', animationDelay: '2s', opacity: 0.35 }} aria-hidden="true">✤</div>
+      <div className="absolute bottom-20 right-1/3 text-xl animate-float" style={{ color: 'var(--accent)', animationDelay: '0.5s', opacity: 0.3 }} aria-hidden="true">★</div>
+      <div className="absolute top-1/2 left-10 text-xs animate-float" style={{ color: 'var(--primary)', animationDelay: '1.5s', opacity: 0.4 }} aria-hidden="true">✦</div>
+      <div className="absolute top-1/3 right-10 text-base animate-float" style={{ color: 'var(--accent-light)', animationDelay: '0.8s', opacity: 0.35 }} aria-hidden="true">✧</div>
 
       {/* Hero content */}
       <div className="relative z-10 max-w-3xl mx-auto animate-fade-in-up">
@@ -52,7 +51,7 @@ export default function HomeHero({ stats }: HomeHeroProps) {
           all delivered to your door.
         </p>
 
-        {/* Dynamic Stats — no preorder count per Master Appendix */}
+        {/* Dynamic Stats */}
         {stats && (
           <div className="grid grid-cols-3 gap-4 max-w-xl mx-auto">
             {[
@@ -63,7 +62,11 @@ export default function HomeHero({ stats }: HomeHeroProps) {
               <div
                 key={stat.label}
                 className="rounded-xl p-3 text-center"
-                style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}
+                style={{
+                  background: 'rgba(184,134,11,0.08)',
+                  border: '1px solid rgba(184,134,11,0.2)',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                }}
               >
                 <p className="font-display text-xl font-bold" style={{ color: 'var(--primary-bright)' }}>{stat.value}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-subtle)' }}>{stat.label}</p>

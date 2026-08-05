@@ -80,7 +80,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
       <button
         onClick={prev}
         className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center -translate-x-4 hidden sm:flex"
-        style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: 'var(--primary-bright)' }}
+        style={{ background: 'rgba(184,134,11,0.2)', border: '1px solid rgba(184,134,11,0.4)', color: 'var(--primary-bright)' }}
         aria-label="Previous"
       >
         <Icon name="ChevronLeftIcon" size={18} />
@@ -109,7 +109,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
                   />
                   {book.status === 'Pre-order' && (
                     <div className="absolute top-2 left-2">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.9)', color: '#fff' }}>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(184,134,11,0.9)', color: '#1a1008' }}>
                         Preorder
                       </span>
                     </div>
@@ -130,7 +130,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
       <button
         onClick={next}
         className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full flex items-center justify-center translate-x-4 hidden sm:flex"
-        style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.4)', color: 'var(--primary-bright)' }}
+        style={{ background: 'rgba(184,134,11,0.2)', border: '1px solid rgba(184,134,11,0.4)', color: 'var(--primary-bright)' }}
         aria-label="Next"
       >
         <Icon name="ChevronRightIcon" size={18} />
@@ -326,8 +326,8 @@ export default function HomePage() {
                   <div
                     className="rounded-2xl p-6 mb-8"
                     style={{
-                      background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(79,70,229,0.08))',
-                      border: '1px solid rgba(139,92,246,0.3)',
+                      background: 'linear-gradient(135deg, rgba(184,134,11,0.1), rgba(139,69,19,0.07))',
+                      border: '1px solid rgba(184,134,11,0.3)',
                     }}
                   >
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -424,7 +424,7 @@ export default function HomePage() {
                   >
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3"
-                      style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}
+                      style={{ background: 'rgba(184,134,11,0.15)', border: '1px solid rgba(184,134,11,0.3)' }}
                     >
                       <span className="font-display text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>{item.step}</span>
                     </div>
@@ -517,14 +517,14 @@ function FAQPreview() {
         <div
           key={i}
           className="rounded-xl overflow-hidden"
-          style={{ background: 'var(--background-card)', border: `1px solid ${openIdx === i ? 'rgba(139,92,246,0.4)' : 'var(--border)'}` }}
+          style={{ background: 'var(--background-card)', border: `1px solid ${openIdx === i ? 'rgba(184,134,11,0.4)' : 'var(--border)'}` }}
         >
           <button
             onClick={() => setOpenIdx(openIdx === i ? null : i)}
             className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
           >
             <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{faq.question}</span>
-            <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: openIdx === i ? 'rgba(139,92,246,0.2)' : 'var(--muted)', color: 'var(--primary-bright)' }}>
+            <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: openIdx === i ? 'rgba(184,134,11,0.2)' : 'var(--muted)', color: 'var(--primary-bright)' }}>
               <Icon name={openIdx === i ? 'ChevronUpIcon' : 'ChevronDownIcon'} size={14} />
             </span>
           </button>

@@ -244,7 +244,7 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
     >
       <div
         className="relative w-full max-w-sm rounded-2xl animate-fade-in-up"
-        style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.4)', boxShadow: '0 8px 40px rgba(139,92,246,0.2)' }}
+        style={{ background: 'var(--background-card)', border: '1px solid rgba(184,134,11,0.4)', boxShadow: '0 8px 40px rgba(184,134,11,0.15)' }}
       >
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-2">
@@ -424,7 +424,7 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
                 <div
                   key={item.book.id}
                   className="flex items-center gap-3 rounded-xl p-3"
-                  style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid var(--border)' }}
+                  style={{ background: 'rgba(184,134,11,0.05)', border: '1px solid var(--border)' }}
                 >
                   <div className="flex-shrink-0 w-10 h-14 rounded overflow-hidden" style={{ background: 'var(--muted)' }}>
                     <AppImage src={item.book.cover_url || '/assets/images/no_image.png'} alt={`Cover of ${item.book.title}`} width={40} height={56} className="w-full h-full object-cover" />
@@ -701,7 +701,6 @@ const NAV_LINKS = [
   { label: 'Collections', href: '/collections' },
   { label: 'Wishlist', href: '/wishlist' },
   { label: 'My Orders', href: '/orders' },
-  { label: 'My Queries', href: '/my-queries' },
   { label: 'FAQs', href: '/faqs' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
@@ -731,9 +730,10 @@ export default function Navbar() {
       <nav
         className="fixed top-0 left-0 right-0 z-40"
         style={{
-          background: 'linear-gradient(180deg, rgba(10,10,15,0.98) 0%, rgba(10,10,15,0.92) 100%)',
+          background: 'linear-gradient(180deg, rgba(20,12,4,0.98) 0%, rgba(20,12,4,0.94) 100%)',
           backdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--border)',
+          boxShadow: '0 2px 20px rgba(0,0,0,0.4)',
         }}
       >
         <div className="content-wrapper">

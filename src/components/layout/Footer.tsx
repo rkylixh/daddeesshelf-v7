@@ -49,10 +49,10 @@ export default function Footer() {
   return (
     <footer
       className="relative z-10 mt-24"
-      style={{ borderTop: '1px solid var(--border)', background: 'rgba(10,10,15,0.95)' }}
+      style={{ borderTop: '1px solid var(--border)', background: 'rgba(15,9,3,0.97)' }}
     >
       <div className="content-wrapper py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
@@ -82,7 +82,7 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--foreground-subtle)' }}>
+            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--foreground-subtle)', letterSpacing: '0.12em' }}>
               Browse
             </h4>
             <div className="flex flex-col gap-2">
@@ -96,7 +96,7 @@ export default function Footer() {
 
           {/* Account */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--foreground-subtle)' }}>
+            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--foreground-subtle)', letterSpacing: '0.12em' }}>
               Account
             </h4>
             <div className="flex flex-col gap-2">
@@ -110,7 +110,7 @@ export default function Footer() {
 
           {/* Support */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--foreground-subtle)' }}>
+            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--foreground-subtle)', letterSpacing: '0.12em' }}>
               Support
             </h4>
             <div className="flex flex-col gap-2">
@@ -127,6 +127,36 @@ export default function Footer() {
               <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
                 Online only · Philippines
               </p>
+            </div>
+          </div>
+
+          {/* Shipping Information */}
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--foreground-subtle)', letterSpacing: '0.12em' }}>
+              Shipping
+            </h4>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold" style={{ color: 'var(--primary-bright)' }}>
+                Nationwide Shipping Available
+              </p>
+              <div className="space-y-1.5">
+                <p className="text-xs flex items-start gap-1.5" style={{ color: 'var(--foreground-muted)', lineHeight: '1.5' }}>
+                  <span style={{ color: 'var(--primary)', flexShrink: 0 }}>✦</span>
+                  Metro Manila via Lalamove
+                </p>
+                <p className="text-xs flex items-start gap-1.5" style={{ color: 'var(--foreground-muted)', lineHeight: '1.5' }}>
+                  <span style={{ color: 'var(--primary)', flexShrink: 0 }}>✦</span>
+                  Provincial via J&amp;T Express
+                </p>
+                <p className="text-xs flex items-start gap-1.5" style={{ color: 'var(--foreground-muted)', lineHeight: '1.5' }}>
+                  <span style={{ color: 'var(--primary)', flexShrink: 0 }}>✦</span>
+                  Fees collected once books arrive
+                </p>
+                <p className="text-xs flex items-start gap-1.5" style={{ color: 'var(--foreground-subtle)', lineHeight: '1.5' }}>
+                  <span style={{ flexShrink: 0 }}>ℹ</span>
+                  ETA dates are tentative and subject to international shipping &amp; customs
+                </p>
+              </div>
             </div>
           </div>
         </div>

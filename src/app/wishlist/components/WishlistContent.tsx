@@ -56,7 +56,7 @@ export default function WishlistContent() {
         {submitted ? (
           <div
             className="rounded-2xl p-10 text-center"
-            style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.3)' }}
+            style={{ background: 'rgba(184,134,11,0.08)', border: '1px solid rgba(184,134,11,0.3)' }}
           >
             <span className="text-5xl mb-6 block" aria-hidden="true">♡</span>
             <h2 className="font-display text-2xl font-bold mb-3" style={{ color: 'var(--primary-bright)' }}>
@@ -86,7 +86,7 @@ export default function WishlistContent() {
             <div className="flex items-center gap-3 mb-6">
               <Icon name="HeartIcon" size={20} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
               <h2 className="font-display text-lg font-bold" style={{ color: 'var(--foreground)' }}>
-                Join the Waitlist
+                Add to Wishlist
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">

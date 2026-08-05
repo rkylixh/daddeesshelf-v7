@@ -16,6 +16,7 @@ export default function ShopContent() {
   const searchParams = useSearchParams();
   const [allBooks, setAllBooks] = useState<Book[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
+  const [authors, setAuthors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [filters, setFilters] = useState<BookFilters>({
@@ -26,6 +27,9 @@ export default function ShopContent() {
     status: '',
     series: '',
   });
+  const [authorFilter, setAuthorFilter] = useState('');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
   const [sort, setSort] = useState<'title-asc' | 'price-asc' | 'price-desc' | 'newest'>('newest');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -37,6 +41,9 @@ export default function ShopContent() {
       const [books, genreList] = await Promise.all([getBooks(), getDistinctGenres()]);
       setAllBooks(books);
       setGenres(genreList);
+      // Build sorted unique author list
+      const uniqueAuthors = [...new Set(books.map(b => b.author).filter(Boolean))].sort();
+      setAuthors(uniqueAuthors);
       setLoading(false);
     }
     load();
@@ -60,7 +67,13 @@ export default function ShopContent() {
     if (filters.subgenre) books = books.filter(b => b.subgenre === filters.subgenre);
     if (filters.format) books = books.filter(b => b.format === filters.format);
     if (filters.status) books = books.filter(b => b.status === filters.status);
-    if (filters.series) books = books.filter(b => b.series.toLowerCase().includes(filters.series.toLowerCase()));
+    // Author filter
+    if (authorFilter) books = books.filter(b => b.author === authorFilter);
+    // Price range filter
+    const minVal = priceMin !== '' ? Number(priceMin) : null;
+    const maxVal = priceMax !== '' ? Number(priceMax) : null;
+    if (minVal !== null && !isNaN(minVal)) books = books.filter(b => b.final_srp >= minVal);
+    if (maxVal !== null && !isNaN(maxVal)) books = books.filter(b => b.final_srp <= maxVal);
 
     if (sort === 'title-asc') books.sort((a, b) => a.title.localeCompare(b.title));
     else if (sort === 'price-asc') books.sort((a, b) => a.final_srp - b.final_srp);
@@ -68,22 +81,39 @@ export default function ShopContent() {
     else books.sort((a, b) => (a.batch ?? '').localeCompare(b.batch ?? ''));
 
     return books;
-  }, [allBooks, filters, sort]);
+  }, [allBooks, filters, sort, authorFilter, priceMin, priceMax]);
 
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const handleFilterChange = (key: keyof BookFilters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    if (key === 'author') {
+      setAuthorFilter(value);
+    } else {
+      setFilters(prev => ({ ...prev, [key]: value }));
+    }
+    setPage(1);
+  };
+
+  const handlePriceChange = (min: string, max: string) => {
+    setPriceMin(min);
+    setPriceMax(max);
     setPage(1);
   };
 
   const clearFilters = () => {
     setFilters({ search: '', genre: '', subgenre: '', format: '', status: '', series: '' });
+    setAuthorFilter('');
+    setPriceMin('');
+    setPriceMax('');
     setPage(1);
   };
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const activeFilterCount =
+    Object.values(filters).filter(Boolean).length +
+    (authorFilter ? 1 : 0) +
+    (priceMin ? 1 : 0) +
+    (priceMax ? 1 : 0);
 
   if (loading) {
     return (
@@ -112,18 +142,22 @@ export default function ShopContent() {
           className={`flex-shrink-0 transition-all duration-300 ${filtersOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 overflow-hidden'} lg:w-56 lg:opacity-100 lg:block`}
         >
           <ShopFilters
-            filters={filters}
+            filters={{ ...filters, author: authorFilter }}
             genres={genres}
             formats={FORMATS}
+            authors={authors}
             onFilterChange={handleFilterChange}
+            onPriceChange={handlePriceChange}
             onClear={clearFilters}
             activeCount={activeFilterCount}
+            priceMin={priceMin}
+            priceMax={priceMax}
           />
         </aside>
 
         {/* Main content */}
         <div className="flex-1 min-w-0">
-          <BookGrid books={paginated} emptyMessage="No books match your current filters. Try clearing some filters or broadening your search." />
+          <BookGrid books={paginated} showQuickAdd emptyMessage="No books match your current filters. Try clearing some filters or broadening your search." />
           {filtered.length > 0 && (
             <ShopPagination
               page={page}

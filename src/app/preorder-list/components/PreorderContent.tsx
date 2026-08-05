@@ -98,8 +98,8 @@ function SuccessOverlay({ data, onClose }: { data: ConfirmationData; onClose: ()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
-      <div className="relative w-full max-w-lg rounded-2xl overflow-hidden animate-fade-in-up" style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div className="px-6 py-5 text-center" style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(79,70,229,0.15))', borderBottom: '1px solid rgba(139,92,246,0.3)' }}>
+      <div className="relative w-full max-w-lg rounded-2xl overflow-hidden animate-fade-in-up" style={{ background: 'var(--background-card)', border: '1px solid rgba(184,134,11,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="px-6 py-5 text-center" style={{ background: 'linear-gradient(135deg, rgba(184,134,11,0.15), rgba(139,69,19,0.1))', borderBottom: '1px solid rgba(184,134,11,0.3)' }}>
           <div className="text-4xl mb-2" aria-hidden="true">✓</div>
           <h2 className="font-display text-xl font-bold" style={{ color: 'var(--primary-bright)' }}>Preorder Successfully Submitted</h2>
           <p className="text-xs mt-1" style={{ color: 'var(--foreground-muted)' }}>
@@ -108,7 +108,7 @@ function SuccessOverlay({ data, onClose }: { data: ConfirmationData; onClose: ()
         </div>
 
         <div className="p-6 space-y-4">
-          <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }}>
+          <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(184,134,11,0.08)', border: '1px solid rgba(184,134,11,0.25)' }}>
             <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--foreground-subtle)', letterSpacing: '0.15em' }}>Order Reference Number</p>
             <p className="font-display text-2xl font-bold" style={{ color: 'var(--primary-bright)' }}>{data.order_ref}</p>
           </div>
@@ -293,9 +293,9 @@ function PreorderFormModal({
           </button>
         </div>
 
-        {/* Order summary */}
-        <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--border)', background: 'rgba(139,92,246,0.04)' }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--foreground-subtle)' }}>Preorder Summary</p>
+        {/* Order summary — only shows items in the cart */}
+        <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--border)', background: 'rgba(184,134,11,0.04)' }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--foreground-subtle)' }}>Your Cart ({items.length} {items.length === 1 ? 'title' : 'titles'})</p>
           {items.map((item, i) => (
             <div key={i} className="flex justify-between text-xs mb-1">
               <span style={{ color: 'var(--foreground-muted)' }}>{item.book.title} × {item.qty}</span>
@@ -400,7 +400,7 @@ function PreorderFormModal({
             />
           </div>
 
-          <div className="rounded-xl p-3" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
+          <div className="rounded-xl p-3" style={{ background: 'rgba(184,134,11,0.06)', border: '1px solid rgba(184,134,11,0.2)' }}>
             <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
               <strong style={{ color: 'var(--primary-bright)' }}>Note:</strong> Shipping details will be collected after your books arrive. Supported couriers: J&T Express (Nationwide) and Lalamove (Metro Manila / Nearby Areas).
             </p>
@@ -555,7 +555,7 @@ export default function PreorderContent() {
         {preorderList.length > 0 && (
           <div
             className="flex items-center gap-3 rounded-xl px-4 py-2.5"
-            style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)' }}
+            style={{ background: 'rgba(184,134,11,0.1)', border: '1px solid rgba(184,134,11,0.3)' }}
           >
             <div>
               <p className="text-xs font-semibold" style={{ color: 'var(--primary-bright)' }}>
@@ -599,7 +599,7 @@ export default function PreorderContent() {
                     <div className="flex items-center gap-2 mb-1">
                       <h2 className="font-display text-xl font-bold" style={{ color: 'var(--foreground)' }}>{batchName}</h2>
                       {isActive && (
-                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.2)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.4)' }}>
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full" style={{ background: 'rgba(184,134,11,0.2)', color: 'var(--primary-bright)', border: '1px solid rgba(184,134,11,0.4)' }}>
                           ✦ Active
                         </span>
                       )}
@@ -678,7 +678,7 @@ export default function PreorderContent() {
                   // Future batch: name + ETA only, no covers/prices/preorder
                   <div
                     className="rounded-xl p-6 text-center"
-                    style={{ background: 'rgba(139,92,246,0.04)', border: '1px dashed rgba(139,92,246,0.2)' }}
+                    style={{ background: 'rgba(184,134,11,0.04)', border: '1px dashed rgba(184,134,11,0.2)' }}
                   >
                     <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
                       This batch will open for preorder once the current batch has substantially sold.

@@ -1,36 +1,67 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
 import StatusBadge from './StatusBadge';
 import Icon from '@/components/ui/AppIcon';
 import { Book } from '@/lib/types';
+import { CartContext } from '@/components/layout/Navbar';
+
+const WISHLIST_KEY = 'ds-wishlist';
 
 interface BookCardProps {
   book: Book;
   href?: string;
+  showQuickAdd?: boolean;
 }
 
-export default function BookCard({ book, href }: BookCardProps) {
+export default function BookCard({ book, href, showQuickAdd = false }: BookCardProps) {
   const [wishlisted, setWishlisted] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
+  const { addItem } = useContext(CartContext);
   const detailHref = href ?? `/book-detail?id=${book.id}`;
+
+  // Load wishlist state from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(WISHLIST_KEY) || '[]') as string[];
+      setWishlisted(stored.includes(book.id));
+    } catch {
+      // ignore
+    }
+  }, [book.id]);
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
-    setWishlisted(w => !w);
-    // BACKEND INTEGRATION POINT: persist wishlist to localStorage
-    const key = 'ds-wishlist';
-    const stored = JSON.parse(localStorage.getItem(key) || '[]') as string[];
-    const updated = wishlisted
-      ? stored.filter(id => id !== book.id)
-      : [...stored, book.id];
-    localStorage.setItem(key, JSON.stringify(updated));
+    e.stopPropagation();
+    try {
+      const stored = JSON.parse(localStorage.getItem(WISHLIST_KEY) || '[]') as string[];
+      const isCurrentlyWishlisted = stored.includes(book.id);
+      const updated = isCurrentlyWishlisted
+        ? stored.filter(id => id !== book.id)
+        : [...stored, book.id];
+      localStorage.setItem(WISHLIST_KEY, JSON.stringify(updated));
+      setWishlisted(!isCurrentlyWishlisted);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleQuickAdd = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addItem(book);
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 1800);
   };
 
   return (
     <Link href={detailHref} className="block group">
-      <div className="card-glow rounded-xl overflow-hidden" style={{ background: 'var(--background-card)' }}>
+      <div
+        className="card-glow rounded-xl overflow-hidden"
+        style={{ background: 'var(--background-card)' }}
+      >
         {/* Cover */}
         <div className="relative aspect-[2/3] overflow-hidden">
           <AppImage
@@ -45,13 +76,17 @@ export default function BookCard({ book, href }: BookCardProps) {
             onClick={handleWishlist}
             aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
             className="absolute top-2 right-2 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200"
-            style={{ background: 'rgba(10,10,15,0.8)', backdropFilter: 'blur(4px)', border: '1px solid var(--border)' }}
+            style={{
+              background: 'rgba(26,16,8,0.85)',
+              backdropFilter: 'blur(4px)',
+              border: `1px solid ${wishlisted ? 'rgba(184,134,11,0.6)' : 'var(--border)'}`,
+            }}
           >
             <Icon
               name="HeartIcon"
               size={16}
               variant={wishlisted ? 'solid' : 'outline'}
-              style={{ color: wishlisted ? '#8b5cf6' : 'var(--foreground-muted)' } as React.CSSProperties}
+              style={{ color: wishlisted ? 'var(--primary-bright)' : 'var(--foreground-muted)' } as React.CSSProperties}
             />
           </button>
           {/* Status overlay */}
@@ -92,6 +127,23 @@ export default function BookCard({ book, href }: BookCardProps) {
               </span>
             )}
           </div>
+
+          {/* Quick Add to Cart */}
+          {showQuickAdd && (
+            <button
+              onClick={handleQuickAdd}
+              className="mt-2 w-full text-xs py-1.5 rounded-lg font-semibold transition-all duration-200"
+              style={{
+                background: addedToCart
+                  ? 'rgba(90,138,74,0.2)'
+                  : 'rgba(184,134,11,0.12)',
+                color: addedToCart ? 'var(--status-onhand)' : 'var(--primary-bright)',
+                border: `1px solid ${addedToCart ? 'rgba(90,138,74,0.4)' : 'rgba(184,134,11,0.3)'}`,
+              }}
+            >
+              {addedToCart ? '✓ Added to Cart' : '+ Add to Cart'}
+            </button>
+          )}
         </div>
       </div>
     </Link>
