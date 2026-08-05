@@ -61,11 +61,11 @@ export default function Footer() {
         aria-hidden="true"
       />
 
-      <div className="content-wrapper pt-12 pb-16">
+      <div className="content-wrapper pt-20 pb-20">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="md:col-span-1">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-4">
               <AppImage
                 src="/assets/images/Untitled_design__7_-1785917477724.png"
                 alt="Daddee's Shelf logo"
@@ -77,11 +77,11 @@ export default function Footer() {
                 Daddee&apos;s Shelf
               </span>
             </div>
-            <p className="text-sm font-serif" style={{ color: 'rgba(247,239,229,0.6)', lineHeight: '1.7' }}>
+            <p className="text-sm font-serif" style={{ color: 'rgba(247,239,229,0.6)', lineHeight: '1.8' }}>
               Your cozy corner for pre-loved and pre-ordered books. Making books accessible to Filipino readers.
             </p>
             {/* TikTok only — Facebook and Instagram are hidden until re-enabled via Admin Dashboard */}
-            <div className="flex gap-3 mt-4">
+            <div className="flex gap-3 mt-5">
               <a
                 href="https://tiktok.com/@daddees.shelf"
                 target="_blank"
@@ -102,10 +102,10 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(200,164,91,0.7)', letterSpacing: '0.12em' }}>
+            <h4 className="text-xs font-semibold uppercase tracking-widest mb-5" style={{ color: 'rgba(200,164,91,0.7)', letterSpacing: '0.12em' }}>
               Browse
             </h4>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {FOOTER_BROWSE_LINKS.filter(isValidLink).map(link => (
                 <Link
                   key={`footer-browse-${link.href}`}
@@ -121,10 +121,10 @@ export default function Footer() {
 
           {/* Account */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(200,164,91,0.7)', letterSpacing: '0.12em' }}>
+            <h4 className="text-xs font-semibold uppercase tracking-widest mb-5" style={{ color: 'rgba(200,164,91,0.7)', letterSpacing: '0.12em' }}>
               Account
             </h4>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {FOOTER_ACCOUNT_LINKS.filter(isValidLink).map(link => (
                 <Link
                   key={`footer-account-${link.href}`}
@@ -140,10 +140,10 @@ export default function Footer() {
 
           {/* Support */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(200,164,91,0.7)', letterSpacing: '0.12em' }}>
+            <h4 className="text-xs font-semibold uppercase tracking-widest mb-5" style={{ color: 'rgba(200,164,91,0.7)', letterSpacing: '0.12em' }}>
               Support
             </h4>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {FOOTER_SUPPORT_LINKS.filter(isValidLink).map(link => (
                 <Link
                   key={`footer-support-${link.href}`}
@@ -155,7 +155,7 @@ export default function Footer() {
                 </Link>
               ))}
             </div>
-            <div className="mt-4">
+            <div className="mt-5">
               <p className="text-xs" style={{ color: 'rgba(247,239,229,0.35)' }}>Mon–Sat · 9AM–6PM</p>
               <p className="text-xs mt-1" style={{ color: 'rgba(247,239,229,0.35)' }}>Online only · Philippines</p>
             </div>
@@ -163,14 +163,14 @@ export default function Footer() {
 
           {/* Shipping Information */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(200,164,91,0.7)', letterSpacing: '0.12em' }}>
+            <h4 className="text-xs font-semibold uppercase tracking-widest mb-5" style={{ color: 'rgba(200,164,91,0.7)', letterSpacing: '0.12em' }}>
               Shipping
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="text-xs font-semibold" style={{ color: 'var(--primary)' }}>
                 Nationwide Shipping Available
               </p>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <p className="text-xs flex items-start gap-1.5" style={{ color: 'rgba(247,239,229,0.55)', lineHeight: '1.5' }}>
                   <span style={{ color: 'var(--primary)', flexShrink: 0 }}>❧</span>
                   Metro Manila via Lalamove
@@ -193,7 +193,7 @@ export default function Footer() {
         </div>
 
         {/* Decorative divider */}
-        <div className="mt-10 mb-6 flex items-center gap-4">
+        <div className="mt-12 mb-8 flex items-center gap-4">
           <div className="flex-1 h-px" style={{ background: 'rgba(200,164,91,0.2)' }} />
           <span className="text-sm" style={{ color: 'rgba(200,164,91,0.4)' }}>❧</span>
           <div className="flex-1 h-px" style={{ background: 'rgba(200,164,91,0.2)' }} />

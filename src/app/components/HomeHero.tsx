@@ -423,7 +423,7 @@ export default function HomeHero({ stats }: HomeHeroProps) {
           className="text-xs font-semibold uppercase tracking-widest mb-6 font-sans"
           style={{ color: 'var(--primary-bright)', letterSpacing: '0.22em', opacity: 0.85 }}
         >
-          ❧ Your Cozy Independent Bookstore ❧
+          ❧ Discover Your Next Favorite Story ❧
         </p>
 
         {/* Logo — the bookstore sign above the door */}
