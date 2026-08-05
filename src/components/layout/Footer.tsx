@@ -61,16 +61,16 @@ export default function Footer() {
         aria-hidden="true"
       />
 
-      <div className="content-wrapper py-12">
+      <div className="content-wrapper py-16">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <AppImage
-                src="/assets/images/image-1785915949797.png"
+                src="/assets/images/Untitled_design__7_-1785917477724.png"
                 alt="Daddee's Shelf logo"
-                width={36}
-                height={36}
+                width={40}
+                height={40}
                 className="object-contain"
               />
               <span className="font-display text-base font-semibold" style={{ color: 'var(--primary)' }}>
