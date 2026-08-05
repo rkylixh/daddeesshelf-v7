@@ -33,102 +33,167 @@ function generateParticles() {
 
 const { motes, petals } = generateParticles();
 
-// Deterministic ragged edge points for left side (torn paper / deckled edge)
-// These are x,y pairs where x is the inward bite (0=edge, positive=inward)
-// and y is the vertical position as a percentage of height
-const LEFT_EDGE_POINTS = [
-  [0,0],[18,3],[8,7],[22,11],[5,15],[16,19],[10,23],[24,27],[6,31],[19,35],
-  [11,39],[23,43],[7,47],[17,51],[9,55],[21,59],[4,63],[18,67],[12,71],[25,75],
-  [8,79],[20,83],[6,87],[15,91],[10,95],[0,100]
-];
-
-const RIGHT_EDGE_POINTS = [
-  [0,0],[14,4],[6,8],[20,12],[9,16],[17,20],[5,24],[22,28],[11,32],[16,36],
-  [7,40],[21,44],[4,48],[18,52],[10,56],[23,60],[8,64],[15,68],[12,72],[19,76],
-  [6,80],[22,84],[9,88],[17,92],[5,96],[0,100]
-];
-
-function buildRaggedPath(points: number[][], side: 'left' | 'right', width: number): string {
-  // Build an SVG path for a ragged torn-paper edge
-  // The path covers the outer strip and has an organic inner edge
-  if (side === 'left') {
-    const inner = points.map(([x, y]) => `${x},${y}`).join(' L ');
-    return `M 0,0 L ${inner} L 0,100 Z`;
-  } else {
-    const inner = points.map(([x, y]) => `${width - x},${y}`).join(' L ');
-    return `M ${width},0 L ${inner} L ${width},100 Z`;
-  }
-}
-
 export default function StarField() {
   return (
     <div className="parchment-bg" aria-hidden="true">
-      {/* ── Continuous parchment base — one seamless warm sheet ── */}
+
+      {/* ── Warm aged parchment base ── */}
       <div className="parchment-base" />
 
-      {/* ── Morning light wash from upper-left ── */}
+      {/* ── Morning light wash ── */}
       <div className="morning-light" />
-
-      {/* ── Secondary warm ambient from upper-right ── */}
-      <div className="ambient-right" />
 
       {/* ── Honey-gold center warmth ── */}
       <div className="center-warmth" />
 
-      {/* ── Soft top/bottom vignette only — no side rectangles ── */}
+      {/* ── Soft top/bottom vignette ── */}
       <div className="paper-vignette" />
 
-      {/* ── Ragged deckled left edge — torn aged paper ── */}
+      {/* ══════════════════════════════════════════
+          SCROLL ROLLED EDGES — top and bottom
+          Cylindrical roll effect like a real scroll
+      ══════════════════════════════════════════ */}
+
+      {/* Top rolled edge */}
+      <div className="scroll-roll scroll-roll-top" />
+
+      {/* Bottom rolled edge */}
+      <div className="scroll-roll scroll-roll-bottom" />
+
+      {/* ══════════════════════════════════════════
+          BURNT / CHARRED RAGGED SIDE EDGES
+          Dark, organic, fire-scorched look
+      ══════════════════════════════════════════ */}
+
+      {/* Left burnt edge — SVG with dark charred organic shape */}
       <svg
-        className="deckled-edge deckled-left"
-        viewBox="0 0 30 100"
+        className="scroll-burnt-edge scroll-burnt-left"
+        viewBox="0 0 120 1000"
         preserveAspectRatio="none"
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <linearGradient id="leftEdgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#C8A060" stopOpacity="0.22" />
-            <stop offset="40%" stopColor="#D4AA70" stopOpacity="0.10" />
-            <stop offset="100%" stopColor="#D4AA70" stopOpacity="0" />
+          <linearGradient id="leftBurntGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%"  stopColor="#1A0A00" stopOpacity="1" />
+            <stop offset="35%" stopColor="#2E1200" stopOpacity="0.92" />
+            <stop offset="60%" stopColor="#4A2000" stopOpacity="0.65" />
+            <stop offset="80%" stopColor="#6B3A10" stopOpacity="0.30" />
+            <stop offset="100%" stopColor="#8B5520" stopOpacity="0" />
           </linearGradient>
+          <filter id="leftBurntBlur">
+            <feTurbulence type="fractalNoise" baseFrequency="0.04 0.02" numOctaves="4" seed="2" result="noise"/>
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
         </defs>
-        {/* Torn paper shadow/depth */}
+        {/* Main dark burnt mass */}
         <path
-          d="M 0,0 L 20,3 L 9,7 L 23,11 L 6,15 L 17,19 L 11,23 L 25,27 L 7,31 L 20,35 L 12,39 L 24,43 L 8,47 L 18,51 L 10,55 L 22,59 L 5,63 L 19,67 L 13,71 L 26,75 L 9,79 L 21,83 L 7,87 L 16,91 L 11,95 L 0,100 Z"
-          fill="url(#leftEdgeGrad)"
+          d="M 0,0
+             L 85,0
+             L 72,18  L 90,38  L 65,55  L 88,72  L 60,90  L 82,110
+             L 68,130 L 91,148 L 63,168 L 86,185 L 58,205 L 84,222
+             L 66,242 L 89,260 L 61,280 L 87,298 L 64,318 L 90,335
+             L 62,355 L 85,372 L 59,392 L 83,410 L 67,430 L 88,448
+             L 60,468 L 86,485 L 63,505 L 89,522 L 61,542 L 84,560
+             L 66,580 L 90,598 L 62,618 L 87,635 L 59,655 L 83,672
+             L 65,692 L 88,710 L 60,730 L 85,748 L 63,768 L 89,785
+             L 61,805 L 86,822 L 64,842 L 90,860 L 62,880 L 87,898
+             L 65,918 L 88,935 L 60,955 L 84,972 L 70,990 L 80,1000
+             L 0,1000
+             Z"
+          fill="url(#leftBurntGrad)"
         />
-        {/* Subtle inner shadow line for depth */}
+        {/* Charred inner edge detail — darker jagged line */}
         <path
-          d="M 20,3 L 9,7 L 23,11 L 6,15 L 17,19 L 11,23 L 25,27 L 7,31 L 20,35 L 12,39 L 24,43 L 8,47 L 18,51 L 10,55 L 22,59 L 5,63 L 19,67 L 13,71 L 26,75 L 9,79 L 21,83 L 7,87 L 16,91 L 11,95"
+          d="M 72,18  L 90,38  L 65,55  L 88,72  L 60,90  L 82,110
+             L 68,130 L 91,148 L 63,168 L 86,185 L 58,205 L 84,222
+             L 66,242 L 89,260 L 61,280 L 87,298 L 64,318 L 90,335
+             L 62,355 L 85,372 L 59,392 L 83,410 L 67,430 L 88,448
+             L 60,468 L 86,485 L 63,505 L 89,522 L 61,542 L 84,560
+             L 66,580 L 90,598 L 62,618 L 87,635 L 59,655 L 83,672
+             L 65,692 L 88,710 L 60,730 L 85,748 L 63,768 L 89,785
+             L 61,805 L 86,822 L 64,842 L 90,860 L 62,880 L 87,898
+             L 65,918 L 88,935 L 60,955 L 84,972"
           fill="none"
-          stroke="rgba(160,110,50,0.12)"
-          strokeWidth="0.5"
+          stroke="rgba(80,30,5,0.5)"
+          strokeWidth="2"
+        />
+        {/* Ember glow line at the torn edge */}
+        <path
+          d="M 72,18  L 90,38  L 65,55  L 88,72  L 60,90  L 82,110
+             L 68,130 L 91,148 L 63,168 L 86,185 L 58,205 L 84,222
+             L 66,242 L 89,260 L 61,280 L 87,298 L 64,318 L 90,335
+             L 62,355 L 85,372 L 59,392 L 83,410 L 67,430 L 88,448
+             L 60,468 L 86,485 L 63,505 L 89,522 L 61,542 L 84,560
+             L 66,580 L 90,598 L 62,618 L 87,635 L 59,655 L 83,672
+             L 65,692 L 88,710 L 60,730 L 85,748 L 63,768 L 89,785
+             L 61,805 L 86,822 L 64,842 L 90,860 L 62,880 L 87,898
+             L 65,918 L 88,935 L 60,955 L 84,972"
+          fill="none"
+          stroke="rgba(180,80,10,0.18)"
+          strokeWidth="1.5"
         />
       </svg>
 
-      {/* ── Ragged deckled right edge — torn aged paper ── */}
+      {/* Right burnt edge — mirror of left */}
       <svg
-        className="deckled-edge deckled-right"
-        viewBox="0 0 30 100"
+        className="scroll-burnt-edge scroll-burnt-right"
+        viewBox="0 0 120 1000"
         preserveAspectRatio="none"
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <linearGradient id="rightEdgeGrad" x1="100%" y1="0%" x2="0%" y2="0%">
-            <stop offset="0%" stopColor="#C8A060" stopOpacity="0.22" />
-            <stop offset="40%" stopColor="#D4AA70" stopOpacity="0.10" />
-            <stop offset="100%" stopColor="#D4AA70" stopOpacity="0" />
+          <linearGradient id="rightBurntGrad" x1="100%" y1="0%" x2="0%" y2="0%">
+            <stop offset="0%"  stopColor="#1A0A00" stopOpacity="1" />
+            <stop offset="35%" stopColor="#2E1200" stopOpacity="0.92" />
+            <stop offset="60%" stopColor="#4A2000" stopOpacity="0.65" />
+            <stop offset="80%" stopColor="#6B3A10" stopOpacity="0.30" />
+            <stop offset="100%" stopColor="#8B5520" stopOpacity="0" />
           </linearGradient>
         </defs>
+        {/* Mirror of left side */}
         <path
-          d="M 30,0 L 16,4 L 24,8 L 10,12 L 21,16 L 13,20 L 25,24 L 8,28 L 19,32 L 14,36 L 23,40 L 9,44 L 26,48 L 12,52 L 20,56 L 7,60 L 22,64 L 15,68 L 18,72 L 11,76 L 24,80 L 8,84 L 21,88 L 13,92 L 25,96 L 30,100 Z"
-          fill="url(#rightEdgeGrad)"
+          d="M 120,0
+             L 35,0
+             L 48,18  L 30,38  L 55,55  L 32,72  L 60,90  L 38,110
+             L 52,130 L 29,148 L 57,168 L 34,185 L 62,205 L 36,222
+             L 54,242 L 31,260 L 59,280 L 33,298 L 56,318 L 30,335
+             L 58,355 L 35,372 L 61,392 L 37,410 L 53,430 L 32,448
+             L 60,468 L 34,485 L 57,505 L 31,522 L 59,542 L 36,560
+             L 54,580 L 30,598 L 58,618 L 33,635 L 61,655 L 37,672
+             L 55,692 L 32,710 L 60,730 L 35,748 L 57,768 L 31,785
+             L 59,805 L 34,822 L 56,842 L 30,860 L 58,880 L 33,898
+             L 55,918 L 32,935 L 60,955 L 36,972 L 50,990 L 40,1000
+             L 120,1000
+             Z"
+          fill="url(#rightBurntGrad)"
         />
         <path
-          d="M 16,4 L 24,8 L 10,12 L 21,16 L 13,20 L 25,24 L 8,28 L 19,32 L 14,36 L 23,40 L 9,44 L 26,48 L 12,52 L 20,56 L 7,60 L 22,64 L 15,68 L 18,72 L 11,76 L 24,80 L 8,84 L 21,88 L 13,92 L 25,96"
+          d="M 48,18  L 30,38  L 55,55  L 32,72  L 60,90  L 38,110
+             L 52,130 L 29,148 L 57,168 L 34,185 L 62,205 L 36,222
+             L 54,242 L 31,260 L 59,280 L 33,298 L 56,318 L 30,335
+             L 58,355 L 35,372 L 61,392 L 37,410 L 53,430 L 32,448
+             L 60,468 L 34,485 L 57,505 L 31,522 L 59,542 L 36,560
+             L 54,580 L 30,598 L 58,618 L 33,635 L 61,655 L 37,672
+             L 55,692 L 32,710 L 60,730 L 35,748 L 57,768 L 31,785
+             L 59,805 L 34,822 L 56,842 L 30,860 L 58,880 L 33,898
+             L 55,918 L 32,935 L 60,955 L 36,972"
           fill="none"
-          stroke="rgba(160,110,50,0.12)"
-          strokeWidth="0.5"
+          stroke="rgba(80,30,5,0.5)"
+          strokeWidth="2"
+        />
+        <path
+          d="M 48,18  L 30,38  L 55,55  L 32,72  L 60,90  L 38,110
+             L 52,130 L 29,148 L 57,168 L 34,185 L 62,205 L 36,222
+             L 54,242 L 31,260 L 59,280 L 33,298 L 56,318 L 30,335
+             L 58,355 L 35,372 L 61,392 L 37,410 L 53,430 L 32,448
+             L 60,468 L 34,485 L 57,505 L 31,522 L 59,542 L 36,560
+             L 54,580 L 30,598 L 58,618 L 33,635 L 61,655 L 37,672
+             L 55,692 L 32,710 L 60,730 L 35,748 L 57,768 L 31,785
+             L 59,805 L 34,822 L 56,842 L 30,860 L 58,880 L 33,898
+             L 55,918 L 32,935 L 60,955 L 36,972"
+          fill="none"
+          stroke="rgba(180,80,10,0.18)"
+          strokeWidth="1.5"
         />
       </svg>
 
