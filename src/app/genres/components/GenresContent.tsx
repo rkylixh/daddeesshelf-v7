@@ -245,7 +245,7 @@ export default function GenresContent() {
                   key={genre}
                   onClick={() => setSelectedGenre(genre)}
                   className="group flex flex-col items-center gap-3 p-5 rounded-2xl text-center transition-all duration-300 card-glow"
-                  style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+                  style={{ background: 'var(--background-card)', border: '1.5px solid var(--border)' }}
                 >
                   <span className="text-3xl" aria-hidden="true">{GENRE_ICONS[genre] ?? '📚'}</span>
                   <div>

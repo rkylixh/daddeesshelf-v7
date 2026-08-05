@@ -133,7 +133,7 @@ function BookstoreAmbience() {
       <div
         className="absolute inset-0"
         style={{
-          background: 'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 55%, rgba(180,145,100,0.08) 80%, rgba(160,120,75,0.15) 100%)',
+          background: 'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 60%, rgba(180,145,100,0.05) 82%, rgba(160,120,75,0.09) 100%)',
         }}
       />
     </div>

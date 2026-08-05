@@ -119,12 +119,12 @@
 
   /* Premium book card — parchment style */
   .card-glow {
-    box-shadow: 0 2px 12px rgba(75,53,42,0.12), 0 0 0 1px var(--border);
+    box-shadow: 0 2px 12px rgba(75,53,42,0.18), 0 0 0 1px var(--border), inset 0 1px 0 rgba(255,255,255,0.4);
     transition: box-shadow 0.35s ease, transform 0.35s ease;
   }
 
   .card-glow:hover {
-    box-shadow: 0 8px 32px rgba(75,53,42,0.18), 0 0 0 1px var(--primary), 0 4px 20px rgba(200,164,91,0.2);
+    box-shadow: 0 8px 32px rgba(75,53,42,0.22), 0 0 0 1px var(--primary), 0 4px 20px rgba(200,164,91,0.2);
     transform: translateY(-4px);
   }
 
@@ -336,42 +336,42 @@
     position: absolute;
     inset: 0;
     background:
-      /* LEFT side — deep dark burnt edge fading inward */
+      /* LEFT side — dark burnt edge fading inward */
       linear-gradient(90deg,
-        rgba(30,15,5,0.88)   0%,
-        rgba(55,28,10,0.72)  4%,
-        rgba(90,50,18,0.52)  9%,
-        rgba(140,90,35,0.28) 16%,
-        rgba(180,130,60,0.10) 24%,
+        rgba(30,15,5,0.55)   0%,
+        rgba(55,28,10,0.42)  4%,
+        rgba(90,50,18,0.28)  9%,
+        rgba(140,90,35,0.14) 16%,
+        rgba(180,130,60,0.05) 24%,
         transparent          36%
       ),
-      /* RIGHT side — deep dark burnt edge fading inward */
+      /* RIGHT side — dark burnt edge fading inward */
       linear-gradient(270deg,
-        rgba(30,15,5,0.88)   0%,
-        rgba(55,28,10,0.72)  4%,
-        rgba(90,50,18,0.52)  9%,
-        rgba(140,90,35,0.28) 16%,
-        rgba(180,130,60,0.10) 24%,
+        rgba(30,15,5,0.55)   0%,
+        rgba(55,28,10,0.42)  4%,
+        rgba(90,50,18,0.28)  9%,
+        rgba(140,90,35,0.14) 16%,
+        rgba(180,130,60,0.05) 24%,
         transparent          36%
       ),
       /* TOP edge warm toning */
       linear-gradient(180deg,
-        rgba(25,12,4,0.70)   0%,
-        rgba(60,30,10,0.45)  3%,
-        rgba(110,65,20,0.22) 7%,
-        rgba(160,110,45,0.08) 13%,
+        rgba(25,12,4,0.42)   0%,
+        rgba(60,30,10,0.26)  3%,
+        rgba(110,65,20,0.12) 7%,
+        rgba(160,110,45,0.04) 13%,
         transparent          22%
       ),
       /* BOTTOM edge warm toning */
       linear-gradient(0deg,
-        rgba(25,12,4,0.65)   0%,
-        rgba(60,30,10,0.40)  3%,
-        rgba(110,65,20,0.18) 7%,
-        rgba(160,110,45,0.06) 13%,
+        rgba(25,12,4,0.38)   0%,
+        rgba(60,30,10,0.22)  3%,
+        rgba(110,65,20,0.10) 7%,
+        rgba(160,110,45,0.03) 13%,
         transparent          22%
       ),
       /* Outer corner darkening */
-      radial-gradient(ellipse 120% 120% at 50% 50%, transparent 50%, rgba(40,20,5,0.22) 100%);
+      radial-gradient(ellipse 120% 120% at 50% 50%, transparent 50%, rgba(40,20,5,0.12) 100%);
   }
 
   /* ── Scroll rolled edges — top and bottom cylindrical roll ── */
