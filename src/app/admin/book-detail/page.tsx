@@ -95,6 +95,11 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
   const [newQuote, setNewQuote] = useState('');
   const [newTag, setNewTag] = useState('');
 
+  // Re-sync form when the book prop is refreshed from the server (e.g. after save)
+  useEffect(() => {
+    setForm({ ...book, spice_level: Number(book.spice_level) ?? 0 });
+  }, [book]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -466,7 +471,7 @@ function BookDetailManagementContent() {
       goodreads_url: b.goodreads_url ?? '',
       goodreads_score: b.goodreads_score ?? 0,
       goodreads_ratings_count: b.goodreads_ratings_count ?? 0,
-      spice_level: b.spice_level ?? 0,
+      spice_level: Number(b.spice_level) ?? 0,
       why_readers_love: b.why_readers_love ?? '',
       reader_tags: Array.isArray(b.reader_tags) ? b.reader_tags : [],
       emotional_intensity: b.emotional_intensity ?? 0,
