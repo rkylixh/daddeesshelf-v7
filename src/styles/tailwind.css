@@ -258,6 +258,14 @@
     letter-spacing: 0.4rem;
   }
 
+  /* Bookstore ambient dust mote drift */
+  @keyframes ambientMoteDrift {
+    0%, 100% { transform: translate(0px, 0px); opacity: 0.2; }
+    25% { transform: translate(5px, -16px); opacity: 0.35; }
+    50% { transform: translate(-3px, -10px); opacity: 0.15; }
+    75% { transform: translate(7px, -22px); opacity: 0.28; }
+  }
+
   /* Dust particles background */
   .starfield-bg {
     position: fixed;

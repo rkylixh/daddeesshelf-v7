@@ -537,15 +537,15 @@ function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
 
   return (
     <div ref={containerRef} className="flex-1 max-w-md hidden md:flex items-center relative">
-      <Icon name="MagnifyingGlassIcon" size={16} className="absolute left-3 z-10 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
+      <Icon name="MagnifyingGlassIcon" size={16} className="absolute left-3.5 z-10 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
       <input
         type="search"
         placeholder="Search books, authors, genres, Book Code..."
         value={query}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        className="input-field pl-9 pr-4 py-2 text-sm w-full"
-        style={{ borderRadius: '9999px' }}
+        className="input-field py-2 text-sm w-full"
+        style={{ borderRadius: '9999px', paddingLeft: '2.25rem', paddingRight: '1rem' }}
         autoComplete="off"
       />
       {loading && (
@@ -651,13 +651,14 @@ function MobileNavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
   return (
     <div className="p-4" style={{ borderBottom: '1px solid var(--border)' }}>
       <div className="relative">
-        <Icon name="MagnifyingGlassIcon" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
+        <Icon name="MagnifyingGlassIcon" size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
         <input
           type="search"
           placeholder="Search books..."
           value={query}
           onChange={handleChange}
-          className="input-field pl-9 text-sm"
+          className="input-field text-sm"
+          style={{ paddingLeft: '2.25rem' }}
           autoComplete="off"
         />
         {loading && (
