@@ -273,8 +273,8 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
           <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--foreground-subtle)' }}>
             Spice Level (0–5)
           </label>
-          <div className="flex items-center gap-2">
-            {[0, 1, 2, 3, 4, 5].map(n => (
+          <div className="flex items-center gap-2 flex-wrap">
+            {[0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5].map(n => (
               <button
                 key={n}
                 type="button"
@@ -283,10 +283,11 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
                 style={{
                   background: n <= form.spice_level && n > 0 ? 'rgba(239,68,68,0.2)' : 'var(--muted)',
                   color: n <= form.spice_level && n > 0 ? '#ef4444' : 'var(--foreground-subtle)',
-                  border: `1px solid ${n <= form.spice_level && n > 0 ? '#ef4444' : 'var(--border)'}`,
+                  border: `1px solid ${n === form.spice_level ? '#ef4444' : n <= form.spice_level && n > 0 ? 'rgba(239,68,68,0.5)' : 'var(--border)'}`,
+                  fontWeight: n === form.spice_level ? 700 : 400,
                 }}
               >
-                {n === 0 ? '—' : '🌶️'}
+                {n === 0 ? '—' : n % 1 !== 0 ? `½` : '🌶️'}
               </button>
             ))}
             <span className="text-xs ml-2" style={{ color: 'var(--foreground-subtle)' }}>{form.spice_level}/5</span>

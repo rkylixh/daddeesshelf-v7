@@ -316,9 +316,20 @@ export default function BookDetailContent() {
             <div className="flex items-center gap-2 mb-4">
               <span className="text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Spice Level:</span>
               <div className="flex gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <span key={i} className="text-sm" style={{ opacity: i < spiceLevel ? 1 : 0.2 }}>🌶️</span>
-                ))}
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const full = i + 1;
+                  const isFullFilled = spiceLevel >= full;
+                  const isHalfFilled = !isFullFilled && spiceLevel >= full - 0.5;
+                  return (
+                    <span
+                      key={i}
+                      className="text-sm relative inline-block"
+                      style={{ opacity: isFullFilled ? 1 : isHalfFilled ? 0.55 : 0.2 }}
+                    >
+                      🌶️
+                    </span>
+                  );
+                })}
               </div>
               <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>({spiceLevel}/5)</span>
             </div>
