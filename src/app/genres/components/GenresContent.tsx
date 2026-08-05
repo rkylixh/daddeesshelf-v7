@@ -244,13 +244,27 @@ export default function GenresContent() {
                 <button
                   key={genre}
                   onClick={() => setSelectedGenre(genre)}
-                  className="group flex flex-col items-center gap-3 p-5 rounded-2xl text-center transition-all duration-300 card-glow"
-                  style={{ background: 'var(--background-card)', border: '1.5px solid var(--border)' }}
+                  className="group flex flex-col items-center gap-3 p-5 rounded-2xl text-center transition-all duration-300"
+                  style={{
+                    background: '#FFFAF4',
+                    border: '1.5px solid #C8A45B',
+                    boxShadow: '0 2px 10px rgba(75,53,42,0.14), 0 1px 3px rgba(75,53,42,0.08)',
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-3px)';
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px rgba(75,53,42,0.18), 0 2px 8px rgba(200,164,91,0.2)';
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = '#A87445';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 10px rgba(75,53,42,0.14), 0 1px 3px rgba(75,53,42,0.08)';
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = '#C8A45B';
+                  }}
                 >
                   <span className="text-3xl" aria-hidden="true">{GENRE_ICONS[genre] ?? '📚'}</span>
                   <div>
-                    <p className="font-display text-sm font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>{genre}</p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>{data.count} title{data.count !== 1 ? 's' : ''}</p>
+                    <p className="font-display text-sm font-semibold leading-snug" style={{ color: '#4B352A' }}>{genre}</p>
+                    <p className="text-xs mt-1" style={{ color: '#7B6454' }}>{data.count} title{data.count !== 1 ? 's' : ''}</p>
                   </div>
                 </button>
               ))}

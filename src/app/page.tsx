@@ -268,7 +268,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
                   boxShadow: '0 4px 20px rgba(75,53,42,0.12), 0 1px 4px rgba(75,53,42,0.08)',
                 }}
               >
-                <div className="relative aspect-[2/3]">
+                <div className="relative" style={{ height: 'clamp(140px, 22vw, 260px)' }}>
                   <AppImage
                     src={book.cover_url || '/assets/images/no_image.png'}
                     alt={`Cover of ${book.title} by ${book.author}`}
