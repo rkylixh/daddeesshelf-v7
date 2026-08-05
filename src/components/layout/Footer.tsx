@@ -61,7 +61,7 @@ export default function Footer() {
         aria-hidden="true"
       />
 
-      <div className="content-wrapper py-16">
+      <div className="content-wrapper pt-12 pb-16">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="md:col-span-1">
