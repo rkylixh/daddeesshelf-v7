@@ -151,8 +151,10 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
   };
 
   const addCustomTag = () => {
-    if (!newTag.trim() || form.reader_tags.includes(newTag.trim())) return;
-    setForm(f => ({ ...f, reader_tags: [...f.reader_tags, newTag.trim()] }));
+    if (!newTag.trim()) return;
+    const parts = newTag.split(',').map(t => t.trim()).filter(t => t && !form.reader_tags.includes(t));
+    if (parts.length === 0) return;
+    setForm(f => ({ ...f, reader_tags: [...f.reader_tags, ...parts] }));
     setNewTag('');
   };
 
@@ -334,10 +336,23 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
             <input
               type="text"
               value={newTag}
-              onChange={e => setNewTag(e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                if (val.endsWith(',')) {
+                  const parts = val.split(',').map(t => t.trim()).filter(t => t && !form.reader_tags.includes(t));
+                  if (parts.length > 0) {
+                    setForm(f => ({ ...f, reader_tags: [...f.reader_tags, ...parts] }));
+                    setNewTag('');
+                  } else {
+                    setNewTag('');
+                  }
+                } else {
+                  setNewTag(val);
+                }
+              }}
               onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomTag())}
               className="input-field text-sm flex-1"
-              placeholder="Add custom tag..."
+              placeholder="Add custom tag... (comma-separate for multiple)"
             />
             <button type="button" onClick={addCustomTag} className="btn-ghost px-3 py-2 rounded-lg text-sm">
               + Add
