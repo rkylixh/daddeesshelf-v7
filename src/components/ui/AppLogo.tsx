@@ -11,7 +11,7 @@ interface AppLogoProps {
 }
 
 const AppLogo = memo(function AppLogo({ size = 64, className = '', onClick, variant = 'full' }: AppLogoProps) {
-  const src = variant === 'outline' ?'/assets/images/ChatGPT_Image_Aug_5__2026__03_55_49_PM-1785916605536.png' :'/assets/images/ChatGPT_Image_Aug_5__2026__03_56_22_PM-1785916609214.png';
+  const src = '/assets/images/Untitled_design__7_-1785917477724.png';
 
   return (
     <div
