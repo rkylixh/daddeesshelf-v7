@@ -37,24 +37,21 @@ export default function StarField() {
   return (
     <div className="parchment-bg" aria-hidden="true">
 
-      {/* ── Actual parchment scroll image as full-page background ── */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: 'url(/assets/images/image-1785920536850.png)',
-          backgroundSize: '100% 100%',
-          backgroundPosition: 'center center',
-          backgroundRepeat: 'no-repeat',
-        }}
-      />
+      {/* ── CSS-only parchment base ── */}
+      <div className="parchment-base" />
+
+      {/* ── Center warmth glow ── */}
+      <div className="center-warmth" />
+
+      {/* ── Strong side vignette (dark edges) ── */}
+      <div className="paper-vignette" />
 
       {/* ── Very subtle warm overlay to blend content readably ── */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'rgba(252, 240, 210, 0.08)',
+          background: 'rgba(252, 240, 210, 0.06)',
           pointerEvents: 'none',
         }}
       />
