@@ -31,7 +31,77 @@ export default function StarField() {
 
   return (
     <div className="starfield-bg" aria-hidden="true">
-      <div className="milky-way" />
+      {/* Papyrus base — warm aged parchment */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(160deg, #F9F1E3 0%, #F4E8D2 35%, #EFE0C4 65%, #EAD9BA 100%)',
+        }}
+      />
+
+      {/* Subtle papyrus fiber texture via SVG noise */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0.045,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          backgroundRepeat: 'repeat',
+          backgroundSize: '200px 200px',
+        }}
+      />
+
+      {/* Warm center glow — sunlight through windows */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(ellipse 70% 55% at 50% 30%, rgba(255,220,140,0.12) 0%, rgba(200,164,91,0.05) 55%, transparent 80%)',
+        }}
+      />
+
+      {/* Darkened edges — vignette */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: `
+            radial-gradient(ellipse 100% 100% at 50% 50%,
+              transparent 40%,
+              rgba(120,80,40,0.10) 65%,
+              rgba(90,55,25,0.22) 82%,
+              rgba(65,35,12,0.38) 100%
+            )
+          `,
+        }}
+      />
+
+      {/* Top edge darkening */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '18%',
+          background: 'linear-gradient(180deg, rgba(65,35,12,0.18) 0%, transparent 100%)',
+        }}
+      />
+
+      {/* Bottom edge darkening */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '18%',
+          background: 'linear-gradient(0deg, rgba(65,35,12,0.18) 0%, transparent 100%)',
+        }}
+      />
+
+      {/* Floating dust motes */}
       {dust.map(particle => (
         <div
           key={particle.id}

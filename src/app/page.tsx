@@ -53,87 +53,67 @@ function BookstoreAmbience() {
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }} aria-hidden="true">
-      {/* Base warm parchment */}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #FBF5EC 0%, #F7EFE2 30%, #F3E8D8 60%, #EFE2CE 100%)' }} />
+      {/* Papyrus base — warm aged parchment */}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #F9F1E3 0%, #F4E8D2 35%, #EFE0C4 65%, #EAD9BA 100%)' }} />
 
-      {/* Slow-moving background shelf texture */}
+      {/* Slow-moving parallax layer */}
       <div
         ref={bgRef}
         className="absolute inset-0 will-change-transform"
+        style={{ background: 'transparent' }}
+      />
+
+      {/* Subtle papyrus fiber texture via SVG noise */}
+      <div
+        className="absolute inset-0"
+        style={{
+          opacity: 0.045,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          backgroundRepeat: 'repeat',
+          backgroundSize: '200px 200px',
+        }}
+      />
+
+      {/* Warm center glow — sunlight through windows */}
+      <div
+        className="absolute top-0 left-0 right-0"
+        style={{
+          height: '60vh',
+          background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,220,140,0.12) 0%, rgba(200,164,91,0.05) 55%, transparent 80%)',
+          filter: 'blur(4px)',
+        }}
+      />
+
+      {/* Darkened edges — vignette */}
+      <div
+        className="absolute inset-0"
         style={{
           background: `
-            repeating-linear-gradient(
-              0deg,
-              rgba(139,90,43,0.025) 0px,
-              rgba(139,90,43,0.025) 1px,
-              transparent 1px,
-              transparent 80px
+            radial-gradient(ellipse 100% 100% at 50% 50%,
+              transparent 40%,
+              rgba(120,80,40,0.10) 65%,
+              rgba(90,55,25,0.22) 82%,
+              rgba(65,35,12,0.38) 100%
             )
           `,
         }}
       />
 
-      {/* Left wall — faded library shelves */}
-      <div
-        className="absolute left-0 top-0 bottom-0"
-        style={{
-          width: 'clamp(40px, 6vw, 90px)',
-          background: `
-            repeating-linear-gradient(
-              0deg,
-              rgba(101,65,30,0.07) 0px,
-              rgba(101,65,30,0.07) 2px,
-              transparent 2px,
-              transparent 72px
-            ),
-            linear-gradient(90deg, rgba(200,170,130,0.35) 0%, rgba(220,195,160,0.15) 60%, transparent 100%)
-          `,
-        }}
-      />
-      {/* Right wall */}
-      <div
-        className="absolute right-0 top-0 bottom-0"
-        style={{
-          width: 'clamp(40px, 6vw, 90px)',
-          background: `
-            repeating-linear-gradient(
-              0deg,
-              rgba(101,65,30,0.07) 0px,
-              rgba(101,65,30,0.07) 2px,
-              transparent 2px,
-              transparent 72px
-            ),
-            linear-gradient(270deg, rgba(200,170,130,0.3) 0%, rgba(220,195,160,0.12) 60%, transparent 100%)
-          `,
-        }}
-      />
-
-      {/* Warm ambient light from above */}
+      {/* Top edge darkening */}
       <div
         className="absolute top-0 left-0 right-0"
         style={{
-          height: '60vh',
-          background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,220,140,0.14) 0%, rgba(200,164,91,0.06) 50%, transparent 80%)',
-          filter: 'blur(4px)',
+          height: '18%',
+          background: 'linear-gradient(180deg, rgba(65,35,12,0.18) 0%, transparent 100%)',
         }}
       />
 
-      {/* Subtle paper grain texture via SVG noise */}
+      {/* Bottom edge darkening */}
       <div
-        className="absolute inset-0"
+        className="absolute bottom-0 left-0 right-0"
         style={{
-          opacity: 0.03,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-          backgroundRepeat: 'repeat',
-          backgroundSize: '128px 128px',
-        }}
-      />
-
-      {/* Vignette edges */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: 'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 55%, rgba(180,145,100,0.08) 80%, rgba(160,120,75,0.15) 100%)',
+          height: '18%',
+          background: 'linear-gradient(0deg, rgba(65,35,12,0.18) 0%, transparent 100%)',
         }}
       />
     </div>
@@ -164,7 +144,7 @@ function BookstoreDivider({ label }: { label: string }) {
       >
         <span
           style={{
-            background: 'linear-gradient(180deg, #FBF5EC, #F7EFE2)',
+            background: 'linear-gradient(180deg, #F9F1E3, #F4E8D2)',
             padding: '0 1rem',
             display: 'inline-block',
           }}

@@ -138,7 +138,26 @@ export default function WishlistContent() {
             ))}
           </div>
 
-          <div className="mt-10 text-center">
+          {/* Request a Title CTA */}
+          <div
+            className="mt-10 rounded-2xl p-8 text-center"
+            style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+          >
+            <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
+              ✦ Can&apos;t find what you&apos;re looking for? ✦
+            </p>
+            <h3 className="font-display text-xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>
+              Request a Title
+            </h3>
+            <p className="text-sm mb-5 max-w-sm mx-auto" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
+              Don&apos;t see the book you want? Send us a request and we&apos;ll do our best to source it for you.
+            </p>
+            <Link href="/request" className="btn-primary text-sm px-6 py-2.5 inline-block">
+              Request a Title
+            </Link>
+          </div>
+
+          <div className="mt-6 text-center">
             <Link href="/shop" className="btn-secondary text-sm px-6 py-2.5 inline-block">
               Continue Browsing
             </Link>

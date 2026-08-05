@@ -14,7 +14,7 @@ export default function RequestPage() {
     <div className="page-container">
       <StarField />
       <Navbar />
-      <main className="pt-16">
+      <main className="pt-20">
         <RequestContent />
       </main>
       <Footer />
