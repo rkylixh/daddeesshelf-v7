@@ -16,7 +16,7 @@ const AppLogo = memo(function AppLogo({ size = 64, className = '', onClick }: Ap
       onClick={onClick}
     >
       <Image
-        src="/assets/images/ChatGPT_Image_Jul_12__2026__01_29_49_AM-1785722977044.png"
+        src="/assets/images/image-1785915949797.png"
         alt="Daddee's Shelf logo"
         width={size}
         height={size}

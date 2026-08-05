@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import AppLogo from '@/components/ui/AppLogo';
+
 import StarField from '@/components/layout/StarField';
 import { createClient } from '@/lib/supabase/client';
 
@@ -211,25 +211,31 @@ export default function AdminLoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative" style={{ background: 'var(--background)' }}>
+    <div className="min-h-screen flex items-center justify-center relative" style={{ background: 'linear-gradient(180deg, #2C1A0E 0%, #1E1008 100%)' }}>
       <StarField />
       <div className="relative z-10 w-full max-w-md px-6">
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <AppLogo size={56} />
+            <img
+              src="/assets/images/image-1785915949797.png"
+              alt="Daddee's Shelf logo"
+              width={72}
+              height={72}
+              style={{ objectFit: 'contain' }}
+            />
           </div>
-          <h1 className="font-display text-2xl font-bold" style={{ color: 'var(--primary-bright)' }}>
+          <h1 className="font-display text-2xl font-bold" style={{ color: 'var(--primary)' }}>
             Daddee&apos;s Shelf
           </h1>
-          <p className="text-xs mt-1 uppercase tracking-widest" style={{ color: 'var(--foreground-subtle)' }}>
+          <p className="text-xs mt-1 uppercase tracking-widest font-sans" style={{ color: 'rgba(200,164,91,0.5)' }}>
             Admin Portal
           </p>
         </div>
 
         <div
           className="rounded-2xl p-8"
-          style={{ background: 'var(--background-card)', border: '1px solid var(--border)', boxShadow: '0 8px 40px rgba(139,92,246,0.15)' }}
+          style={{ background: '#3A2214', border: '1px solid rgba(200,164,91,0.3)', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}
         >
           {/* Step 1: Admin Access Code */}
           {step === 'code' && (

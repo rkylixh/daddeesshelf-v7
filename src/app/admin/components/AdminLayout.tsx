@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import AppLogo from '@/components/ui/AppLogo';
+
 import Icon from '@/components/ui/AppIcon';
 import { createClient } from '@/lib/supabase/client';
 
@@ -48,14 +48,20 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:flex`}
-        style={{ background: 'rgba(10,10,15,0.98)', borderRight: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}
+        style={{ background: '#2C1A0E', borderRight: '1px solid rgba(200,164,91,0.2)', backdropFilter: 'blur(12px)' }}
       >
         {/* Sidebar header */}
-        <div className="flex items-center gap-3 px-5 h-14 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
-          <AppLogo size={26} />
+        <div className="flex items-center gap-3 px-5 h-14 flex-shrink-0" style={{ borderBottom: '1px solid rgba(200,164,91,0.15)' }}>
+          <img
+            src="/assets/images/image-1785915949797.png"
+            alt="Daddee's Shelf logo"
+            width={28}
+            height={28}
+            style={{ objectFit: 'contain' }}
+          />
           <div>
-            <p className="font-display text-sm font-semibold" style={{ color: 'var(--primary-bright)' }}>Daddee&apos;s Shelf</p>
-            <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Admin Portal</p>
+            <p className="font-display text-sm font-semibold" style={{ color: 'var(--primary)' }}>Daddee&apos;s Shelf</p>
+            <p className="text-xs" style={{ color: 'rgba(200,164,91,0.5)' }}>Admin Portal</p>
           </div>
         </div>
 
@@ -76,7 +82,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         </nav>
 
         {/* Sidebar footer */}
-        <div className="px-3 py-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="px-3 py-3 flex-shrink-0" style={{ borderTop: '1px solid rgba(200,164,91,0.15)' }}>
           <Link href="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs nav-link mb-1">
             <Icon name="ArrowLeftIcon" size={14} />
             Back to Site
@@ -106,7 +112,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         {/* Top bar */}
         <header
           className="flex items-center justify-between px-5 h-14 flex-shrink-0 sticky top-0 z-20"
-          style={{ background: 'rgba(10,10,15,0.95)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}
+          style={{ background: 'rgba(44,26,14,0.97)', borderBottom: '1px solid rgba(200,164,91,0.15)', backdropFilter: 'blur(12px)' }}
         >
           <div className="flex items-center gap-3">
             <button
@@ -119,7 +125,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
           <span
             className="text-xs px-2.5 py-1 rounded-full font-semibold"
-            style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}
+            style={{ background: 'rgba(200,164,91,0.15)', color: 'var(--primary)', border: '1px solid rgba(200,164,91,0.3)' }}
           >
             Admin
           </span>

@@ -12,7 +12,7 @@ interface DustData {
   opacity: number;
 }
 
-const DUST_COUNT = 80;
+const DUST_COUNT = 60;
 
 function generateDust(): DustData[] {
   return Array.from({ length: DUST_COUNT }, (_, i) => ({
@@ -20,9 +20,9 @@ function generateDust(): DustData[] {
     top: `${(i * 7.3 + 13) % 100}%`,
     left: `${(i * 11.7 + 5) % 100}%`,
     size: i % 7 === 0 ? 2 : i % 4 === 0 ? 1.5 : 1,
-    duration: 6 + (i % 8),
-    delay: (i % 40) * 0.15,
-    opacity: 0.08 + (i % 5) * 0.06,
+    duration: 7 + (i % 9),
+    delay: (i % 40) * 0.18,
+    opacity: 0.05 + (i % 5) * 0.04,
   }));
 }
 

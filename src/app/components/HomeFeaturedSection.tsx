@@ -18,7 +18,7 @@ export default function HomeFeaturedSection({ title, subtitle, books, viewAllHre
           <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>
             {title}
           </h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--foreground-muted)' }}>
+          <p className="text-sm mt-1 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>
             {subtitle}
           </p>
         </div>

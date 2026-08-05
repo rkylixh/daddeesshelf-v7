@@ -1,52 +1,68 @@
 'use client';
 
 import React from 'react';
-import AppLogo from '@/components/ui/AppLogo';
-
-interface SiteStats {
-  titlesAvailable: number;
-  activeBatchCount: number;
-  lowestPrice: number;
-  wishlistCount: number;
-}
+import AppImage from '@/components/ui/AppImage';
 
 interface HomeHeroProps {
-  stats?: SiteStats | null;
+  stats?: {
+    titlesAvailable: number;
+    activeBatchCount: number;
+    lowestPrice: number;
+    wishlistCount: number;
+  } | null;
 }
 
 export default function HomeHero({ stats }: HomeHeroProps) {
   return (
     <section className="relative min-h-[90vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden">
-      {/* Warm candlelight glow behind hero */}
+      {/* Warm morning sunlight glow */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 40%, rgba(184,134,11,0.12) 0%, rgba(139,69,19,0.06) 40%, transparent 70%)' }}
+        style={{
+          background: 'radial-gradient(ellipse 80% 65% at 50% 30%, rgba(200,164,91,0.18) 0%, rgba(168,116,69,0.08) 45%, transparent 70%)',
+        }}
         aria-hidden="true"
       />
-      {/* Warm decorative accents — bookshelf / library motifs */}
-      <div className="absolute top-20 left-1/4 text-2xl animate-float" style={{ color: 'var(--primary)', animationDelay: '0s', opacity: 0.5 }} aria-hidden="true">✦</div>
-      <div className="absolute top-32 right-1/4 text-sm animate-float" style={{ color: 'var(--accent-light)', animationDelay: '1s', opacity: 0.4 }} aria-hidden="true">✧</div>
-      <div className="absolute bottom-32 left-1/3 text-lg animate-float" style={{ color: 'var(--primary-bright)', animationDelay: '2s', opacity: 0.35 }} aria-hidden="true">✤</div>
-      <div className="absolute bottom-20 right-1/3 text-xl animate-float" style={{ color: 'var(--accent)', animationDelay: '0.5s', opacity: 0.3 }} aria-hidden="true">★</div>
-      <div className="absolute top-1/2 left-10 text-xs animate-float" style={{ color: 'var(--primary)', animationDelay: '1.5s', opacity: 0.4 }} aria-hidden="true">✦</div>
-      <div className="absolute top-1/3 right-10 text-base animate-float" style={{ color: 'var(--accent-light)', animationDelay: '0.8s', opacity: 0.35 }} aria-hidden="true">✧</div>
+      {/* Parchment texture overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 60% 40% at 20% 80%, rgba(232,216,195,0.3) 0%, transparent 60%), radial-gradient(ellipse 50% 35% at 80% 20%, rgba(247,239,229,0.25) 0%, transparent 55%)',
+        }}
+        aria-hidden="true"
+      />
+
+      {/* Botanical / ornamental floating accents */}
+      <div className="absolute top-20 left-1/4 text-2xl animate-float" style={{ color: 'var(--primary)', animationDelay: '0s', opacity: 0.45 }} aria-hidden="true">❧</div>
+      <div className="absolute top-32 right-1/4 text-sm animate-float" style={{ color: 'var(--accent-light)', animationDelay: '1s', opacity: 0.4 }} aria-hidden="true">✿</div>
+      <div className="absolute bottom-32 left-1/3 text-lg animate-float" style={{ color: 'var(--primary)', animationDelay: '2s', opacity: 0.35 }} aria-hidden="true">⚜</div>
+      <div className="absolute bottom-20 right-1/3 text-xl animate-float" style={{ color: 'var(--accent)', animationDelay: '0.5s', opacity: 0.3 }} aria-hidden="true">✾</div>
+      <div className="absolute top-1/2 left-10 text-xs animate-float" style={{ color: 'var(--primary)', animationDelay: '1.5s', opacity: 0.4 }} aria-hidden="true">❦</div>
+      <div className="absolute top-1/3 right-10 text-base animate-float" style={{ color: 'var(--accent-light)', animationDelay: '0.8s', opacity: 0.35 }} aria-hidden="true">✽</div>
 
       {/* Hero content */}
       <div className="relative z-10 max-w-3xl mx-auto animate-fade-in-up">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-6" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
-          ✦ Your Cozy Online Bookstore ✦
+        <p className="text-xs font-semibold uppercase tracking-widest mb-6 font-sans" style={{ color: 'var(--primary-bright)', letterSpacing: '0.22em' }}>
+          ❧ Your Cozy Independent Bookstore ❧
         </p>
 
         {/* Official Logo */}
         <div className="flex justify-center mb-8">
-          <AppLogo size={240} className="drop-shadow-lg" />
+          <AppImage
+            src="/assets/images/image-1785915949797.png"
+            alt="Daddee's Shelf — cozy independent bookstore logo"
+            width={260}
+            height={260}
+            className="object-contain drop-shadow-lg"
+            priority
+          />
         </div>
 
         <p className="text-lg sm:text-xl font-light mb-2 font-display italic" style={{ color: 'var(--foreground-muted)' }}>
           Your cozy corner for pre-loved and pre-ordered books
         </p>
 
-        <p className="text-sm mb-10 max-w-lg mx-auto" style={{ color: 'var(--foreground-subtle)', lineHeight: '1.7' }}>
+        <p className="text-sm mb-10 max-w-lg mx-auto font-serif" style={{ color: 'var(--foreground-subtle)', lineHeight: '1.8' }}>
           Carefully curated titles for Filipino readers — from epic fantasy to heartwarming fiction,
           all delivered to your door.
         </p>
@@ -63,13 +79,14 @@ export default function HomeHero({ stats }: HomeHeroProps) {
                 key={stat.label}
                 className="rounded-xl p-3 text-center"
                 style={{
-                  background: 'rgba(184,134,11,0.08)',
-                  border: '1px solid rgba(184,134,11,0.2)',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                  background: 'rgba(243,231,213,0.7)',
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 2px 12px rgba(75,53,42,0.1)',
+                  backdropFilter: 'blur(4px)',
                 }}
               >
                 <p className="font-display text-xl font-bold" style={{ color: 'var(--primary-bright)' }}>{stat.value}</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-subtle)' }}>{stat.label}</p>
+                <p className="text-xs mt-0.5 font-sans" style={{ color: 'var(--foreground-muted)' }}>{stat.label}</p>
               </div>
             ))}
           </div>
