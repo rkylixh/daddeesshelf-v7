@@ -67,7 +67,7 @@ export default function Footer() {
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 mb-3">
               <AppImage
-                src="/assets/images/image-1785915949797.png"
+                src="/assets/images/Untitled_design__7_-1785917477724.png"
                 alt="Daddee's Shelf logo"
                 width={36}
                 height={36}

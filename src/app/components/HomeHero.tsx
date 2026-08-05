@@ -86,20 +86,6 @@ export default function HomeHero({ stats }: HomeHeroProps) {
           className="absolute left-0 top-0 bottom-0 w-1/3"
           style={{
             background: `
-              repeating-linear-gradient(
-                0deg,
-                rgba(139,90,43,0.06) 0px,
-                rgba(139,90,43,0.06) 2px,
-                transparent 2px,
-                transparent 52px
-              ),
-              repeating-linear-gradient(
-                90deg,
-                rgba(101,65,30,0.04) 0px,
-                rgba(101,65,30,0.04) 1px,
-                transparent 1px,
-                transparent 28px
-              ),
               linear-gradient(180deg, rgba(232,210,178,0.55) 0%, rgba(215,190,155,0.45) 50%, rgba(200,170,130,0.4) 100%)
             `,
             filter: 'blur(1.5px)',
@@ -110,20 +96,6 @@ export default function HomeHero({ stats }: HomeHeroProps) {
           className="absolute right-0 top-0 bottom-0 w-1/3"
           style={{
             background: `
-              repeating-linear-gradient(
-                0deg,
-                rgba(139,90,43,0.06) 0px,
-                rgba(139,90,43,0.06) 2px,
-                transparent 2px,
-                transparent 52px
-              ),
-              repeating-linear-gradient(
-                90deg,
-                rgba(101,65,30,0.04) 0px,
-                rgba(101,65,30,0.04) 1px,
-                transparent 1px,
-                transparent 28px
-              ),
               linear-gradient(180deg, rgba(215,190,155,0.45) 0%, rgba(200,170,130,0.4) 50%, rgba(185,155,115,0.35) 100%)
             `,
             filter: 'blur(1.5px)',
@@ -439,7 +411,6 @@ export default function HomeHero({ stats }: HomeHeroProps) {
             width={280}
             height={280}
             className="object-contain"
-            style={{ mixBlendMode: 'multiply' } as React.CSSProperties}
             priority
           />
         </div>
