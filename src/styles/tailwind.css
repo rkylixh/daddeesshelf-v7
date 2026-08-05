@@ -267,20 +267,15 @@
   }
 
   /* ── Illuminated Parchment Background System ── */
-  /* One continuous warm parchment sheet — aged scroll center */
+  /* Full-page parchment scroll image as background */
   .parchment-bg {
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-    /* Warm aged parchment base — slightly deeper honey tone for scroll feel */
-    background:
-      radial-gradient(ellipse 180% 120% at 20% 0%,   rgba(255,245,215,1.0) 0%, transparent 55%),
-      radial-gradient(ellipse 160% 100% at 80% 100%, rgba(248,232,195,0.9) 0%, transparent 55%),
-      radial-gradient(ellipse 200% 80%  at 50% 50%,  rgba(252,240,210,0.8) 0%, transparent 70%),
-      /* Warm aged parchment base — deeper than plain ivory */
-      linear-gradient(160deg, #F8EDD5 0%, #F3E4C5 30%, #EED9B8 60%, #E8D0A8 100%);
+    /* Fallback color while image loads */
+    background: #E8D0A8;
   }
 
   /* Continuous parchment base layer — cotton rag paper warmth */
