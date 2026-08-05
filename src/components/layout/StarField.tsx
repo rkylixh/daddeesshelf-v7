@@ -2,103 +2,52 @@
 
 import React, { useMemo } from 'react';
 
-// All particle data generated deterministically to avoid hydration mismatch
-function generateParticles() {
-  const motes = Array.from({ length: 38 }, (_, i) => ({
-    id: `mote-${i}`,
-    top: `${(i * 8.3 + 7) % 100}%`,
-    left: `${(i * 13.7 + 3) % 100}%`,
-    size: i % 6 === 0 ? 2.2 : i % 3 === 0 ? 1.6 : 1.1,
-    duration: 18 + (i % 14),
-    delay: (i % 38) * 0.55,
-    opacity: 0.12 + (i % 5) * 0.05,
-    driftX: ((i % 7) - 3) * 4,
-    driftY: -8 - (i % 6) * 3,
-  }));
-
-  const petals = Array.from({ length: 8 }, (_, i) => ({
-    id: `petal-${i}`,
-    top: `${(i * 17 + 5) % 85}%`,
-    left: `${(i * 23 + 8) % 92}%`,
-    duration: 28 + (i % 10),
-    delay: i * 3.5,
-    opacity: 0.08 + (i % 3) * 0.04,
-    symbol: ['✿', '❀', '✾', '❁', '✽', '❃', '✿', '❀'][i % 8],
-    rotate: (i * 45) % 360,
-    size: 8 + (i % 4) * 3,
-  }));
-
-  return { motes, petals };
+interface DustData {
+  id: string;
+  top: string;
+  left: string;
+  size: number;
+  duration: number;
+  delay: number;
+  opacity: number;
 }
 
-const { motes, petals } = generateParticles();
+const DUST_COUNT = 60;
+
+function generateDust(): DustData[] {
+  return Array.from({ length: DUST_COUNT }, (_, i) => ({
+    id: `dust-${i + 1}`,
+    top: `${(i * 7.3 + 13) % 100}%`,
+    left: `${(i * 11.7 + 5) % 100}%`,
+    size: i % 7 === 0 ? 2 : i % 4 === 0 ? 1.5 : 1,
+    duration: 7 + (i % 9),
+    delay: (i % 40) * 0.18,
+    opacity: 0.05 + (i % 5) * 0.04,
+  }));
+}
 
 export default function StarField() {
+  const dust = useMemo(() => generateDust(), []);
+
   return (
-    <div className="parchment-bg" aria-hidden="true">
-
-      {/* ── CSS-only parchment base ── */}
-      <div className="parchment-base" />
-
-      {/* ── Center warmth glow ── */}
-      <div className="center-warmth" />
-
-      {/* ── Strong side vignette (dark edges) ── */}
-      <div className="paper-vignette" />
-
-      {/* ── Very subtle warm overlay to blend content readably ── */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'rgba(252, 240, 210, 0.06)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      {/* ── Floating dust motes ── */}
-      {motes.map(mote => (
+    <div className="starfield-bg" aria-hidden="true">
+      <div className="milky-way" />
+      {dust.map(particle => (
         <div
-          key={mote.id}
-          className="dust-mote"
+          key={particle.id}
+          className="star"
           style={{
-            top: mote.top,
-            left: mote.left,
-            width: `${mote.size}px`,
-            height: `${mote.size}px`,
-            opacity: mote.opacity,
-            animationDuration: `${mote.duration}s`,
-            animationDelay: `${mote.delay}s`,
-            '--drift-x': `${mote.driftX}px`,
-            '--drift-y': `${mote.driftY}px`,
-          } as React.CSSProperties}
+            top: particle.top,
+            left: particle.left,
+            width: `${particle.size}px`,
+            height: `${particle.size}px`,
+            opacity: particle.opacity,
+            animationDuration: `${particle.duration}s`,
+            animationDelay: `${particle.delay}s`,
+            background: 'var(--star-color)',
+          }}
         />
       ))}
-
-      {/* ── Drifting botanical petals ── */}
-      {petals.map(petal => (
-        <div
-          key={petal.id}
-          className="drifting-petal"
-          style={{
-            top: petal.top,
-            left: petal.left,
-            fontSize: `${petal.size}px`,
-            opacity: petal.opacity,
-            animationDuration: `${petal.duration}s`,
-            animationDelay: `${petal.delay}s`,
-            transform: `rotate(${petal.rotate}deg)`,
-          }}
-        >
-          {petal.symbol}
-        </div>
-      ))}
-
-      {/* ── Antique book corner flourishes ── */}
-      <div className="corner-flourish corner-tl">❧</div>
-      <div className="corner-flourish corner-tr">❧</div>
-      <div className="corner-flourish corner-bl">❦</div>
-      <div className="corner-flourish corner-br">❦</div>
     </div>
   );
 }

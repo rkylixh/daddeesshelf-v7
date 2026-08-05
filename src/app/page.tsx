@@ -133,7 +133,7 @@ function BookstoreAmbience() {
       <div
         className="absolute inset-0"
         style={{
-          background: 'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 60%, rgba(180,145,100,0.05) 82%, rgba(160,120,75,0.09) 100%)',
+          background: 'radial-gradient(ellipse 100% 100% at 50% 50%, transparent 55%, rgba(180,145,100,0.08) 80%, rgba(160,120,75,0.15) 100%)',
         }}
       />
     </div>
@@ -268,7 +268,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
                   boxShadow: '0 4px 20px rgba(75,53,42,0.12), 0 1px 4px rgba(75,53,42,0.08)',
                 }}
               >
-                <div className="relative" style={{ height: 'clamp(140px, 22vw, 260px)' }}>
+                <div className="relative aspect-[2/3]">
                   <AppImage
                     src={book.cover_url || '/assets/images/no_image.png'}
                     alt={`Cover of ${book.title} by ${book.author}`}
