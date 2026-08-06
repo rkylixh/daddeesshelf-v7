@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -36,12 +36,27 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const adminMenuRef = useRef<HTMLDivElement>(null);
 
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/admin/login');
   };
+
+  // Close admin menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) {
+        setAdminMenuOpen(false);
+      }
+    };
+    if (adminMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [adminMenuOpen]);
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--background)' }}>
@@ -80,22 +95,6 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             </Link>
           ))}
         </nav>
-
-        {/* Sidebar footer */}
-        <div className="px-3 py-3 flex-shrink-0" style={{ borderTop: '1px solid rgba(200,164,91,0.15)' }}>
-          <Link href="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs nav-link mb-1">
-            <Icon name="ArrowLeftIcon" size={14} />
-            Back to Site
-          </Link>
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs nav-link w-full text-left"
-            style={{ color: '#f87171' }}
-          >
-            <Icon name="ArrowRightOnRectangleIcon" size={14} style={{ color: '#f87171' } as React.CSSProperties} />
-            Sign Out
-          </button>
-        </div>
       </aside>
 
       {/* Overlay for mobile */}
@@ -123,12 +122,56 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             </button>
             <h1 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>{title}</h1>
           </div>
-          <span
-            className="text-xs px-2.5 py-1 rounded-full font-semibold"
-            style={{ background: 'rgba(200,164,91,0.15)', color: 'var(--primary)', border: '1px solid rgba(200,164,91,0.3)' }}
-          >
-            Admin
-          </span>
+
+          {/* Admin dropdown button */}
+          <div ref={adminMenuRef} className="relative">
+            <button
+              onClick={() => setAdminMenuOpen(prev => !prev)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold transition-all duration-200"
+              style={{
+                background: adminMenuOpen ? 'rgba(200,164,91,0.25)' : 'rgba(200,164,91,0.15)',
+                color: 'var(--primary)',
+                border: '1px solid rgba(200,164,91,0.3)',
+              }}
+            >
+              Admin
+              <Icon
+                name="ChevronDownIcon"
+                size={12}
+                style={{ color: 'var(--primary)', transform: adminMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' } as React.CSSProperties}
+              />
+            </button>
+
+            {/* Dropdown menu */}
+            {adminMenuOpen && (
+              <div
+                className="absolute right-0 top-full mt-2 w-44 rounded-xl overflow-hidden shadow-xl"
+                style={{
+                  background: '#2C1A0E',
+                  border: '1px solid rgba(200,164,91,0.25)',
+                  zIndex: 50,
+                }}
+              >
+                <Link
+                  href="/"
+                  onClick={() => setAdminMenuOpen(false)}
+                  className="flex items-center gap-2.5 px-4 py-3 text-xs transition-all duration-150 nav-link"
+                >
+                  <Icon name="ArrowLeftIcon" size={14} />
+                  Back to Site
+                </Link>
+                <div style={{ height: '1px', background: 'rgba(200,164,91,0.12)' }} />
+                <button
+                  onClick={() => { setAdminMenuOpen(false); handleSignOut(); }}
+                  className="flex items-center gap-2.5 px-4 py-3 text-xs w-full text-left transition-all duration-150 nav-link"
+                  style={{ color: '#f87171' }}
+                >
+                  <Icon name="ArrowRightOnRectangleIcon" size={14} style={{ color: '#f87171' } as React.CSSProperties} />
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         {/* Page content */}
