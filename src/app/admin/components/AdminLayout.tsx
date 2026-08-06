@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 const ADMIN_NAV = [
   { label: 'Inventory Control', href: '/admin/inventory', icon: 'ArchiveBoxIcon' },
   { label: 'Book Detail Management', href: '/admin/book-detail', icon: 'BookOpenIcon' },
+  { label: 'Visibility Control', href: '/admin/visibility', icon: 'EyeIcon' },
   { label: 'Bundle Management', href: '/admin/bundles', icon: 'RectangleGroupIcon' },
   { label: 'Genre Management', href: '/admin/genres', icon: 'TagIcon' },
   { label: 'Featured Books', href: '/admin/featured', icon: 'StarIcon' },
