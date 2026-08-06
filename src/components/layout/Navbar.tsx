@@ -1016,6 +1016,8 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
       const { supabase: sb } = await import('@/lib/supabase');
       const orderRef = generateOrderRef();
       const hashedPin = await hashPin(form.customer_pin);
+      // Normalize handle: strip leading @ so My Orders lookup always matches
+      const normalizedHandle = form.tiktok_handle.trim().replace(/^@/, '');
       const orderItems = items.map(i => ({
         sku: i.book.sku,
         title: i.book.title,
@@ -1026,8 +1028,8 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
 
       const { error: err } = await sb.from('orders').insert({
         ref_number: orderRef,
-        customer_name: form.tiktok_handle,
-        tiktok_handle: form.tiktok_handle,
+        customer_name: normalizedHandle,
+        tiktok_handle: normalizedHandle,
         customer_pin: hashedPin,
         items: orderItems,
         total_price: total,
@@ -1040,7 +1042,7 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
       if (err) throw err;
 
       clearCart();
-      setConfirmation({ order_ref: orderRef, tiktok_handle: form.tiktok_handle });
+      setConfirmation({ order_ref: orderRef, tiktok_handle: normalizedHandle });
     } catch {
       setError('Something went wrong. Please try again or message us on TikTok @daddees.shelf.');
     } finally {
@@ -1062,6 +1064,18 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
               <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#C8A45B' }}>Order Reference</p>
               <p className="font-display text-2xl font-bold" style={{ color: '#F0DFC4' }}>{confirmation.order_ref}</p>
             </div>
+
+            {/* TikTok screenshot instruction */}
+            <div className="rounded-xl p-4" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)' }}>
+              <p className="text-xs font-bold mb-1.5 flex items-center gap-1.5" style={{ color: '#f87171' }}>
+                <span>📸</span> Important Next Step
+              </p>
+              <p className="text-xs leading-relaxed" style={{ color: '#F0DFC4' }}>
+                <strong>Screenshot this screen</strong> showing your payment reference number, then send it to us on TikTok at{' '}
+                <strong style={{ color: '#C8A45B' }}>@daddees.shelf</strong> so we can verify your payment.
+              </p>
+            </div>
+
             <p className="text-xs text-center" style={{ color: '#C8A45B' }}>
               Use your 4-digit PIN to track your order at <strong style={{ color: '#F0DFC4' }}>My Orders</strong>.
             </p>
