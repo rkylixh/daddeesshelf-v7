@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useContext, createContext } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
@@ -972,14 +972,256 @@ export default function Navbar() {
 // ── Checkout Redirect Modal ────────────────────────────────
 function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const { items } = useCart();
+  const { items, clearCart } = useCart();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [form, setForm] = useState({
+    tiktok_handle: '',
+    customer_pin: '',
+    payment_ref: '',
+    notes: '',
+  });
+  const [confirmation, setConfirmation] = useState<{ order_ref: string; tiktok_handle: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (items.length > 0) {
-      router.push('/preorder-list');
-      onClose();
+  const total = items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+
+  async function hashPin(pin: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin + 'daddees-shelf-salt');
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function generateOrderRef(): string {
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const seq = String(Math.floor(Math.random() * 9000) + 1000).padStart(4, '0');
+    return `DDS-${date}-${seq}`;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.tiktok_handle.trim()) { setError('TikTok Handle is required.'); return; }
+    if (form.customer_pin.length !== 4 || !/^\d{4}$/.test(form.customer_pin)) {
+      setError('PIN must be exactly 4 digits.'); return;
     }
-  }, [items, router, onClose]);
+    if (!form.payment_ref.trim()) { setError('GCash Reference Number is required.'); return; }
 
-  return null;
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const { supabase: sb } = await import('@/lib/supabase');
+      const orderRef = generateOrderRef();
+      const hashedPin = await hashPin(form.customer_pin);
+      const orderItems = items.map(i => ({
+        sku: i.book.sku,
+        title: i.book.title,
+        qty: i.qty,
+        price: i.book.final_srp,
+        batch: i.book.batch,
+      }));
+
+      const { error: err } = await sb.from('orders').insert({
+        ref_number: orderRef,
+        customer_name: form.tiktok_handle,
+        tiktok_handle: form.tiktok_handle,
+        customer_pin: hashedPin,
+        items: orderItems,
+        total_price: total,
+        payment_method: 'GCash',
+        payment_ref: form.payment_ref,
+        notes: form.notes,
+        status: 'Pending Payment Verification',
+        is_preorder: true,
+      });
+      if (err) throw err;
+
+      clearCart();
+      setConfirmation({ order_ref: orderRef, tiktok_handle: form.tiktok_handle });
+    } catch {
+      setError('Something went wrong. Please try again or message us on TikTok @daddees.shelf.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (confirmation) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(10,6,2,0.97)' }}>
+        <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#1a0e06', border: '1px solid rgba(184,134,11,0.5)' }}>
+          <div className="px-6 py-5 text-center" style={{ background: 'linear-gradient(135deg, rgba(184,134,11,0.2), rgba(139,69,19,0.15))', borderBottom: '1px solid rgba(184,134,11,0.3)' }}>
+            <div className="text-4xl mb-2">✓</div>
+            <h2 className="font-display text-xl font-bold" style={{ color: '#F0DFC4' }}>Preorder Submitted!</h2>
+            <p className="text-xs mt-1" style={{ color: '#C8A45B' }}>Your order is pending payment verification</p>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(184,134,11,0.1)', border: '1px solid rgba(184,134,11,0.3)' }}>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#C8A45B' }}>Order Reference</p>
+              <p className="font-display text-2xl font-bold" style={{ color: '#F0DFC4' }}>{confirmation.order_ref}</p>
+            </div>
+            <p className="text-xs text-center" style={{ color: '#C8A45B' }}>
+              Use your 4-digit PIN to track your order at <strong style={{ color: '#F0DFC4' }}>My Orders</strong>.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(confirmation.order_ref).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  });
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: 'rgba(184,134,11,0.2)', color: '#F0DFC4', border: '1px solid rgba(184,134,11,0.4)' }}
+              >
+                {copied ? '✓ Copied!' : 'Copy Ref'}
+              </button>
+              <button
+                onClick={() => { onClose(); router.push('/orders'); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: 'rgba(184,134,11,0.8)', color: '#1a0a00' }}
+              >
+                Track Order
+              </button>
+            </div>
+            <button onClick={onClose} className="w-full text-xs py-2" style={{ color: '#8a7060' }}>Close</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(10,6,2,0.97)' }}>
+      <div className="relative w-full max-w-lg rounded-2xl" style={{ background: '#1a0e06', border: '1px solid rgba(184,134,11,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 sticky top-0" style={{ background: '#1a0e06', borderBottom: '1px solid rgba(184,134,11,0.25)', zIndex: 1 }}>
+          <h2 className="font-display text-lg font-bold" style={{ color: '#F0DFC4' }}>Checkout</h2>
+          <button onClick={onClose} className="p-1 rounded-lg" style={{ color: '#C8A45B' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        {/* Cart summary */}
+        <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(184,134,11,0.2)', background: 'rgba(184,134,11,0.04)' }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: '#C8A45B' }}>Your Cart ({items.length} {items.length === 1 ? 'title' : 'titles'})</p>
+          {items.map((item, i) => (
+            <div key={i} className="flex justify-between text-xs mb-1">
+              <span style={{ color: '#D4B896' }}>{item.book.title} × {item.qty}</span>
+              <span style={{ color: '#F0DFC4', fontWeight: 600 }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</span>
+            </div>
+          ))}
+          <div className="flex justify-between text-sm font-bold mt-2 pt-2" style={{ borderTop: '1px solid rgba(184,134,11,0.2)' }}>
+            <span style={{ color: '#F0DFC4' }}>Total</span>
+            <span style={{ color: '#C8A45B' }}>₱{total.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {/* TikTok Handle */}
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>
+              TikTok Handle <span style={{ color: '#f59e0b' }}>*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={form.tiktok_handle}
+              onChange={e => setForm(f => ({ ...f, tiktok_handle: e.target.value }))}
+              className="input-field text-sm"
+              placeholder="@yourtiktok"
+            />
+            <p className="text-xs mt-1" style={{ color: '#8a7060' }}>You must be a follower of @daddees.shelf to place preorders.</p>
+          </div>
+
+          {/* PIN */}
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>
+              4-Digit PIN <span style={{ color: '#f59e0b' }}>*</span>
+            </label>
+            <input
+              type="password"
+              required
+              maxLength={4}
+              value={form.customer_pin}
+              onChange={e => setForm(f => ({ ...f, customer_pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+              className="input-field text-sm text-center tracking-widest"
+              placeholder="••••"
+              inputMode="numeric"
+            />
+            <p className="text-xs mt-1" style={{ color: '#8a7060' }}>Remember this PIN — you will use it to track your order in My Orders.</p>
+          </div>
+
+          {/* GCash QR */}
+          <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.25)' }}>
+            <p className="text-xs font-bold mb-2" style={{ color: '#10b981' }}>✦ GCash Payment Instructions</p>
+            <div className="w-44 h-44 mx-auto rounded-xl mb-3 overflow-hidden" style={{ border: '2px solid rgba(16,185,129,0.4)' }}>
+              <AppImage
+                src="/assets/images/36c6a594-8ce5-4d14-8600-0e7b65f58ff0-1786006380177.jpg"
+                alt="GCash QR code for Daddee's Shelf payment"
+                width={176}
+                height={176}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <ol className="text-xs text-left space-y-1.5 max-w-xs mx-auto" style={{ color: '#D4B896' }}>
+              <li className="flex gap-2"><span className="font-bold" style={{ color: '#10b981' }}>1.</span> Scan the QR code with your GCash app</li>
+              <li className="flex gap-2"><span className="font-bold" style={{ color: '#10b981' }}>2.</span> Send the exact total amount</li>
+              <li className="flex gap-2"><span className="font-bold" style={{ color: '#10b981' }}>3.</span> Copy your GCash Reference Number</li>
+              <li className="flex gap-2"><span className="font-bold" style={{ color: '#10b981' }}>4.</span> Paste it in the field below</li>
+            </ol>
+          </div>
+
+          {/* Payment Reference */}
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>
+              GCash Reference Number <span style={{ color: '#f59e0b' }}>*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={form.payment_ref}
+              onChange={e => setForm(f => ({ ...f, payment_ref: e.target.value }))}
+              className="input-field text-sm"
+              placeholder="e.g. 1234567890"
+            />
+            <p className="text-xs mt-1" style={{ color: '#8a7060' }}>Copy the reference number from your GCash transaction receipt.</p>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>
+              Notes <span className="text-xs font-normal" style={{ color: '#8a7060' }}>(optional)</span>
+            </label>
+            <textarea
+              rows={2}
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              className="input-field text-sm resize-none"
+              placeholder="Any special instructions..."
+            />
+          </div>
+
+          <div className="rounded-xl p-3" style={{ background: 'rgba(184,134,11,0.06)', border: '1px solid rgba(184,134,11,0.2)' }}>
+            <p className="text-xs" style={{ color: '#D4B896' }}>
+              <strong style={{ color: '#F0DFC4' }}>Note:</strong> Shipping details will be collected after your books arrive. Supported couriers: J&T Express (Nationwide) and Lalamove (Metro Manila / Nearby Areas).
+            </p>
+          </div>
+
+          {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="btn-primary w-full py-3 text-sm"
+            style={{ opacity: submitting ? 0.7 : 1 }}
+          >
+            {submitting ? 'Submitting...' : 'Submit Preorder ✦'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
