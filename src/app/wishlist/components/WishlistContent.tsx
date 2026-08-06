@@ -50,10 +50,10 @@ export default function WishlistContent() {
         <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
           ✦ Saved Titles ✦
         </p>
-        <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>
+        <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4" style={{ color: '#F0E8D8' }}>
           My Wishlist
         </h1>
-        <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
+        <p className="text-sm max-w-md mx-auto" style={{ color: 'rgba(220,205,180,0.75)', lineHeight: '1.7' }}>
           Books you&apos;ve saved for later. Your wishlist persists across visits until you remove a title.
         </p>
       </div>
@@ -102,7 +102,7 @@ export default function WishlistContent() {
         </div>
       ) : (
         <div>
-          <p className="text-sm mb-6" style={{ color: 'var(--foreground-muted)' }}>
+          <p className="text-sm mb-6" style={{ color: 'rgba(220,205,180,0.75)' }}>
             {books.length} {books.length === 1 ? 'title' : 'titles'} saved
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">

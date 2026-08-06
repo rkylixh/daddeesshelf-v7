@@ -87,10 +87,13 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               key={item.href}
               href={item.href}
               onClick={() => setSidebarOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-0.5 transition-all ${pathname === item.href ? 'active' : 'nav-link'}`}
-              style={pathname === item.href ? { background: 'var(--primary-glow)', color: 'var(--primary-bright)' } : {}}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-0.5 transition-all`}
+              style={pathname === item.href
+                ? { background: 'var(--primary-glow)', color: 'var(--primary-bright)' }
+                : { color: 'rgba(245,230,200,0.7)' }
+              }
             >
-              <Icon name={item.icon as 'HomeIcon'} size={16} style={{ color: pathname === item.href ? 'var(--primary-bright)' : 'var(--foreground-subtle)' } as React.CSSProperties} />
+              <Icon name={item.icon as 'HomeIcon'} size={16} style={{ color: pathname === item.href ? 'var(--primary-bright)' : 'rgba(245,230,200,0.5)' } as React.CSSProperties} />
               <span>{item.label}</span>
             </Link>
           ))}
@@ -120,7 +123,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             >
               <Icon name="Bars3Icon" size={18} />
             </button>
-            <h1 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>{title}</h1>
+            <h1 className="font-display text-base font-bold" style={{ color: '#F5E6C8' }}>{title}</h1>
           </div>
 
           {/* Admin dropdown button */}

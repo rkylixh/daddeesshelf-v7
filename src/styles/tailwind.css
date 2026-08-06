@@ -6,8 +6,8 @@
 
 :root {
   /* ── Light Academia / Cozy Bookstore Palette ── */
-  --background: #FFF8F0;
-  --background-secondary: #F7EFE5;
+  --background: #0d0b1a;
+  --background-secondary: #13102a;
   --background-card: #F3E7D5;
   --background-card-hover: #EDD9C0;
   --foreground: #4B352A;
@@ -68,7 +68,7 @@
   }
 
   body {
-    background-color: var(--background);
+    background-color: #0d0b1a;
     color: var(--foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
