@@ -513,9 +513,9 @@ function DeleteOrderModal({
       return;
     }
 
-    // Hash the entered PIN
+    // Hash the entered PIN (same method as admin login — no salt)
     const encoder = new TextEncoder();
-    const data = encoder.encode(pin + 'daddees-shelf-salt');
+    const data = encoder.encode(pin);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const enteredHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
@@ -1039,17 +1039,15 @@ export default function AdminOrdersContent() {
                     </button>
                   )}
 
-                  {/* Delete order — owner only */}
-                  {ownerAccess && (
-                    <button
-                      onClick={() => setDeleteOrder(order)}
-                      className="text-xs px-3 py-1.5 rounded-lg font-semibold"
-                      style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
-                      title="Delete order and restore stock"
-                    >
-                      🗑 Delete
-                    </button>
-                  )}
+                  {/* Delete order — PIN protected */}
+                  <button
+                    onClick={() => setDeleteOrder(order)}
+                    className="text-xs px-3 py-1.5 rounded-lg font-semibold"
+                    style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                    title="Delete order and restore stock"
+                  >
+                    🗑 Delete
+                  </button>
 
                   {/* Notes toggle */}
                   <button

@@ -8,6 +8,7 @@ import { getAllBooksAdmin } from '@/lib/books';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import AppImage from '@/components/ui/AppImage';
+import { logAudit } from '@/lib/auditLog';
 
 type VisibilityField = 'is_visible' | 'is_price_visible' | 'is_eta_visible';
 
@@ -91,6 +92,14 @@ export default function AdminVisibilityContent() {
       setBooks(prev => prev.map(b => b.id === book.id ? { ...b, [field]: newValue } : b));
       const cfg = TOGGLE_CONFIG.find(c => c.field === field)!;
       toast.success(`"${book.title}" — ${cfg.label} ${newValue ? 'on' : 'off'}`);
+      await logAudit({
+        action: 'BOOK_VISIBILITY_TOGGLED',
+        module: 'Visibility Control',
+        target_ref: book.title,
+        prev_value: `${cfg.label}: ${!newValue ? 'on' : 'off'}`,
+        new_value: `${cfg.label}: ${newValue ? 'on' : 'off'}`,
+        explanation: `Admin toggled ${cfg.label} for "${book.title}" (SKU: ${book.sku}) — now ${newValue ? 'visible' : 'hidden'}`,
+      });
     } catch {
       toast.error('Failed to update visibility');
     } finally {
@@ -112,6 +121,14 @@ export default function AdminVisibilityContent() {
       setBooks(prev => prev.map(b => ids.includes(b.id) ? { ...b, [field]: makeVisible } : b));
       const cfg = TOGGLE_CONFIG.find(c => c.field === field)!;
       toast.success(`${batchName}: ${cfg.label} ${makeVisible ? 'on' : 'off'} for all ${ids.length} titles`);
+      await logAudit({
+        action: 'BATCH_VISIBILITY_TOGGLED',
+        module: 'Visibility Control',
+        target_ref: batchName,
+        prev_value: `${cfg.label}: ${!makeVisible ? 'on' : 'off'}`,
+        new_value: `${cfg.label}: ${makeVisible ? 'on' : 'off'}`,
+        explanation: `Admin set ${cfg.label} to ${makeVisible ? 'on' : 'off'} for all ${ids.length} titles in "${batchName}"`,
+      });
     } catch {
       toast.error('Failed to update batch visibility');
     } finally {
