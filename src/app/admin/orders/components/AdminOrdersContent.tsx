@@ -118,9 +118,9 @@ function getAdminSession() {
   }
 }
 
-function isOwner() {
+function hasOrderAccess() {
   const session = getAdminSession();
-  return session?.role === 'Owner';
+  return session?.role === 'Owner' || session?.role === 'Developer';
 }
 
 async function logAudit(params: {
@@ -161,8 +161,8 @@ function ConfirmPaymentModal({
 
   const handleConfirm = async () => {
     if (!input.trim()) { toast.error('Please paste the reference number'); return; }
-    if (input.trim() !== (order.payment_ref ?? '').trim()) {
-      toast.error('Reference number does not match. Please verify.');
+    if (input.trim().toLowerCase() !== (order.payment_ref ?? '').trim().toLowerCase()) {
+      toast.error('Reference number does not match. Please verify and try again.');
       return;
     }
     setLoading(true);
@@ -171,7 +171,11 @@ function ConfirmPaymentModal({
       .from('orders')
       .update({ status: newStatus, is_reviewed: true })
       .eq('id', order.id);
-    if (error) { toast.error('Failed to confirm payment'); setLoading(false); return; }
+    if (error) {
+      toast.error('Failed to confirm payment: ' + (error.message ?? 'Unknown error'));
+      setLoading(false);
+      return;
+    }
 
     await logAudit({
       action: 'PAYMENT_CONFIRMED',
@@ -488,7 +492,7 @@ export default function AdminOrdersContent() {
   const [refundOrder, setRefundOrder] = useState<Order | null>(null);
   const [statusChangeOrder, setStatusChangeOrder] = useState<{ order: Order; newStatus: string } | null>(null);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
-  const ownerAccess = isOwner();
+  const ownerAccess = hasOrderAccess();
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
