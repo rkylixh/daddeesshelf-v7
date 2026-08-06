@@ -68,6 +68,105 @@ export function useCart() {
   return React.useContext(CartContext);
 }
 
+// ── Wishlist Account Prompt Modal ─────────────────────────
+interface WishlistPromptProps {
+  bookId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+const WISHLIST_KEY = 'ds-wishlist';
+const WISHLIST_ACCOUNT_KEY = 'ds-wishlist-account';
+
+function WishlistAccountPrompt({ bookId, onClose, onSaved }: WishlistPromptProps) {
+  const [tiktok, setTiktok] = useState('');
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    const handle = tiktok.trim();
+    if (!handle) { setError('Please enter your TikTok handle.'); return; }
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { setError('PIN must be exactly 4 digits.'); return; }
+
+    // Save account info
+    localStorage.setItem(WISHLIST_ACCOUNT_KEY, JSON.stringify({ tiktok: handle, pin }));
+
+    // Save book to wishlist
+    try {
+      const stored = JSON.parse(localStorage.getItem(WISHLIST_KEY) || '[]') as string[];
+      if (!stored.includes(bookId)) {
+        localStorage.setItem(WISHLIST_KEY, JSON.stringify([...stored, bookId]));
+      }
+    } catch { /* ignore */ }
+
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      style={{ background: 'rgba(44,26,14,0.88)', backdropFilter: 'blur(8px)' }}
+    >
+      <div
+        className="relative w-full max-w-sm rounded-2xl animate-fade-in-up"
+        style={{ background: '#3A2214', border: '1px solid rgba(200,164,91,0.4)', boxShadow: '0 8px 40px rgba(44,26,14,0.5)' }}
+      >
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(200,164,91,0.25)' }}>
+          <div className="flex items-center gap-2">
+            <span style={{ color: '#E8C97A', fontSize: '18px' }}>♡</span>
+            <span className="font-display text-sm font-bold" style={{ color: '#F0DFC4' }}>Save to Wishlist</span>
+          </div>
+          <button onClick={onClose} className="btn-ghost p-1 rounded-lg" style={{ color: '#C8A45B' }}>
+            <Icon name="XMarkIcon" size={18} />
+          </button>
+        </div>
+        <div className="p-6">
+          <p className="text-sm mb-5" style={{ color: '#D4B896', lineHeight: '1.6' }}>
+            Enter your TikTok handle and a 4-digit PIN to save this book to your wishlist.
+          </p>
+          <form onSubmit={handleSave} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>TikTok Handle</label>
+              <input
+                type="text"
+                required
+                value={tiktok}
+                onChange={e => setTiktok(e.target.value)}
+                className="input-field text-sm"
+                placeholder="@yourtiktok"
+                autoFocus
+                style={{ background: '#2C1A0E', borderColor: 'rgba(200,164,91,0.4)', color: '#F0DFC4' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>4-Digit PIN</label>
+              <input
+                type="password"
+                required
+                maxLength={4}
+                value={pin}
+                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="input-field text-sm text-center tracking-widest"
+                placeholder="••••"
+                style={{ background: '#2C1A0E', borderColor: 'rgba(200,164,91,0.4)', color: '#F0DFC4' }}
+              />
+            </div>
+            {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
+            <button type="submit" className="btn-primary w-full py-2.5 text-sm">Save to Wishlist ♡</button>
+            <button type="button" onClick={onClose} className="w-full text-xs text-center" style={{ color: '#A08070', background: 'none', border: 'none', cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export { WishlistAccountPrompt, WISHLIST_KEY, WISHLIST_ACCOUNT_KEY };
+
 // ── Admin Access Overlay ───────────────────────────────────
 function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
   const router = useRouter();
@@ -261,8 +360,8 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
           {step === 'code' && (
             <form onSubmit={handleCodeVerify} className="space-y-4">
               <div className="text-center mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--foreground-subtle)' }}>Step 1 of 2</p>
-                <h3 className="font-display text-base font-bold mt-1" style={{ color: 'var(--foreground)' }}>Enter Access Code</h3>
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#C8A45B' }}>Step 1 of 2</p>
+                <h3 className="font-display text-base font-bold mt-1" style={{ color: '#F0DFC4' }}>Enter Access Code</h3>
               </div>
               <input
                 type="password"
@@ -282,11 +381,11 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
           {step === 'auth' && (
             <form onSubmit={handleCheckHandle} className="space-y-4">
               <div className="text-center mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--foreground-subtle)' }}>Step 2 of 2</p>
-                <h3 className="font-display text-base font-bold mt-1" style={{ color: 'var(--foreground)' }}>Admin Authentication</h3>
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#C8A45B' }}>Step 2 of 2</p>
+                <h3 className="font-display text-base font-bold mt-1" style={{ color: '#F0DFC4' }}>Admin Authentication</h3>
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>TikTok Handle</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>TikTok Handle</label>
                 <input
                   type="text"
                   required
@@ -311,11 +410,11 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
           {step === 'enter-pin' && (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="text-center mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--foreground-subtle)' }}>Admin PIN</p>
-                <h3 className="font-display text-base font-bold mt-1" style={{ color: 'var(--foreground)' }}>Enter Your PIN</h3>
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#C8A45B' }}>Admin PIN</p>
+                <h3 className="font-display text-base font-bold mt-1" style={{ color: '#F0DFC4' }}>Enter Your PIN</h3>
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>6-Digit Admin PIN</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>6-Digit Admin PIN</label>
                 <input
                   type="password"
                   required
@@ -341,11 +440,11 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
           {step === 'set-pin' && (
             <form onSubmit={handleSetPin} className="space-y-4">
               <div className="text-center mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--foreground-subtle)' }}>First Time Setup</p>
-                <h3 className="font-display text-base font-bold mt-1" style={{ color: 'var(--foreground)' }}>Create Admin PIN</h3>
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#C8A45B' }}>First Time Setup</p>
+                <h3 className="font-display text-base font-bold mt-1" style={{ color: '#F0DFC4' }}>Create Admin PIN</h3>
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Create 6-Digit PIN</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>Create 6-Digit PIN</label>
                 <input
                   type="password"
                   required
@@ -358,7 +457,7 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Confirm 6-Digit PIN</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>Confirm 6-Digit PIN</label>
                 <input
                   type="password"
                   required
@@ -802,11 +901,11 @@ export default function Navbar() {
           />
           <div
             className="relative ml-auto w-72 h-full overflow-y-auto animate-fade-in"
-            style={{ background: 'var(--background-card)', borderLeft: '1px solid var(--border)' }}
+            style={{ background: 'rgba(44,26,14,0.97)', borderLeft: '1px solid rgba(200,164,91,0.3)', backdropFilter: 'blur(16px)' }}
           >
-            <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--border)' }}>
-              <span className="font-display text-base font-semibold" style={{ color: 'var(--primary-bright)' }}>Navigation</span>
-              <button onClick={() => setMobileOpen(false)} className="btn-ghost p-1">
+            <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(200,164,91,0.25)' }}>
+              <span className="font-display text-base font-semibold" style={{ color: '#F0DFC4' }}>Navigation</span>
+              <button onClick={() => setMobileOpen(false)} className="btn-ghost p-1" style={{ color: '#C8A45B' }}>
                 <Icon name="XMarkIcon" size={20} />
               </button>
             </div>
@@ -835,8 +934,11 @@ export default function Navbar() {
                   key={`mobile-nav-${link.href}`}
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${pathname === link.href ? 'active' : 'nav-link'}`}
-                  style={pathname === link.href ? { background: 'var(--primary-glow)', color: 'var(--primary-bright)' } : {}}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all`}
+                  style={pathname === link.href
+                    ? { background: 'rgba(200,164,91,0.25)', color: '#F0DFC4', fontWeight: 600 }
+                    : { color: '#D4B896' }
+                  }
                 >
                   {link.label}
                 </Link>

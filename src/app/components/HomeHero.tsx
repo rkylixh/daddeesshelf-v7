@@ -174,108 +174,7 @@ export default function HomeHero({ stats }: HomeHeroProps) {
         </div>
       )}
 
-      {/* ── Layer 3: Botanical / decorative accents ── */}
-      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 4 }} aria-hidden="true">
-        {/* Top-left pressed flower */}
-        <div
-          className="absolute"
-          style={{
-            top: '8%',
-            left: '6%',
-            fontSize: '28px',
-            opacity: 0.18,
-            transform: 'rotate(-15deg)',
-            filter: 'sepia(0.4)',
-            animation: 'heroBotanicalFloat 12s ease-in-out infinite',
-            animationDelay: '0s',
-            color: '#8B5E3C',
-          }}
-        >❧</div>
-        {/* Top-right botanical */}
-        <div
-          className="absolute"
-          style={{
-            top: '12%',
-            right: '7%',
-            fontSize: '22px',
-            opacity: 0.15,
-            transform: 'rotate(12deg)',
-            animation: 'heroBotanicalFloat 15s ease-in-out infinite',
-            animationDelay: '3s',
-            color: '#7A5230',
-          }}
-        >✿</div>
-        {/* Bottom-left gold flourish */}
-        <div
-          className="absolute"
-          style={{
-            bottom: '15%',
-            left: '8%',
-            fontSize: '20px',
-            opacity: 0.2,
-            transform: 'rotate(8deg)',
-            animation: 'heroBotanicalFloat 18s ease-in-out infinite',
-            animationDelay: '6s',
-            color: '#C8A45B',
-          }}
-        >⚜</div>
-        {/* Bottom-right ornament */}
-        <div
-          className="absolute"
-          style={{
-            bottom: '20%',
-            right: '9%',
-            fontSize: '18px',
-            opacity: 0.16,
-            transform: 'rotate(-10deg)',
-            animation: 'heroBotanicalFloat 14s ease-in-out infinite',
-            animationDelay: '2s',
-            color: '#A87445',
-          }}
-        >✾</div>
-        {/* Mid-left quill */}
-        <div
-          className="absolute"
-          style={{
-            top: '45%',
-            left: '4%',
-            fontSize: '16px',
-            opacity: 0.14,
-            animation: 'heroBotanicalFloat 20s ease-in-out infinite',
-            animationDelay: '9s',
-            color: '#8B5E3C',
-          }}
-        >❦</div>
-        {/* Mid-right ornament */}
-        <div
-          className="absolute"
-          style={{
-            top: '38%',
-            right: '5%',
-            fontSize: '14px',
-            opacity: 0.18,
-            animation: 'heroBotanicalFloat 16s ease-in-out infinite',
-            animationDelay: '4s',
-            color: '#C8A45B',
-          }}
-        >✽</div>
-        {/* Wax seal hint — top center */}
-        <div
-          className="absolute"
-          style={{
-            top: '6%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            fontSize: '12px',
-            opacity: 0.12,
-            letterSpacing: '0.5em',
-            color: '#A87445',
-            fontFamily: 'serif',
-          }}
-        >— ✦ —</div>
-      </div>
-
-      {/* ── Layer 4: Light parchment vignette ── */}
+      {/* ── Layer 3: Light parchment vignette ── */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -289,7 +188,7 @@ export default function HomeHero({ stats }: HomeHeroProps) {
         aria-hidden="true"
       />
 
-      {/* ── Layer 5: Hero content ── */}
+      {/* ── Layer 4: Hero content ── */}
       <div className="relative flex flex-col items-center justify-center text-center" style={{ zIndex: 6 }}>
         {/* Eyebrow label */}
         <p

@@ -34,6 +34,17 @@ const WARM_COLORS = [
   'rgba(240,220,160,1)',   // golden wheat
 ];
 
+// Dark brown/sepia papyrus spot colors — replaced with warm brown gradient stops
+const PAPYRUS_SPOT_COLORS = [
+  'rgba(160,100,45,1)',   // warm sienna brown
+  'rgba(140,85,35,1)',    // medium amber brown
+  'rgba(175,115,55,1)',   // golden brown
+  'rgba(130,78,30,1)',    // deep warm brown
+  'rgba(155,95,40,1)',    // aged leather brown
+  'rgba(145,90,38,1)',    // antique brown
+  'rgba(165,105,48,1)',   // rich caramel brown
+];
+
 function buildMotes(count: number, offset: number): GlitterMote[] {
   return Array.from({ length: count }, (_, i) => {
     const s = offset + i * 17;
@@ -55,12 +66,49 @@ function buildMotes(count: number, offset: number): GlitterMote[] {
   });
 }
 
+// Papyrus dark spots — static, large, blurred, irregular
+interface PapyrusSpot {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  opacity: number;
+  color: string;
+  br: string;
+  rotate: number;
+  blur: number;
+}
+
+function buildPapyrusSpots(count: number, offset: number): PapyrusSpot[] {
+  return Array.from({ length: count }, (_, i) => {
+    const s = offset + i * 23;
+    const r = (n: number) => seededRand(s + n);
+    return {
+      id: `spot-${offset}-${i}`,
+      x: r(0) * 95,
+      y: r(1) * 95,
+      w: 80 + r(2) * 200,   // larger for gradient sweeps
+      h: 40 + r(3) * 120,
+      opacity: 0.07 + r(4) * 0.10,  // subtle warm tones
+      color: PAPYRUS_SPOT_COLORS[Math.floor(r(5) * PAPYRUS_SPOT_COLORS.length)],
+      br: `${30 + r(6) * 40}% ${60 - r(7) * 30}% ${45 + r(8) * 35}% ${50 + r(9) * 30}%`,
+      rotate: (r(10) - 0.5) * 40,
+      blur: 20 + r(11) * 40,  // heavier blur for soft gradient look
+    };
+  });
+}
+
 // Three layers for depth
 const MOTES_BG = buildMotes(55, 0);
 const MOTES_MID = buildMotes(35, 2000);
 const MOTES_FG = buildMotes(20, 4000);
 
-// Glitter sparkle points — tiny bright flashes
+// Papyrus dark spots — two layers for depth
+const PAPYRUS_SPOTS_BG = buildPapyrusSpots(18, 8000);
+const PAPYRUS_SPOTS_FG = buildPapyrusSpots(12, 9000);
+
+// Glitter sparkle points — tiny bright flashes (white/cream)
 function buildSparkles(count: number, offset: number) {
   return Array.from({ length: count }, (_, i) => {
     const s = offset + i * 11;
@@ -173,6 +221,50 @@ export default function StarField() {
         }}
       />
 
+      {/* ── Papyrus dark brown spots — background layer ── */}
+      <div style={{ position: 'absolute', inset: 0 }}>
+        {PAPYRUS_SPOTS_BG.map(spot => (
+          <div
+            key={spot.id}
+            style={{
+              position: 'absolute',
+              left: `${spot.x}%`,
+              top: `${spot.y}%`,
+              width: `${spot.w}px`,
+              height: `${spot.h}px`,
+              borderRadius: spot.br,
+              background: spot.color,
+              opacity: spot.opacity,
+              filter: `blur(${spot.blur}px)`,
+              transform: `rotate(${spot.rotate}deg)`,
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
+      </div>
+
+      {/* ── Papyrus dark brown spots — foreground layer ── */}
+      <div style={{ position: 'absolute', inset: 0 }}>
+        {PAPYRUS_SPOTS_FG.map(spot => (
+          <div
+            key={spot.id}
+            style={{
+              position: 'absolute',
+              left: `${spot.x}%`,
+              top: `${spot.y}%`,
+              width: `${spot.w * 0.7}px`,
+              height: `${spot.h * 0.7}px`,
+              borderRadius: spot.br,
+              background: spot.color,
+              opacity: spot.opacity * 0.8,
+              filter: `blur(${spot.blur * 0.6}px)`,
+              transform: `rotate(${spot.rotate * 1.3}deg)`,
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
+      </div>
+
       {/* ── Background dust layer (slowest parallax) ── */}
       {mounted && (
         <div
@@ -283,7 +375,7 @@ export default function StarField() {
             />
           ))}
 
-          {/* Glitter sparkle flashes */}
+          {/* Glitter sparkle flashes — white/cream */}
           {SPARKLES.map(sp => (
             <div
               key={sp.id}
@@ -295,8 +387,8 @@ export default function StarField() {
                 width: `${sp.size}px`,
                 height: `${sp.size}px`,
                 borderRadius: '50%',
-                background: 'rgba(255,248,210,1)',
-                boxShadow: `0 0 ${sp.size * 2}px ${sp.size * 0.8}px rgba(212,185,120,0.4)`,
+                background: 'rgba(255,255,255,1)',
+                boxShadow: `0 0 ${sp.size * 3}px ${sp.size * 1.2}px rgba(255,255,255,0.7), 0 0 ${sp.size * 6}px ${sp.size * 2}px rgba(240,220,160,0.3)`,
                 animationName: 'warmGlitterFlash',
                 animationDuration: `${sp.dur}s`,
                 animationDelay: `${sp.delay}s`,

@@ -53,8 +53,61 @@ function BookstoreAmbience() {
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: -1 }} aria-hidden="true">
-      {/* Papyrus base — warm aged parchment */}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #FBF6EC 0%, #F6EDDC 40%, #F1E4CE 70%, #EBDBC4 100%)' }} />
+      {/* Papyrus base — warm aged parchment matching the rest of the site */}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #FBF5EC 0%, #F5E8D0 30%, #F8EFE0 60%, #F2E4CC 100%)' }} />
+
+      {/* Sunray beams from upper-left — same as StarField */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `
+            linear-gradient(148deg, rgba(255,220,130,0.28) 0%, rgba(255,200,90,0.12) 25%, transparent 55%),
+            linear-gradient(155deg, rgba(255,235,160,0.18) 0%, rgba(255,215,110,0.08) 35%, transparent 60%)
+          `,
+        }}
+      />
+
+      {/* Warm ambient radial glows */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `
+            radial-gradient(ellipse 70% 50% at 30% 15%, rgba(255,220,130,0.22) 0%, rgba(200,164,91,0.08) 45%, transparent 70%),
+            radial-gradient(ellipse 55% 40% at 75% 25%, rgba(255,235,160,0.14) 0%, rgba(216,180,108,0.06) 40%, transparent 65%),
+            radial-gradient(ellipse 80% 35% at 50% 100%, rgba(200,164,91,0.10) 0%, transparent 60%)
+          `,
+        }}
+      />
+
+      {/* Brown gradient spots — warm papyrus tones, matching StarField */}
+      <div className="absolute inset-0">
+        {[
+          { x: 12, y: 8, w: 280, h: 160, opacity: 0.08, blur: 45, rotate: -12, color: 'rgba(160,100,45,1)' },
+          { x: 72, y: 5, w: 220, h: 120, opacity: 0.07, blur: 38, rotate: 8, color: 'rgba(175,115,55,1)' },
+          { x: 45, y: 35, w: 320, h: 180, opacity: 0.06, blur: 55, rotate: -5, color: 'rgba(145,90,38,1)' },
+          { x: 5, y: 55, w: 200, h: 110, opacity: 0.08, blur: 40, rotate: 15, color: 'rgba(140,85,35,1)' },
+          { x: 80, y: 60, w: 260, h: 140, opacity: 0.07, blur: 50, rotate: -8, color: 'rgba(155,95,40,1)' },
+          { x: 25, y: 78, w: 300, h: 160, opacity: 0.06, blur: 48, rotate: 10, color: 'rgba(165,105,48,1)' },
+          { x: 60, y: 85, w: 240, h: 130, opacity: 0.08, blur: 42, rotate: -18, color: 'rgba(130,78,30,1)' },
+        ].map((spot, i) => (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              left: `${spot.x}%`,
+              top: `${spot.y}%`,
+              width: `${spot.w}px`,
+              height: `${spot.h}px`,
+              borderRadius: '50%',
+              background: spot.color,
+              opacity: spot.opacity,
+              filter: `blur(${spot.blur}px)`,
+              transform: `rotate(${spot.rotate}deg)`,
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
+      </div>
 
       {/* Slow-moving parallax layer */}
       <div
@@ -74,17 +127,7 @@ function BookstoreAmbience() {
         }}
       />
 
-      {/* Warm center glow — sunlight through windows */}
-      <div
-        className="absolute top-0 left-0 right-0"
-        style={{
-          height: '60vh',
-          background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,220,140,0.10) 0%, rgba(200,164,91,0.04) 55%, transparent 80%)',
-          filter: 'blur(4px)',
-        }}
-      />
-
-      {/* Soft edge vignette — atmosphere only, must not hide content */}
+      {/* Soft edge vignette */}
       <div
         className="absolute inset-0"
         style={{
@@ -465,9 +508,7 @@ export default function HomePage() {
                         backdropFilter: 'blur(4px)',
                       }}
                     >
-                      {/* Decorative corner flourish */}
-                      <div className="absolute top-3 right-4 text-2xl pointer-events-none" style={{ color: 'rgba(200,164,91,0.2)', fontFamily: 'serif' }} aria-hidden="true">❧</div>
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--primary)', letterSpacing: '0.15em' }}>
                             ✦ Now Open for Preorder
@@ -555,15 +596,15 @@ export default function HomePage() {
                       key={item.step}
                       className="rounded-xl p-5 text-center"
                       style={{
-                        background: 'rgba(247,239,225,0.85)',
-                        border: '1px solid rgba(200,164,91,0.25)',
-                        boxShadow: '0 2px 12px rgba(75,53,42,0.08), inset 0 1px 0 rgba(255,255,255,0.5)',
-                        backdropFilter: 'blur(4px)',
+                        background: 'rgba(247,239,225,0.95)',
+                        border: '1px solid rgba(200,164,91,0.45)',
+                        boxShadow: '0 6px 24px rgba(75,53,42,0.16), 0 2px 8px rgba(75,53,42,0.10), inset 0 1px 0 rgba(255,255,255,0.8)',
+                        backdropFilter: 'blur(8px)',
                       }}
                     >
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3"
-                        style={{ background: 'rgba(200,164,91,0.15)', border: '1px solid rgba(200,164,91,0.3)' }}
+                        style={{ background: 'rgba(200,164,91,0.25)', border: '1.5px solid rgba(200,164,91,0.5)' }}
                       >
                         <span className="font-display text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>{item.step}</span>
                       </div>
@@ -580,8 +621,18 @@ export default function HomePage() {
               <BookstoreSection style={{ marginBottom: '4rem' }}>
                 <div className="text-center mb-6">
                   <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>Frequently Asked Questions</h2>
-                  <p className="text-sm mb-4 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>Your guide to pre-orders, payments, shipping, and everything in between.</p>
-                  <Link href="/faqs" className="btn-secondary text-sm px-8 py-3 inline-block">
+                  <p className="text-sm mb-6 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>Your guide to pre-orders, payments, shipping, and everything in between.</p>
+                  <Link
+                    href="/faqs"
+                    className="inline-flex items-center gap-2 text-sm font-semibold px-8 py-3 rounded-xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(200,164,91,0.22) 0%, rgba(175,115,55,0.18) 100%)',
+                      border: '1.5px solid rgba(200,164,91,0.55)',
+                      color: 'var(--primary-bright)',
+                      boxShadow: '0 4px 16px rgba(200,164,91,0.20), 0 1px 4px rgba(75,53,42,0.10), inset 0 1px 0 rgba(255,255,255,0.6)',
+                      backdropFilter: 'blur(6px)',
+                    }}
+                  >
                     View All FAQs ✦
                   </Link>
                 </div>
