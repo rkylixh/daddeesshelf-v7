@@ -76,6 +76,8 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
     setTimeout(() => setAddedToCart(false), 1800);
   };
 
+  const priceVisible = book.is_price_visible !== false;
+
   return (
     <>
       <Link href={detailHref} className="block group">
@@ -163,17 +165,32 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
             {/* Quick Add to Cart */}
             {showQuickAdd && (
               <button
-                onClick={handleQuickAdd}
+                onClick={priceVisible ? handleQuickAdd : undefined}
+                disabled={!priceVisible}
                 className="mt-2 w-full text-xs py-1.5 rounded-lg font-semibold transition-all duration-200"
-                style={{
-                  background: addedToCart
-                    ? 'rgba(90,138,74,0.18)'
-                    : 'rgba(200,164,91,0.18)',
-                  color: addedToCart ? '#3d7a2e' : '#8B6A20',
-                  border: `1px solid ${addedToCart ? 'rgba(90,138,74,0.45)' : 'rgba(200,164,91,0.45)'}`,
-                }}
+                style={
+                  !priceVisible
+                    ? {
+                        background: 'rgba(120,100,80,0.10)',
+                        color: '#9E8E7E',
+                        border: '1px solid rgba(120,100,80,0.25)',
+                        cursor: 'not-allowed',
+                        opacity: 0.55,
+                      }
+                    : addedToCart
+                    ? {
+                        background: 'rgba(90,138,74,0.18)',
+                        color: '#3d7a2e',
+                        border: '1px solid rgba(90,138,74,0.45)',
+                      }
+                    : {
+                        background: 'rgba(200,164,91,0.18)',
+                        color: '#8B6A20',
+                        border: '1px solid rgba(200,164,91,0.45)',
+                      }
+                }
               >
-                {addedToCart ? '✓ Added to Cart' : '+ Add to Cart'}
+                {!priceVisible ? 'Price TBA' : addedToCart ? '✓ Added to Cart' : '+ Add to Cart'}
               </button>
             )}
           </div>

@@ -8,7 +8,7 @@ import { getPreorderBooks } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useCart } from '@/components/layout/Navbar';
-import Icon from '@/components/ui/AppIcon';
+
 
 // ── Types ──────────────────────────────────────────────────
 interface PreorderItem {
@@ -61,16 +61,14 @@ function GCashQRSection() {
       <p className="text-xs font-bold mb-2" style={{ color: '#10b981' }}>
         ✦ GCash Payment Instructions
       </p>
-      <div
-        className="w-40 h-40 mx-auto rounded-xl mb-3 flex items-center justify-center"
-        style={{ background: 'rgba(255,255,255,0.05)', border: '2px dashed rgba(16,185,129,0.4)' }}
-      >
-        {/* QR Code placeholder — owner will upload official QR */}
-        <div className="text-center">
-          <Icon name="QrCodeIcon" size={48} style={{ color: 'rgba(16,185,129,0.5)' } as React.CSSProperties} />
-          <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>Official QR</p>
-          <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Coming Soon</p>
-        </div>
+      <div className="w-48 h-48 mx-auto rounded-xl mb-3 overflow-hidden" style={{ border: '2px solid rgba(16,185,129,0.4)' }}>
+        <AppImage
+          src="/assets/images/36c6a594-8ce5-4d14-8600-0e7b65f58ff0-1786006380177.jpg"
+          alt="GCash QR code for Daddee's Shelf payment"
+          width={192}
+          height={192}
+          className="w-full h-full object-cover"
+        />
       </div>
       <ol className="text-xs text-left space-y-1.5 max-w-xs mx-auto" style={{ color: 'var(--foreground-muted)' }}>
         <li className="flex gap-2"><span className="font-bold" style={{ color: '#10b981' }}>1.</span> Scan the QR code above with your GCash app</li>
