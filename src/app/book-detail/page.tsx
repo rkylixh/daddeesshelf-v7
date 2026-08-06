@@ -9,7 +9,7 @@ export default function BookDetailPage() {
     <div className="page-container">
       <StarField />
       <Navbar />
-      <main className="pt-16">
+      <main className="pt-20">
         <Suspense fallback={
           <div className="content-wrapper py-8 flex items-center justify-center min-h-[60vh]">
             <div className="text-center">

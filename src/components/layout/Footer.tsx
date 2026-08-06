@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import AppLogo from '@/components/ui/AppLogo';
+import AppImage from '@/components/ui/AppImage';
 
 // Navigation data — keep in sync with Navbar.tsx NAV_LINKS
 const FOOTER_BROWSE_LINKS = [
@@ -22,7 +22,6 @@ const FOOTER_SUPPORT_LINKS = [
   { label: 'Contact', href: '/contact' },
 ];
 
-// Helper: only render links that have both a label and an href
 function isValidLink(link: unknown): link is { label: string; href: string } {
   if (!link || typeof link !== 'object') return false;
   const l = link as Record<string, unknown>;
@@ -30,7 +29,6 @@ function isValidLink(link: unknown): link is { label: string; href: string } {
          typeof l.href === 'string' && l.href.trim() !== '';
 }
 
-// TikTok icon (SVG) — inline since heroicons doesn't include TikTok
 function TikTokIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
@@ -45,49 +43,96 @@ function TikTokIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+const headingStyle: React.CSSProperties = {
+  color: 'rgba(200,164,91,0.75)',
+  letterSpacing: '0.14em',
+  fontFamily: 'var(--font-display)',
+};
+
+const linkStyle: React.CSSProperties = {
+  color: 'rgba(247,239,229,0.55)',
+  fontFamily: 'var(--font-sans)',
+};
+
 export default function Footer() {
   return (
     <footer
-      className="relative z-10 mt-24"
-      style={{ borderTop: '1px solid var(--border)', background: 'rgba(10,10,15,0.95)' }}
+      className="relative z-10"
+      style={{
+        marginTop: '6rem',
+        borderTop: '1px solid rgba(200,164,91,0.28)',
+        background: 'linear-gradient(180deg, #2C1A0E 0%, #1E1008 100%)',
+      }}
     >
-      <div className="content-wrapper py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div
+        className="content-wrapper"
+        style={{ paddingTop: '4.5rem', paddingBottom: '3rem' }}
+      >
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5"
+          style={{ gap: '2.5rem' }}
+        >
           {/* Brand */}
-          <div className="md:col-span-1">
-            <div className="flex items-center gap-2 mb-3">
-              <AppLogo size={28} />
-              <span className="font-display text-base font-semibold" style={{ color: 'var(--primary-bright)' }}>
+          <div>
+            <div className="flex items-center gap-2.5 mb-4">
+              <AppImage
+                src="/assets/images/Untitled_design__7_-1785917477724.png"
+                alt="Daddee's Shelf logo"
+                width={36}
+                height={36}
+                className="object-contain"
+              />
+              <span
+                className="font-display text-base font-semibold"
+                style={{ color: 'var(--primary)' }}
+              >
                 Daddee&apos;s Shelf
               </span>
             </div>
-            <p className="text-sm" style={{ color: 'var(--foreground-muted)', lineHeight: '1.6' }}>
+            <p
+              className="text-sm"
+              style={{
+                color: 'rgba(247,239,229,0.58)',
+                lineHeight: '1.7',
+                fontFamily: 'var(--font-serif)',
+              }}
+            >
               Your cozy corner for pre-loved and pre-ordered books. Making books accessible to Filipino readers.
             </p>
-            {/* TikTok only — Facebook and Instagram are hidden until re-enabled via Admin Dashboard */}
-            <div className="flex gap-3 mt-4">
+            <div className="mt-5">
               <a
                 href="https://tiktok.com/@daddees.shelf"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-ghost p-2 rounded-lg flex items-center gap-1.5"
+                className="inline-flex items-center rounded-lg transition-all"
+                style={{
+                  gap: '0.625rem',
+                  padding: '0.4rem 0.85rem',
+                  background: 'rgba(200,164,91,0.1)',
+                  border: '1px solid rgba(200,164,91,0.35)',
+                  color: 'var(--primary)',
+                }}
                 aria-label="TikTok @daddees.shelf"
-                title="@daddees.shelf on TikTok"
               >
-                <TikTokIcon size={15} />
-                <span className="text-xs" style={{ color: 'var(--primary-bright)' }}>TikTok</span>
+                <TikTokIcon size={14} />
+                <span className="text-xs font-medium">TikTok</span>
               </a>
             </div>
           </div>
 
-          {/* Quick Links */}
+          {/* Browse */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--foreground-subtle)' }}>
+            <h4 className="text-xs font-semibold uppercase mb-5" style={headingStyle}>
               Browse
             </h4>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col" style={{ gap: '0.65rem' }}>
               {FOOTER_BROWSE_LINKS.filter(isValidLink).map(link => (
-                <Link key={`footer-browse-${link.href}`} href={link.href} className="nav-link text-sm">
+                <Link
+                  key={`footer-browse-${link.href}`}
+                  href={link.href}
+                  className="text-sm transition-colors footer-link"
+                  style={linkStyle}
+                >
                   {link.label}
                 </Link>
               ))}
@@ -96,12 +141,17 @@ export default function Footer() {
 
           {/* Account */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--foreground-subtle)' }}>
+            <h4 className="text-xs font-semibold uppercase mb-5" style={headingStyle}>
               Account
             </h4>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col" style={{ gap: '0.65rem' }}>
               {FOOTER_ACCOUNT_LINKS.filter(isValidLink).map(link => (
-                <Link key={`footer-account-${link.href}`} href={link.href} className="nav-link text-sm">
+                <Link
+                  key={`footer-account-${link.href}`}
+                  href={link.href}
+                  className="text-sm transition-colors footer-link"
+                  style={linkStyle}
+                >
                   {link.label}
                 </Link>
               ))}
@@ -110,35 +160,89 @@ export default function Footer() {
 
           {/* Support */}
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--foreground-subtle)' }}>
+            <h4 className="text-xs font-semibold uppercase mb-5" style={headingStyle}>
               Support
             </h4>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col" style={{ gap: '0.65rem' }}>
               {FOOTER_SUPPORT_LINKS.filter(isValidLink).map(link => (
-                <Link key={`footer-support-${link.href}`} href={link.href} className="nav-link text-sm">
+                <Link
+                  key={`footer-support-${link.href}`}
+                  href={link.href}
+                  className="text-sm transition-colors footer-link"
+                  style={linkStyle}
+                >
                   {link.label}
                 </Link>
               ))}
             </div>
-            <div className="mt-4">
-              <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>
-                Mon–Sat · 9AM–6PM
-              </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+            <div style={{ marginTop: '1.25rem' }}>
+              <p className="text-xs" style={{ color: 'rgba(247,239,229,0.35)' }}>Mon–Sat · 9AM–6PM</p>
+              <p className="text-xs" style={{ color: 'rgba(247,239,229,0.35)', marginTop: '0.35rem' }}>
                 Online only · Philippines
+              </p>
+            </div>
+          </div>
+
+          {/* Shipping */}
+          <div>
+            <h4 className="text-xs font-semibold uppercase mb-5" style={headingStyle}>
+              Shipping
+            </h4>
+            <p
+              className="text-xs font-semibold mb-3"
+              style={{ color: 'var(--primary)' }}
+            >
+              Nationwide Shipping Available
+            </p>
+            <div className="flex flex-col" style={{ gap: '0.55rem' }}>
+              {[
+                'Metro Manila via Lalamove',
+                'Provincial via J&T Express',
+                'Fees collected once books arrive',
+              ].map(item => (
+                <p
+                  key={item}
+                  className="text-xs flex items-start"
+                  style={{ color: 'rgba(247,239,229,0.55)', lineHeight: '1.55', gap: '0.65rem' }}
+                >
+                  <span style={{ color: 'var(--primary)', flexShrink: 0, marginTop: '0.05rem' }} aria-hidden="true">›</span>
+                  <span>{item}</span>
+                </p>
+              ))}
+              <p
+                className="text-xs"
+                style={{
+                  color: 'rgba(247,239,229,0.32)',
+                  lineHeight: '1.55',
+                  marginTop: '0.35rem',
+                }}
+              >
+                ETA dates are tentative and subject to international shipping &amp; customs
               </p>
             </div>
           </div>
         </div>
 
-        <div className="mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderTop: '1px solid var(--border)' }}>
-          <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>
+        {/* Bottom divider */}
+        <div
+          style={{
+            marginTop: '3rem',
+            marginBottom: '1.5rem',
+            height: '1px',
+            background: 'rgba(200,164,91,0.22)',
+          }}
+          aria-hidden="true"
+        />
+
+        <div className="flex flex-col sm:flex-row items-center justify-between" style={{ gap: '0.75rem' }}>
+          <p className="text-xs" style={{ color: 'rgba(247,239,229,0.3)' }}>
             © 2026 Daddee&apos;s Shelf. All rights reserved.
           </p>
-          <p className="text-xs flex items-center gap-1" style={{ color: 'var(--foreground-subtle)' }}>
-            <span>✦</span>
+          <p
+            className="text-xs font-serif italic"
+            style={{ color: 'rgba(247,239,229,0.3)' }}
+          >
             Made with love for Filipino readers
-            <span>✦</span>
           </p>
         </div>
       </div>

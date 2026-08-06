@@ -6,6 +6,7 @@ interface BookGridProps {
   books: Book[];
   loading?: boolean;
   emptyMessage?: string;
+  showQuickAdd?: boolean;
 }
 
 function SkeletonCard() {
@@ -25,7 +26,7 @@ function SkeletonCard() {
   );
 }
 
-export default function BookGrid({ books, loading = false, emptyMessage }: BookGridProps) {
+export default function BookGrid({ books, loading = false, emptyMessage, showQuickAdd = false }: BookGridProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -56,7 +57,7 @@ export default function BookGrid({ books, loading = false, emptyMessage }: BookG
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
       {books.map(book => (
-        <BookCard key={book.id} book={book} />
+        <BookCard key={book.id} book={book} showQuickAdd={showQuickAdd} />
       ))}
     </div>
   );

@@ -95,6 +95,11 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
   const [newQuote, setNewQuote] = useState('');
   const [newTag, setNewTag] = useState('');
 
+  // Re-sync form when the book prop is refreshed from the server (e.g. after save)
+  useEffect(() => {
+    setForm({ ...book, spice_level: Number(book.spice_level) ?? 0 });
+  }, [book]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -151,8 +156,10 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
   };
 
   const addCustomTag = () => {
-    if (!newTag.trim() || form.reader_tags.includes(newTag.trim())) return;
-    setForm(f => ({ ...f, reader_tags: [...f.reader_tags, newTag.trim()] }));
+    if (!newTag.trim()) return;
+    const parts = newTag.split(',').map(t => t.trim()).filter(t => t && !form.reader_tags.includes(t));
+    if (parts.length === 0) return;
+    setForm(f => ({ ...f, reader_tags: [...f.reader_tags, ...parts] }));
     setNewTag('');
   };
 
@@ -273,8 +280,8 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
           <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--foreground-subtle)' }}>
             Spice Level (0–5)
           </label>
-          <div className="flex items-center gap-2">
-            {[0, 1, 2, 3, 4, 5].map(n => (
+          <div className="flex items-center gap-2 flex-wrap">
+            {[0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5].map(n => (
               <button
                 key={n}
                 type="button"
@@ -283,10 +290,11 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
                 style={{
                   background: n <= form.spice_level && n > 0 ? 'rgba(239,68,68,0.2)' : 'var(--muted)',
                   color: n <= form.spice_level && n > 0 ? '#ef4444' : 'var(--foreground-subtle)',
-                  border: `1px solid ${n <= form.spice_level && n > 0 ? '#ef4444' : 'var(--border)'}`,
+                  border: `1px solid ${n === form.spice_level ? '#ef4444' : n <= form.spice_level && n > 0 ? 'rgba(239,68,68,0.5)' : 'var(--border)'}`,
+                  fontWeight: n === form.spice_level ? 700 : 400,
                 }}
               >
-                {n === 0 ? '—' : '🌶️'}
+                {n === 0 ? '—' : n % 1 !== 0 ? `½` : '🌶️'}
               </button>
             ))}
             <span className="text-xs ml-2" style={{ color: 'var(--foreground-subtle)' }}>{form.spice_level}/5</span>
@@ -333,10 +341,23 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
             <input
               type="text"
               value={newTag}
-              onChange={e => setNewTag(e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                if (val.endsWith(',')) {
+                  const parts = val.split(',').map(t => t.trim()).filter(t => t && !form.reader_tags.includes(t));
+                  if (parts.length > 0) {
+                    setForm(f => ({ ...f, reader_tags: [...f.reader_tags, ...parts] }));
+                    setNewTag('');
+                  } else {
+                    setNewTag('');
+                  }
+                } else {
+                  setNewTag(val);
+                }
+              }}
               onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomTag())}
               className="input-field text-sm flex-1"
-              placeholder="Add custom tag..."
+              placeholder="Add custom tag... (comma-separate for multiple)"
             />
             <button type="button" onClick={addCustomTag} className="btn-ghost px-3 py-2 rounded-lg text-sm">
               + Add
@@ -450,7 +471,7 @@ function BookDetailManagementContent() {
       goodreads_url: b.goodreads_url ?? '',
       goodreads_score: b.goodreads_score ?? 0,
       goodreads_ratings_count: b.goodreads_ratings_count ?? 0,
-      spice_level: b.spice_level ?? 0,
+      spice_level: Number(b.spice_level) ?? 0,
       why_readers_love: b.why_readers_love ?? '',
       reader_tags: Array.isArray(b.reader_tags) ? b.reader_tags : [],
       emotional_intensity: b.emotional_intensity ?? 0,

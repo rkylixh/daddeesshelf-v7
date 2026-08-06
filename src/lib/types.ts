@@ -63,6 +63,7 @@ export interface BookFilters {
   format: string;
   status: string;
   series: string;
+  author?: string;
   batch?: string;
 }
 

@@ -240,15 +240,15 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(8px)' }}
+      style={{ background: 'rgba(44,26,14,0.92)', backdropFilter: 'blur(8px)' }}
     >
       <div
         className="relative w-full max-w-sm rounded-2xl animate-fade-in-up"
-        style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.4)', boxShadow: '0 8px 40px rgba(139,92,246,0.2)' }}
+        style={{ background: '#3A2214', border: '1px solid rgba(200,164,91,0.4)', boxShadow: '0 8px 40px rgba(44,26,14,0.5)' }}
       >
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-2">
-            <AppLogo size={24} />
+            <AppLogo size={24} variant="full" />
             <span className="font-display text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>Admin Portal</span>
           </div>
           <button onClick={onClose} className="btn-ghost p-1 rounded-lg">
@@ -424,7 +424,7 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
                 <div
                   key={item.book.id}
                   className="flex items-center gap-3 rounded-xl p-3"
-                  style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid var(--border)' }}
+                  style={{ background: 'rgba(184,134,11,0.05)', border: '1px solid var(--border)' }}
                 >
                   <div className="flex-shrink-0 w-10 h-14 rounded overflow-hidden" style={{ background: 'var(--muted)' }}>
                     <AppImage src={item.book.cover_url || '/assets/images/no_image.png'} alt={`Cover of ${item.book.title}`} width={40} height={56} className="w-full h-full object-cover" />
@@ -478,7 +478,7 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
 // ── Nav Search with Admin Trigger ─────────────────────────
 const ADMIN_TRIGGER = '1DS-ADMIN***';
 
-function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
+const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
@@ -537,15 +537,15 @@ function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
 
   return (
     <div ref={containerRef} className="flex-1 max-w-md hidden md:flex items-center relative">
-      <Icon name="MagnifyingGlassIcon" size={16} className="absolute left-3 z-10 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
+      <Icon name="MagnifyingGlassIcon" size={16} className="absolute left-3.5 z-10 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
       <input
         type="search"
         placeholder="Search books, authors, genres, Book Code..."
         value={query}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        className="input-field pl-9 pr-4 py-2 text-sm w-full"
-        style={{ borderRadius: '9999px' }}
+        className="input-field pl-9 py-2 text-sm w-full"
+        style={{ borderRadius: '9999px', paddingRight: '1rem' }}
         autoComplete="off"
       />
       {loading && (
@@ -557,7 +557,7 @@ function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
       {open && results.length > 0 && (
         <div
           className="absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden z-50 shadow-2xl"
-          style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.3)', maxHeight: '420px', overflowY: 'auto' }}
+          style={{ background: 'var(--background-card)', border: '1px solid var(--border)', maxHeight: '420px', overflowY: 'auto' }}
         >
           {results.map(book => (
             <button
@@ -565,7 +565,7 @@ function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
               onClick={() => handleSelect(book)}
               className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all hover:bg-opacity-80"
               style={{ borderBottom: '1px solid var(--border)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(139,92,246,0.08)')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(200,164,91,0.08)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               <div className="flex-shrink-0 w-10 h-14 rounded overflow-hidden" style={{ background: 'var(--muted)' }}>
@@ -600,16 +600,16 @@ function NavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
       {open && query.trim() && results.length === 0 && !loading && (
         <div
           className="absolute top-full left-0 right-0 mt-2 rounded-xl z-50 shadow-2xl px-4 py-6 text-center"
-          style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.3)' }}
+          style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
         >
           <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>No books found for &quot;{query}&quot;</p>
         </div>
       )}
     </div>
   );
-}
+});
 
-function MobileNavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
+const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
@@ -651,7 +651,7 @@ function MobileNavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
   return (
     <div className="p-4" style={{ borderBottom: '1px solid var(--border)' }}>
       <div className="relative">
-        <Icon name="MagnifyingGlassIcon" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
+        <Icon name="MagnifyingGlassIcon" size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
         <input
           type="search"
           placeholder="Search books..."
@@ -667,7 +667,7 @@ function MobileNavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
         )}
       </div>
       {results.length > 0 && (
-        <div className="mt-2 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(139,92,246,0.3)' }}>
+        <div className="mt-2 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
           {results.map(book => (
             <button
               key={book.id}
@@ -691,7 +691,7 @@ function MobileNavSearch({ onAdminTrigger }: { onAdminTrigger: () => void }) {
       )}
     </div>
   );
-}
+});
 
 // ── Nav Links (no admin) ───────────────────────────────────
 const NAV_LINKS = [
@@ -701,7 +701,6 @@ const NAV_LINKS = [
   { label: 'Collections', href: '/collections' },
   { label: 'Wishlist', href: '/wishlist' },
   { label: 'My Orders', href: '/orders' },
-  { label: 'My Queries', href: '/my-queries' },
   { label: 'FAQs', href: '/faqs' },
   { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
@@ -731,16 +730,17 @@ export default function Navbar() {
       <nav
         className="fixed top-0 left-0 right-0 z-40"
         style={{
-          background: 'linear-gradient(180deg, rgba(10,10,15,0.98) 0%, rgba(10,10,15,0.92) 100%)',
+          background: 'linear-gradient(180deg, rgba(20,12,4,0.98) 0%, rgba(20,12,4,0.94) 100%)',
           backdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--border)',
+          boxShadow: '0 2px 20px rgba(0,0,0,0.4)',
         }}
       >
         <div className="content-wrapper">
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-              <AppLogo size={44} />
+              <AppLogo size={44} variant="full" />
               <span className="font-display text-base font-bold hidden sm:block" style={{ color: 'var(--primary-bright)' }}>Daddee&apos;s Shelf</span>
             </Link>
 
@@ -749,7 +749,7 @@ export default function Navbar() {
 
             {/* Desktop Nav */}
             <div className="hidden xl:flex items-center gap-1 flex-shrink-0">
-              {NAV_LINKS.slice(0, 6).map(link => (
+              {NAV_LINKS.slice(0, 7).map(link => (
                 <Link
                   key={`nav-${link.href}`}
                   href={link.href}

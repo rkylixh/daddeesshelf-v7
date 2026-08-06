@@ -10,6 +10,16 @@ import { getBookById, getBooks } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { CartContext } from '@/components/layout/Navbar';
 
+// ── Wishlist helpers ───────────────────────────────────────
+function getWishlist(): string[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem('wishlist_ids') ?? '[]'); } catch { return []; }
+}
+function saveWishlist(ids: string[]) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('wishlist_ids', JSON.stringify(ids));
+}
+
 // ── Reader Tags ────────────────────────────────────────────
 const READER_TAG_COLORS: Record<string, string> = {
   'Slow Burn Romance': '#8b5cf6',
@@ -104,6 +114,7 @@ export default function BookDetailContent() {
   const [relatedBooks, setRelatedBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [wishlisted, setWishlisted] = useState(false);
   const { addItem } = useContext(CartContext);
 
   useEffect(() => {
@@ -115,6 +126,8 @@ export default function BookDetailContent() {
       if (data) {
         const all = await getBooks({ genre: data.genre });
         setRelatedBooks(all.filter(b => b.id !== data.id).slice(0, 6));
+        // Check wishlist state
+        setWishlisted(getWishlist().includes(data.id));
       }
       setLoading(false);
     }
@@ -126,6 +139,20 @@ export default function BookDetailContent() {
     addItem(book);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
+  };
+
+  const handleWishlist = () => {
+    if (!book) return;
+    const current = getWishlist();
+    let updated: string[];
+    if (current.includes(book.id)) {
+      updated = current.filter(i => i !== book.id);
+      setWishlisted(false);
+    } else {
+      updated = [...current, book.id];
+      setWishlisted(true);
+    }
+    saveWishlist(updated);
   };
 
   if (loading) {
@@ -225,12 +252,26 @@ export default function BookDetailContent() {
           {book.status !== 'Sold Out' && (
             <button
               onClick={handlePreorder}
-              className="w-full max-w-[320px] btn-primary flex items-center justify-center gap-2 py-3 text-sm"
+              className="w-full max-w-[320px] btn-primary flex items-center justify-center gap-3 py-3 text-sm"
             >
               <Icon name="ShoppingCartIcon" size={16} />
-              {addedToCart ? 'Added to Cart ✓' : book.status === 'Pre-order' ? 'Preorder This Book ✦' : 'Add to Cart ✦'}
+              <span>{addedToCart ? 'Added to Cart' : book.status === 'Pre-order' ? 'Preorder This Book' : 'Add to Cart'}</span>
             </button>
           )}
+
+          {/* Add to Wishlist button */}
+          <button
+            onClick={handleWishlist}
+            className="w-full max-w-[320px] flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all duration-200"
+            style={{
+              background: wishlisted ? 'rgba(200,164,91,0.15)' : 'transparent',
+              border: `1px solid ${wishlisted ? 'var(--primary)' : 'var(--border)'}`,
+              color: wishlisted ? 'var(--primary-bright)' : 'var(--foreground-muted)',
+            }}
+          >
+            <Icon name="HeartIcon" size={16} style={{ color: wishlisted ? 'var(--primary-bright)' : 'var(--foreground-muted)' } as React.CSSProperties} />
+            {wishlisted ? 'Saved to Wishlist ♡' : 'Add to Wishlist'}
+          </button>
 
           {/* Share */}
           <button className="w-full max-w-[320px] btn-ghost flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm">
@@ -316,9 +357,20 @@ export default function BookDetailContent() {
             <div className="flex items-center gap-2 mb-4">
               <span className="text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Spice Level:</span>
               <div className="flex gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <span key={i} className="text-sm" style={{ opacity: i < spiceLevel ? 1 : 0.2 }}>🌶️</span>
-                ))}
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const full = i + 1;
+                  const isFullFilled = spiceLevel >= full;
+                  const isHalfFilled = !isFullFilled && spiceLevel >= full - 0.5;
+                  return (
+                    <span
+                      key={i}
+                      className="text-sm relative inline-block"
+                      style={{ opacity: isFullFilled ? 1 : isHalfFilled ? 0.55 : 0.2 }}
+                    >
+                      🌶️
+                    </span>
+                  );
+                })}
               </div>
               <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>({spiceLevel}/5)</span>
             </div>
@@ -348,9 +400,12 @@ export default function BookDetailContent() {
                 {addedToCart ? 'Added ✓' : 'Preorder Now ✦'}
               </button>
             ) : (
-              <Link href="/wishlist" className="btn-secondary whitespace-nowrap text-sm px-6 py-2.5">
-                Join Waitlist
-              </Link>
+              <button
+                onClick={handleWishlist}
+                className="btn-secondary whitespace-nowrap text-sm px-6 py-2.5"
+              >
+                {wishlisted ? 'Saved to Wishlist ♡' : 'Add to Wishlist'}
+              </button>
             )}
           </div>
 

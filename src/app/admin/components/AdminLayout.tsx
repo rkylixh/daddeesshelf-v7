@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import AppLogo from '@/components/ui/AppLogo';
+
 import Icon from '@/components/ui/AppIcon';
 import { createClient } from '@/lib/supabase/client';
 
@@ -36,6 +36,8 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const adminMenuRef = useRef<HTMLDivElement>(null);
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -43,19 +45,38 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     router.push('/admin/login');
   };
 
+  // Close admin menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) {
+        setAdminMenuOpen(false);
+      }
+    };
+    if (adminMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [adminMenuOpen]);
+
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--background)' }}>
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:flex`}
-        style={{ background: 'rgba(10,10,15,0.98)', borderRight: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}
+        style={{ background: '#2C1A0E', borderRight: '1px solid rgba(200,164,91,0.2)', backdropFilter: 'blur(12px)' }}
       >
         {/* Sidebar header */}
-        <div className="flex items-center gap-3 px-5 h-14 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
-          <AppLogo size={26} />
+        <div className="flex items-center gap-3 px-5 h-14 flex-shrink-0" style={{ borderBottom: '1px solid rgba(200,164,91,0.15)' }}>
+          <img
+            src="/assets/images/Untitled_design__7_-1785917477724.png"
+            alt="Daddee's Shelf logo"
+            width={28}
+            height={28}
+            style={{ objectFit: 'contain' }}
+          />
           <div>
-            <p className="font-display text-sm font-semibold" style={{ color: 'var(--primary-bright)' }}>Daddee&apos;s Shelf</p>
-            <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Admin Portal</p>
+            <p className="font-display text-sm font-semibold" style={{ color: 'var(--primary)' }}>Daddee&apos;s Shelf</p>
+            <p className="text-xs" style={{ color: 'rgba(200,164,91,0.5)' }}>Admin Portal</p>
           </div>
         </div>
 
@@ -66,30 +87,17 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               key={item.href}
               href={item.href}
               onClick={() => setSidebarOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-0.5 transition-all ${pathname === item.href ? 'active' : 'nav-link'}`}
-              style={pathname === item.href ? { background: 'var(--primary-glow)', color: 'var(--primary-bright)' } : {}}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-0.5 transition-all`}
+              style={pathname === item.href
+                ? { background: 'var(--primary-glow)', color: 'var(--primary-bright)' }
+                : { color: 'rgba(245,230,200,0.7)' }
+              }
             >
-              <Icon name={item.icon as 'HomeIcon'} size={16} style={{ color: pathname === item.href ? 'var(--primary-bright)' : 'var(--foreground-subtle)' } as React.CSSProperties} />
+              <Icon name={item.icon as 'HomeIcon'} size={16} style={{ color: pathname === item.href ? 'var(--primary-bright)' : 'rgba(245,230,200,0.5)' } as React.CSSProperties} />
               <span>{item.label}</span>
             </Link>
           ))}
         </nav>
-
-        {/* Sidebar footer */}
-        <div className="px-3 py-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border)' }}>
-          <Link href="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs nav-link mb-1">
-            <Icon name="ArrowLeftIcon" size={14} />
-            Back to Site
-          </Link>
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs nav-link w-full text-left"
-            style={{ color: '#f87171' }}
-          >
-            <Icon name="ArrowRightOnRectangleIcon" size={14} style={{ color: '#f87171' } as React.CSSProperties} />
-            Sign Out
-          </button>
-        </div>
       </aside>
 
       {/* Overlay for mobile */}
@@ -106,7 +114,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         {/* Top bar */}
         <header
           className="flex items-center justify-between px-5 h-14 flex-shrink-0 sticky top-0 z-20"
-          style={{ background: 'rgba(10,10,15,0.95)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}
+          style={{ background: 'rgba(44,26,14,0.97)', borderBottom: '1px solid rgba(200,164,91,0.15)', backdropFilter: 'blur(12px)' }}
         >
           <div className="flex items-center gap-3">
             <button
@@ -115,14 +123,58 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             >
               <Icon name="Bars3Icon" size={18} />
             </button>
-            <h1 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>{title}</h1>
+            <h1 className="font-display text-base font-bold" style={{ color: '#F5E6C8' }}>{title}</h1>
           </div>
-          <span
-            className="text-xs px-2.5 py-1 rounded-full font-semibold"
-            style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}
-          >
-            Admin
-          </span>
+
+          {/* Admin dropdown button */}
+          <div ref={adminMenuRef} className="relative">
+            <button
+              onClick={() => setAdminMenuOpen(prev => !prev)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold transition-all duration-200"
+              style={{
+                background: adminMenuOpen ? 'rgba(200,164,91,0.25)' : 'rgba(200,164,91,0.15)',
+                color: 'var(--primary)',
+                border: '1px solid rgba(200,164,91,0.3)',
+              }}
+            >
+              Admin
+              <Icon
+                name="ChevronDownIcon"
+                size={12}
+                style={{ color: 'var(--primary)', transform: adminMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' } as React.CSSProperties}
+              />
+            </button>
+
+            {/* Dropdown menu */}
+            {adminMenuOpen && (
+              <div
+                className="absolute right-0 top-full mt-2 w-44 rounded-xl overflow-hidden shadow-xl"
+                style={{
+                  background: '#2C1A0E',
+                  border: '1px solid rgba(200,164,91,0.25)',
+                  zIndex: 50,
+                }}
+              >
+                <Link
+                  href="/"
+                  onClick={() => setAdminMenuOpen(false)}
+                  className="flex items-center gap-2.5 px-4 py-3 text-xs transition-all duration-150 nav-link"
+                >
+                  <Icon name="ArrowLeftIcon" size={14} />
+                  Back to Site
+                </Link>
+                <div style={{ height: '1px', background: 'rgba(200,164,91,0.12)' }} />
+                <button
+                  onClick={() => { setAdminMenuOpen(false); handleSignOut(); }}
+                  className="flex items-center gap-2.5 px-4 py-3 text-xs w-full text-left transition-all duration-150 nav-link"
+                  style={{ color: '#f87171' }}
+                >
+                  <Icon name="ArrowRightOnRectangleIcon" size={14} style={{ color: '#f87171' } as React.CSSProperties} />
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         {/* Page content */}

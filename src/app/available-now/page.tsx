@@ -9,7 +9,7 @@ export default function AvailableNowPage() {
     <div className="page-container">
       <StarField />
       <Navbar />
-      <main className="pt-16">
+      <main className="pt-20">
         <AvailableNowContent />
       </main>
       <Footer />

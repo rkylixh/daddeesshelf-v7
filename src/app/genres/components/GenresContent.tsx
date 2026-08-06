@@ -154,8 +154,14 @@ function GenreDetailView({ genre, books, onBack }: GenreDetailViewProps) {
             <button
               key={sg.name}
               onClick={() => handleSubgenreClick(sg.name)}
-              className="group flex flex-col items-center gap-2 p-3 rounded-xl text-center transition-all duration-300 card-glow"
-              style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+              className="group flex flex-col items-center gap-2 p-3 rounded-xl text-center transition-all duration-300"
+              style={{
+                background: 'rgba(251,245,236,0.55)',
+                border: '1.5px solid rgba(200,164,91,0.55)',
+                boxShadow: '0 2px 10px rgba(75,53,42,0.10), 0 1px 3px rgba(75,53,42,0.06)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+              }}
             >
               <span
                 className="text-2xl leading-none"
@@ -244,8 +250,14 @@ export default function GenresContent() {
                 <button
                   key={genre}
                   onClick={() => setSelectedGenre(genre)}
-                  className="group flex flex-col items-center gap-3 p-5 rounded-2xl text-center transition-all duration-300 card-glow"
-                  style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+                  className="group flex flex-col items-center gap-3 p-5 rounded-2xl text-center transition-all duration-300"
+                  style={{
+                    background: 'rgba(251,245,236,0.55)',
+                    border: '1.5px solid rgba(200,164,91,0.55)',
+                    boxShadow: '0 2px 10px rgba(75,53,42,0.10), 0 1px 3px rgba(75,53,42,0.06)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                  }}
                 >
                   <span className="text-3xl" aria-hidden="true">{GENRE_ICONS[genre] ?? '📚'}</span>
                   <div>
