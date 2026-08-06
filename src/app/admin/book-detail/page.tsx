@@ -490,6 +490,7 @@ function BookDetailManagementContent() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -523,11 +524,23 @@ function BookDetailManagementContent() {
 
   useEffect(() => { load(); }, [load]);
 
+  const handleBookSaved = useCallback((savedBookId: string) => {
+    setSavedIds(prev => prev.includes(savedBookId) ? prev : [...prev, savedBookId]);
+    setExpandedId(null);
+    load();
+  }, [load]);
+
   const filtered = books.filter(b => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q);
   });
+
+  // Sort: unsaved books first (in original order), saved books at the bottom
+  const sorted = [
+    ...filtered.filter(b => !savedIds.includes(b.id)),
+    ...filtered.filter(b => savedIds.includes(b.id)),
+  ];
 
   return (
     <div>
@@ -570,7 +583,7 @@ function BookDetailManagementContent() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(book => (
+          {sorted.map(book => (
             <div key={book.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
               <button
                 onClick={() => setExpandedId(expandedId === book.id ? null : book.id)}
@@ -615,7 +628,7 @@ function BookDetailManagementContent() {
 
               {expandedId === book.id && (
                 <div className="p-4" style={{ borderTop: '1px solid var(--border)', background: 'var(--background)' }}>
-                  <BookDetailEditor book={book} onSaved={load} />
+                  <BookDetailEditor book={book} onSaved={() => handleBookSaved(book.id)} />
                 </div>
               )}
             </div>
