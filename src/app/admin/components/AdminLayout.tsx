@@ -20,7 +20,6 @@ const ADMIN_NAV = [
   { label: 'FAQ Management', href: '/admin/faqs', icon: 'QuestionMarkCircleIcon' },
   { label: 'Support Tickets', href: '/admin/support-tickets', icon: 'EnvelopeIcon' },
   { label: 'Title Requests', href: '/admin/requests', icon: 'DocumentTextIcon' },
-  { label: 'Preorder Management', href: '/admin/preorders', icon: 'ClockIcon' },
   { label: 'Order Management', href: '/admin/orders', icon: 'ShoppingBagIcon' },
   { label: 'Customer Management', href: '/admin/customers', icon: 'UsersIcon' },
   { label: 'Store Credits', href: '/admin/store-credits', icon: 'CreditCardIcon' },

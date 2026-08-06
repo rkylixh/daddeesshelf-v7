@@ -12,18 +12,27 @@ interface StoreCredit {
   reason: string;
   issued_by: string;
   status: 'Active' | 'Used' | 'Expired' | 'Cancelled';
+  is_active: boolean;
   order_ref: string | null;
   used_on_order_ref: string | null;
   created_at: string;
   updated_at: string;
 }
 
+// Researched store credit reasons
 const CREDIT_REASONS = [
-  'Markdown Refund',
-  'Lost Package',
+  'Refund Compensation',
+  'Order Cancellation',
   'Damaged Item',
+  'Wrong Item Sent',
+  'Lost Package',
+  'Late Delivery Compensation',
   'Overpayment',
-  'Goodwill Credit',
+  'Goodwill Gesture',
+  'Loyalty Reward',
+  'Promotional Credit',
+  'Price Adjustment',
+  'Duplicate Payment',
   'Other',
 ];
 
@@ -72,11 +81,11 @@ function IssueCreditModal({
         reason: finalReason,
         issued_by: session.tiktok_handle ?? 'admin',
         status: 'Active',
+        is_active: false, // Requires activation toggle
         order_ref: form.order_ref.trim() || null,
       });
       if (err) throw err;
 
-      // Audit log
       await supabase.from('audit_logs').insert({
         admin_handle: session.tiktok_handle ?? 'unknown',
         action: 'STORE_CREDIT_ISSUED',
@@ -84,7 +93,8 @@ function IssueCreditModal({
         target_ref: handle,
         prev_value: '0',
         new_value: String(amount),
-        explanation: `Issued ₱${amount} store credit to @${handle}. Reason: ${finalReason}`,
+        explanation: `Issued ₱${amount} store credit to @${handle}. Reason: ${finalReason}. Pending activation.`,
+        notes: '',
       });
 
       setDone(true);
@@ -97,14 +107,8 @@ function IssueCreditModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl overflow-hidden"
-        style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.3)' }}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.3)' }}>
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>Issue Store Credit</h2>
           <button onClick={onClose} className="btn-ghost p-2 rounded-lg">
@@ -118,73 +122,42 @@ function IssueCreditModal({
               <div className="text-4xl mb-3">✓</div>
               <p className="font-semibold" style={{ color: '#10b981' }}>Store Credit Issued!</p>
               <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
-                The credit will automatically apply on their next preorder.
+                Activate it in the Store Credits list before the customer can use it.
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div
-                className="rounded-xl p-3 text-xs"
-                style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}
-              >
-                <strong>✦ Store Credit:</strong> This credit will automatically apply as a discount on the customer&apos;s next preorder submission.
+              <div className="rounded-xl p-3 text-xs" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', color: '#f59e0b' }}>
+                <strong>⚠ Activation Required:</strong> After issuing, you must toggle the credit to Active in the list before the customer can use it.
               </div>
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
                   Customer TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={form.tiktok_handle}
-                  onChange={e => setForm(f => ({ ...f, tiktok_handle: e.target.value }))}
-                  className="input-field text-sm"
-                  placeholder="@yourtiktok"
-                />
+                <input type="text" required value={form.tiktok_handle} onChange={e => setForm(f => ({ ...f, tiktok_handle: e.target.value }))} className="input-field text-sm" placeholder="@yourtiktok" />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
                   Credit Amount (₱) <span style={{ color: 'var(--primary)' }}>*</span>
                 </label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  step="0.01"
-                  value={form.amount}
-                  onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                  className="input-field text-sm"
-                  placeholder="e.g. 350"
-                />
+                <input type="number" required min="1" step="0.01" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} className="input-field text-sm" placeholder="e.g. 350" />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  Reason <span style={{ color: 'var(--primary)' }}>*</span>
+                  Reason for Store Credit <span style={{ color: 'var(--primary)' }}>*</span>
                 </label>
-                <select
-                  value={form.reason}
-                  onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-                  className="select-field text-sm"
-                >
+                <select value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} className="select-field text-sm">
                   {CREDIT_REASONS.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
 
               {form.reason === 'Other' && (
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                    Custom Reason
-                  </label>
-                  <input
-                    type="text"
-                    value={form.custom_reason}
-                    onChange={e => setForm(f => ({ ...f, custom_reason: e.target.value }))}
-                    className="input-field text-sm"
-                    placeholder="Describe the reason..."
-                  />
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Custom Reason</label>
+                  <input type="text" value={form.custom_reason} onChange={e => setForm(f => ({ ...f, custom_reason: e.target.value }))} className="input-field text-sm" placeholder="Describe the reason..." />
                 </div>
               )}
 
@@ -192,28 +165,14 @@ function IssueCreditModal({
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
                   Linked Order Ref <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
                 </label>
-                <input
-                  type="text"
-                  value={form.order_ref}
-                  onChange={e => setForm(f => ({ ...f, order_ref: e.target.value }))}
-                  className="input-field text-sm font-mono"
-                  placeholder="DDS-20260804-XXXX"
-                />
-                <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
-                  Link to the original order this credit is for (e.g. refund source).
-                </p>
+                <input type="text" value={form.order_ref} onChange={e => setForm(f => ({ ...f, order_ref: e.target.value }))} className="input-field text-sm font-mono" placeholder="DDS-20260804-XXXX" />
               </div>
 
               {error && <p className="text-xs" style={{ color: '#f87171' }}>{error}</p>}
 
               <div className="flex gap-3 justify-end pt-1">
                 <button type="button" onClick={onClose} className="btn-ghost text-sm px-5 py-2.5 rounded-xl">Cancel</button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="btn-primary text-sm px-6 py-2.5"
-                  style={{ opacity: saving ? 0.7 : 1 }}
-                >
+                <button type="submit" disabled={saving} className="btn-primary text-sm px-6 py-2.5" style={{ opacity: saving ? 0.7 : 1 }}>
                   {saving ? 'Issuing...' : 'Issue Credit ✦'}
                 </button>
               </div>
@@ -241,7 +200,7 @@ function CancelCreditModal({
     try {
       const supabase = createClient();
       const session = JSON.parse(sessionStorage.getItem('admin_session') ?? '{}');
-      await supabase.from('store_credits').update({ status: 'Cancelled', updated_at: new Date().toISOString() }).eq('id', credit.id);
+      await supabase.from('store_credits').update({ status: 'Cancelled', is_active: false, updated_at: new Date().toISOString() }).eq('id', credit.id);
       await supabase.from('audit_logs').insert({
         admin_handle: session.tiktok_handle ?? 'unknown',
         action: 'STORE_CREDIT_CANCELLED',
@@ -250,6 +209,7 @@ function CancelCreditModal({
         prev_value: 'Active',
         new_value: 'Cancelled',
         explanation: `Cancelled ₱${credit.amount} store credit for @${credit.tiktok_handle}`,
+        notes: '',
       });
       onSuccess();
       onClose();
@@ -259,14 +219,8 @@ function CancelCreditModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl overflow-hidden"
-        style={{ background: 'var(--background-card)', border: '1px solid rgba(239,68,68,0.3)' }}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--background-card)', border: '1px solid rgba(239,68,68,0.3)' }}>
         <div className="px-6 py-5 space-y-4">
           <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>Cancel Store Credit?</h2>
           <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
@@ -274,13 +228,76 @@ function CancelCreditModal({
           </p>
           <div className="flex gap-3 justify-end">
             <button onClick={onClose} className="btn-ghost text-sm px-5 py-2.5 rounded-xl">Keep</button>
-            <button
-              onClick={handleCancel}
-              disabled={saving}
-              className="text-sm px-6 py-2.5 rounded-xl font-semibold transition-all"
-              style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', opacity: saving ? 0.7 : 1 }}
-            >
+            <button onClick={handleCancel} disabled={saving} className="text-sm px-6 py-2.5 rounded-xl font-semibold transition-all" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', opacity: saving ? 0.7 : 1 }}>
               {saving ? 'Cancelling...' : 'Cancel Credit'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Edit Reason Modal ──────────────────────────────────────────────────────
+function EditReasonModal({
+  credit,
+  onClose,
+  onSuccess,
+}: {
+  credit: StoreCredit;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [reason, setReason] = useState(credit.reason);
+  const [customReason, setCustomReason] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const session = JSON.parse(sessionStorage.getItem('admin_session') ?? '{}');
+      const finalReason = reason === 'Other' ? customReason.trim() || 'Other' : reason;
+      await supabase.from('store_credits').update({ reason: finalReason, updated_at: new Date().toISOString() }).eq('id', credit.id);
+      await supabase.from('audit_logs').insert({
+        admin_handle: session.tiktok_handle ?? 'unknown',
+        action: 'STORE_CREDIT_REASON_UPDATED',
+        module: 'Store Credits',
+        target_ref: credit.tiktok_handle,
+        prev_value: credit.reason,
+        new_value: finalReason,
+        explanation: `Reason updated for ₱${credit.amount} store credit of @${credit.tiktok_handle}`,
+        notes: '',
+      });
+      onSuccess();
+      onClose();
+    } catch {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.3)' }}>
+        <div className="px-6 py-5 space-y-4">
+          <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>Edit Reason</h2>
+          <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>@{credit.tiktok_handle} · ₱{credit.amount.toLocaleString()}</p>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Reason for Store Credit</label>
+            <select value={reason} onChange={e => setReason(e.target.value)} className="select-field text-sm">
+              {CREDIT_REASONS.map(r => <option key={r}>{r}</option>)}
+            </select>
+          </div>
+          {reason === 'Other' && (
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>Custom Reason</label>
+              <input type="text" value={customReason} onChange={e => setCustomReason(e.target.value)} className="input-field text-sm" placeholder="Describe the reason..." />
+            </div>
+          )}
+          <div className="flex gap-3 justify-end">
+            <button onClick={onClose} className="btn-ghost text-sm px-5 py-2.5 rounded-xl">Cancel</button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary text-sm px-6 py-2.5" style={{ opacity: saving ? 0.7 : 1 }}>
+              {saving ? 'Saving...' : 'Save Reason'}
             </button>
           </div>
         </div>
@@ -296,16 +313,15 @@ export default function AdminStoreCreditsContent() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<StoreCredit | null>(null);
-  const [isOwner, setIsOwner] = useState(false);
+  const [editReasonTarget, setEditReasonTarget] = useState<StoreCredit | null>(null);
+  const [isOwnerRole, setIsOwnerRole] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const loadCredits = useCallback(async () => {
     setLoading(true);
     try {
       const supabase = createClient();
-      const { data } = await supabase
-        .from('store_credits')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data } = await supabase.from('store_credits').select('*').order('created_at', { ascending: false });
       setCredits((data ?? []) as StoreCredit[]);
     } catch {
       setCredits([]);
@@ -316,14 +332,38 @@ export default function AdminStoreCreditsContent() {
 
   useEffect(() => {
     loadCredits();
-    // Check if current admin is Owner
     try {
       const session = JSON.parse(sessionStorage.getItem('admin_session') ?? '{}');
-      setIsOwner(session.role === 'Owner');
+      setIsOwnerRole(session.role === 'Owner');
     } catch {
-      setIsOwner(false);
+      setIsOwnerRole(false);
     }
   }, [loadCredits]);
+
+  const handleToggleActive = async (credit: StoreCredit) => {
+    setTogglingId(credit.id);
+    try {
+      const supabase = createClient();
+      const session = JSON.parse(sessionStorage.getItem('admin_session') ?? '{}');
+      const newActive = !credit.is_active;
+      await supabase.from('store_credits').update({ is_active: newActive, updated_at: new Date().toISOString() }).eq('id', credit.id);
+      await supabase.from('audit_logs').insert({
+        admin_handle: session.tiktok_handle ?? 'unknown',
+        action: newActive ? 'STORE_CREDIT_ACTIVATED' : 'STORE_CREDIT_DEACTIVATED',
+        module: 'Store Credits',
+        target_ref: credit.tiktok_handle,
+        prev_value: credit.is_active ? 'Active' : 'Inactive',
+        new_value: newActive ? 'Active' : 'Inactive',
+        explanation: `Store credit of ₱${credit.amount} for @${credit.tiktok_handle} ${newActive ? 'activated' : 'deactivated'}`,
+        notes: '',
+      });
+      loadCredits();
+    } catch {
+      // silent
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   const filtered = credits.filter(c => {
     const matchesStatus = !statusFilter || c.status === statusFilter;
@@ -332,16 +372,21 @@ export default function AdminStoreCreditsContent() {
     return matchesStatus && matchesSearch;
   });
 
-  const totalActive = credits.filter(c => c.status === 'Active').reduce((s, c) => s + c.amount, 0);
+  const totalActive = credits.filter(c => c.status === 'Active' && c.is_active).reduce((s, c) => s + c.amount, 0);
+  const totalPending = credits.filter(c => c.status === 'Active' && !c.is_active).reduce((s, c) => s + c.amount, 0);
   const totalIssued = credits.reduce((s, c) => s + c.amount, 0);
 
   return (
     <AdminLayout title="Store Credits">
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="rounded-xl p-4" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
           <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Active Credits</p>
           <p className="font-display text-xl font-bold mt-1" style={{ color: '#10b981' }}>₱{totalActive.toLocaleString()}</p>
+        </div>
+        <div className="rounded-xl p-4" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
+          <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Pending Activation</p>
+          <p className="font-display text-xl font-bold mt-1" style={{ color: '#f59e0b' }}>₱{totalPending.toLocaleString()}</p>
         </div>
         <div className="rounded-xl p-4" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
           <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Total Issued</p>
@@ -354,45 +399,35 @@ export default function AdminStoreCreditsContent() {
       </div>
 
       {/* Owner-only notice for non-owners */}
-      {!isOwner && (
-        <div
-          className="rounded-xl p-3 mb-5 text-xs flex items-center gap-2"
-          style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}
-        >
+      {!isOwnerRole && (
+        <div className="rounded-xl p-3 mb-5 text-xs flex items-center gap-2" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
           <span>🔒</span>
-          <span><strong>View Only:</strong> Only the Owner can issue or cancel store credits.</span>
+          <span><strong>View Only:</strong> Only the Owner can issue, activate, or cancel store credits.</span>
+        </div>
+      )}
+
+      {/* Pending activation banner */}
+      {credits.filter(c => c.status === 'Active' && !c.is_active).length > 0 && (
+        <div className="rounded-xl p-3 mb-5 text-xs flex items-center gap-2" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
+          <span>⏳</span>
+          <span>
+            <strong>{credits.filter(c => c.status === 'Active' && !c.is_active).length} credit(s) pending activation.</strong> Toggle the activation switch to make them usable by customers.
+          </span>
         </div>
       )}
 
       {/* Filters + Issue Button */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <div className="relative flex-1 min-w-[200px]">
-          <Icon
-            name="MagnifyingGlassIcon"
-            size={15}
-            style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--foreground-subtle)' } as React.CSSProperties}
-          />
-          <input
-            type="search"
-            placeholder="Search by handle, reason, order ref..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="input-field text-sm py-2 pl-9"
-          />
+          <Icon name="MagnifyingGlassIcon" size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--foreground-subtle)' } as React.CSSProperties} />
+          <input type="search" placeholder="Search by handle, reason, order ref..." value={search} onChange={e => setSearch(e.target.value)} className="input-field text-sm py-2 pl-9" />
         </div>
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="select-field text-sm py-2"
-        >
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="select-field text-sm py-2">
           <option value="">All Statuses</option>
           {['Active', 'Used', 'Cancelled'].map(s => <option key={s}>{s}</option>)}
         </select>
-        {isOwner && (
-          <button
-            onClick={() => setShowIssueModal(true)}
-            className="btn-primary text-sm px-5 py-2 flex items-center gap-2"
-          >
+        {isOwnerRole && (
+          <button onClick={() => setShowIssueModal(true)} className="btn-primary text-sm px-5 py-2 flex items-center gap-2">
             <Icon name="PlusIcon" size={15} />
             Issue Credit
           </button>
@@ -400,11 +435,8 @@ export default function AdminStoreCreditsContent() {
       </div>
 
       {/* Info banner */}
-      <div
-        className="rounded-xl p-3 mb-5 text-xs"
-        style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--foreground-muted)' }}
-      >
-        <strong style={{ color: '#10b981' }}>✦ Auto-Apply:</strong> Active store credits automatically apply as a discount when the customer submits their next preorder using their TikTok handle. Credits have <strong style={{ color: '#10b981' }}>no expiry date</strong>.
+      <div className="rounded-xl p-3 mb-5 text-xs" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--foreground-muted)' }}>
+        <strong style={{ color: '#10b981' }}>✦ Activation Required:</strong> Credits must be toggled <strong style={{ color: '#10b981' }}>Active</strong> before customers can apply them at checkout. Credits auto-created from refunds start as <strong>Pending</strong>.
       </div>
 
       {/* Table */}
@@ -430,26 +462,36 @@ export default function AdminStoreCreditsContent() {
                   <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Reason</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Linked Order</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Active</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Issued</th>
-                  {isOwner && (
+                  {isOwnerRole && (
                     <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>Actions</th>
                   )}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(credit => (
-                  <tr
-                    key={credit.id}
-                    style={{ borderBottom: '1px solid var(--border)' }}
-                  >
+                  <tr key={credit.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td className="px-4 py-3 font-semibold text-sm" style={{ color: 'var(--foreground)' }}>
                       @{credit.tiktok_handle}
                     </td>
-                    <td className="px-4 py-3 font-bold" style={{ color: credit.status === 'Active' ? '#10b981' : 'var(--foreground-muted)' }}>
+                    <td className="px-4 py-3 font-bold" style={{ color: credit.status === 'Active' && credit.is_active ? '#10b981' : 'var(--foreground-muted)' }}>
                       ₱{credit.amount.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--foreground-muted)' }}>
-                      {credit.reason}
+                      <div className="flex items-center gap-1.5">
+                        <span>{credit.reason || '—'}</span>
+                        {isOwnerRole && credit.status === 'Active' && (
+                          <button
+                            onClick={() => setEditReasonTarget(credit)}
+                            className="text-xs px-1.5 py-0.5 rounded"
+                            style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)', border: '1px solid var(--border)' }}
+                            title="Edit reason"
+                          >
+                            ✎
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--foreground-subtle)' }}>
                       {credit.order_ref ?? '—'}
@@ -467,10 +509,33 @@ export default function AdminStoreCreditsContent() {
                         {credit.used_on_order_ref ? ` · ${credit.used_on_order_ref}` : ''}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      {credit.status === 'Active' ? (
+                        <button
+                          onClick={() => isOwnerRole && handleToggleActive(credit)}
+                          disabled={togglingId === credit.id || !isOwnerRole}
+                          className="relative inline-flex items-center h-6 w-11 rounded-full transition-colors duration-200 focus:outline-none"
+                          style={{
+                            background: credit.is_active ? '#10b981' : 'var(--muted)',
+                            border: `1px solid ${credit.is_active ? '#10b981' : 'var(--border)'}`,
+                            cursor: isOwnerRole ? 'pointer' : 'default',
+                            opacity: togglingId === credit.id ? 0.6 : 1,
+                          }}
+                          title={isOwnerRole ? (credit.is_active ? 'Deactivate credit' : 'Activate credit') : 'Owner only'}
+                        >
+                          <span
+                            className="inline-block w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
+                            style={{ transform: credit.is_active ? 'translateX(24px)' : 'translateX(2px)' }}
+                          />
+                        </button>
+                      ) : (
+                        <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--foreground-subtle)' }}>
                       {new Date(credit.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
                     </td>
-                    {isOwner && (
+                    {isOwnerRole && (
                       <td className="px-4 py-3">
                         {credit.status === 'Active' && (
                           <button
@@ -491,19 +556,16 @@ export default function AdminStoreCreditsContent() {
         </div>
       )}
 
-      {showIssueModal && isOwner && (
-        <IssueCreditModal
-          onClose={() => setShowIssueModal(false)}
-          onSuccess={loadCredits}
-        />
+      {showIssueModal && isOwnerRole && (
+        <IssueCreditModal onClose={() => setShowIssueModal(false)} onSuccess={loadCredits} />
       )}
 
-      {cancelTarget && isOwner && (
-        <CancelCreditModal
-          credit={cancelTarget}
-          onClose={() => setCancelTarget(null)}
-          onSuccess={loadCredits}
-        />
+      {cancelTarget && isOwnerRole && (
+        <CancelCreditModal credit={cancelTarget} onClose={() => setCancelTarget(null)} onSuccess={loadCredits} />
+      )}
+
+      {editReasonTarget && isOwnerRole && (
+        <EditReasonModal credit={editReasonTarget} onClose={() => setEditReasonTarget(null)} onSuccess={loadCredits} />
       )}
     </AdminLayout>
   );

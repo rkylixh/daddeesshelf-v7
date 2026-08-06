@@ -26,42 +26,58 @@ interface Order {
   order_notes: string;
   is_reviewed: boolean;
   is_test: boolean;
+  is_preorder: boolean;
   created_at: string;
 }
 
-// Payment / order lifecycle statuses
+// Payment / order lifecycle statuses ONLY — no shipment statuses here
 const ORDER_STATUSES = [
   'Pending',
   'Fully Paid',
-  'Refunded',
+  'Payment Verified',
   'Packed',
   'Waiting for Courier',
-  'Shipped',
   'Replaced',
   'Abandoned',
   'Cancelled',
   'Buyers Remorse',
+  'Refunded',
 ];
 
-// Shipment processing statuses (full courier lifecycle)
+// Preorder-specific statuses
+const PREORDER_STATUSES = [
+  'Pending Payment Verification',
+  'Payment Verified',
+  'Supplier Ordered',
+  'Arrived',
+  'Packed',
+  'Shipped',
+  'Completed',
+  'Cancelled',
+  'Refunded',
+  'Abandoned',
+];
+
+// Shipment processing statuses (full courier lifecycle) — separate dropdown
 const PROCESSING_STATUSES = [
-  'Preparing',           // Order received, being packed
-  'Ready for Pickup',    // Packed, waiting for courier to collect
-  'Picked Up',           // Courier has collected the parcel
-  'In Transit',          // Parcel is moving between hubs
-  'Out for Delivery',    // Last-mile delivery in progress
-  'Delivery Attempted',  // Courier tried but recipient unavailable
-  'Delivered',           // Successfully received by customer
-  'Returned to Sender',  // Undeliverable, sent back
-  'On Hold',             // Held at courier facility
-  'Delayed',             // Shipment delayed (weather, customs, etc.)
-  'Lost',                // Parcel cannot be located
-  'Damaged',             // Parcel arrived damaged
+  'Preparing',
+  'Ready for Pickup',
+  'Picked Up',
+  'In Transit',
+  'Out for Delivery',
+  'Delivery Attempted',
+  'Delivered',
+  'Returned to Sender',
+  'On Hold',
+  'Delayed',
+  'Lost',
+  'Damaged',
 ];
 
 const STATUS_COLORS: Record<string, string> = {
   'Pending': '#f59e0b',
   'Fully Paid': '#10b981',
+  'Payment Verified': '#10b981',
   'Packed': '#3b82f6',
   'Shipped': '#8b5cf6',
   'Delivered': '#10b981',
@@ -71,6 +87,10 @@ const STATUS_COLORS: Record<string, string> = {
   'Abandoned': '#6b7280',
   'Replaced': '#06b6d4',
   'Buyers Remorse': '#a78bfa',
+  'Pending Payment Verification': '#f59e0b',
+  'Supplier Ordered': '#3b82f6',
+  'Arrived': '#06b6d4',
+  'Completed': '#10b981',
 };
 
 const PROCESSING_COLORS: Record<string, string> = {
@@ -103,6 +123,28 @@ function isOwner() {
   return session?.role === 'Owner';
 }
 
+async function logAudit(params: {
+  action: string;
+  module: string;
+  target_ref: string;
+  prev_value?: string;
+  new_value?: string;
+  explanation?: string;
+  notes?: string;
+}) {
+  const session = getAdminSession();
+  await supabase.from('audit_logs').insert({
+    admin_handle: session?.tiktok_handle ?? 'unknown',
+    action: params.action,
+    module: params.module,
+    target_ref: params.target_ref,
+    prev_value: params.prev_value ?? '',
+    new_value: params.new_value ?? '',
+    explanation: params.explanation ?? '',
+    notes: params.notes ?? '',
+  });
+}
+
 // ── Confirm Payment Modal ──────────────────────────────────────────────────
 function ConfirmPaymentModal({
   order,
@@ -114,21 +156,34 @@ function ConfirmPaymentModal({
   onConfirmed: () => void;
 }) {
   const [input, setInput] = useState('');
+  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleConfirm = async () => {
     if (!input.trim()) { toast.error('Please paste the reference number'); return; }
-    if (input.trim() !== order.payment_ref.trim()) {
+    if (input.trim() !== (order.payment_ref ?? '').trim()) {
       toast.error('Reference number does not match. Please verify.');
       return;
     }
     setLoading(true);
+    const newStatus = order.is_preorder ? 'Payment Verified' : 'Fully Paid';
     const { error } = await supabase
       .from('orders')
-      .update({ status: 'Fully Paid', is_reviewed: true })
+      .update({ status: newStatus, is_reviewed: true })
       .eq('id', order.id);
     if (error) { toast.error('Failed to confirm payment'); setLoading(false); return; }
-    toast.success('Payment confirmed — order marked as Fully Paid');
+
+    await logAudit({
+      action: 'PAYMENT_CONFIRMED',
+      module: 'Orders',
+      target_ref: order.ref_number,
+      prev_value: order.status,
+      new_value: newStatus,
+      explanation: `Payment confirmed for order ${order.ref_number} (${order.tiktok_handle}). Ref: ${input.trim()}`,
+      notes,
+    });
+
+    toast.success(`Payment confirmed — order marked as ${newStatus}`);
     onConfirmed();
     onClose();
   };
@@ -138,7 +193,7 @@ function ConfirmPaymentModal({
       <div className="rounded-2xl p-6 w-full max-w-md" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
         <h3 className="font-semibold text-base mb-1" style={{ color: 'var(--foreground)' }}>Confirm Payment</h3>
         <p className="text-xs mb-4" style={{ color: 'var(--foreground-muted)' }}>
-          Order <span className="font-mono font-semibold">{order.ref_number}</span> · {order.customer_name}
+          Order <span className="font-mono font-semibold">{order.ref_number}</span> · {order.customer_name || order.tiktok_handle}
         </p>
 
         <div className="rounded-lg p-3 mb-4" style={{ background: 'var(--muted)', border: '1px solid var(--border)' }}>
@@ -149,15 +204,26 @@ function ConfirmPaymentModal({
         </div>
 
         <label className="block text-xs font-medium mb-1" style={{ color: 'var(--foreground-muted)' }}>
-          Paste reference number to confirm:
+          Paste reference number to confirm: *
         </label>
         <input
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Paste reference number here..."
-          className="input-field text-sm w-full mb-4"
+          className="input-field text-sm w-full mb-3"
           autoFocus
+        />
+
+        <label className="block text-xs font-medium mb-1" style={{ color: 'var(--foreground-muted)' }}>
+          Notes (optional)
+        </label>
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Add notes for this action..."
+          rows={2}
+          className="input-field text-sm w-full mb-4 resize-none"
         />
 
         <div className="flex gap-2 justify-end">
@@ -191,6 +257,7 @@ function RefundModal({
   const [refundRef, setRefundRef] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
   const [refundType, setRefundType] = useState<'Original Payment Method' | 'Store Credit'>('Original Payment Method');
+  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleRefund = async () => {
@@ -198,6 +265,7 @@ function RefundModal({
     const amount = parseFloat(refundAmount);
     if (!refundAmount || isNaN(amount) || amount <= 0) { toast.error('Please enter a valid refund amount'); return; }
     setLoading(true);
+
     const { error } = await supabase
       .from('orders')
       .update({
@@ -209,7 +277,34 @@ function RefundModal({
       })
       .eq('id', order.id);
     if (error) { toast.error('Failed to process refund'); setLoading(false); return; }
-    toast.success('Refund recorded successfully');
+
+    // If Store Credit — auto-create a pending (inactive) store credit entry
+    if (refundType === 'Store Credit') {
+      const session = getAdminSession();
+      await supabase.from('store_credits').insert({
+        tiktok_handle: order.tiktok_handle,
+        amount,
+        reason: 'Refund Compensation',
+        issued_by: session?.tiktok_handle ?? 'admin',
+        status: 'Active',
+        is_active: false, // Pending activation by admin
+        order_ref: order.ref_number,
+      });
+    }
+
+    await logAudit({
+      action: 'ORDER_REFUNDED',
+      module: 'Orders',
+      target_ref: order.ref_number,
+      prev_value: order.status,
+      new_value: 'Refunded',
+      explanation: `Refund of ₱${amount} processed for order ${order.ref_number} (${order.tiktok_handle}). Type: ${refundType}. Ref: ${refundRef.trim()}${refundType === 'Store Credit' ? ' — Store credit entry created (pending activation).' : ''}`,
+      notes,
+    });
+
+    toast.success(
+      refundType === 'Store Credit' ?'Refund recorded. Store credit entry created — activate it in the Store Credits tab.' :'Refund recorded successfully'
+    );
     onRefunded();
     onClose();
   };
@@ -270,6 +365,23 @@ function RefundModal({
                 </button>
               ))}
             </div>
+            {refundType === 'Store Credit' && (
+              <div className="mt-2 rounded-lg p-2.5 text-xs" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}>
+                ✦ A store credit entry will be created for <strong>@{order.tiktok_handle}</strong> and will appear in the Store Credits tab pending activation.
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--foreground-muted)' }}>
+              Notes (optional)
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Add notes for this refund..."
+              rows={2}
+              className="input-field text-sm w-full resize-none"
+            />
           </div>
         </div>
 
@@ -291,14 +403,90 @@ function RefundModal({
   );
 }
 
+// ── Status Change Modal (with notes) ──────────────────────────────────────
+function StatusChangeModal({
+  order,
+  newStatus,
+  onClose,
+  onSaved,
+}: {
+  order: Order;
+  newStatus: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSave = async () => {
+    setLoading(true);
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: newStatus })
+      .eq('id', order.id);
+    if (error) { toast.error('Failed to update status'); setLoading(false); return; }
+
+    await logAudit({
+      action: 'ORDER_STATUS_CHANGED',
+      module: 'Orders',
+      target_ref: order.ref_number,
+      prev_value: order.status,
+      new_value: newStatus,
+      explanation: `Status changed for order ${order.ref_number} (${order.tiktok_handle}): ${order.status} → ${newStatus}`,
+      notes,
+    });
+
+    toast.success('Order status updated');
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+      <div className="rounded-2xl p-6 w-full max-w-sm" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
+        <h3 className="font-semibold text-base mb-1" style={{ color: 'var(--foreground)' }}>Change Order Status</h3>
+        <p className="text-xs mb-4" style={{ color: 'var(--foreground-muted)' }}>
+          <span className="font-mono">{order.ref_number}</span>: <span style={{ color: STATUS_COLORS[order.status] ?? '#6b7280' }}>{order.status}</span> → <span style={{ color: STATUS_COLORS[newStatus] ?? '#6b7280' }}>{newStatus}</span>
+        </p>
+        <label className="block text-xs font-medium mb-1" style={{ color: 'var(--foreground-muted)' }}>
+          Notes (optional)
+        </label>
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Reason for this status change..."
+          rows={3}
+          className="input-field text-sm w-full mb-4 resize-none"
+          autoFocus
+        />
+        <div className="flex gap-2 justify-end">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm" style={{ background: 'var(--muted)', color: 'var(--foreground-muted)' }}>
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="px-4 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: 'var(--primary)', color: '#1a0a00' }}
+          >
+            {loading ? 'Saving...' : 'Save Status'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function AdminOrdersContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'order' | 'preorder'>('all');
   const [confirmPaymentOrder, setConfirmPaymentOrder] = useState<Order | null>(null);
   const [refundOrder, setRefundOrder] = useState<Order | null>(null);
+  const [statusChangeOrder, setStatusChangeOrder] = useState<{ order: Order; newStatus: string } | null>(null);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const ownerAccess = isOwner();
 
@@ -311,11 +499,37 @@ export default function AdminOrdersContent() {
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
-  const updateOrder = async (id: string, updates: Partial<Order>) => {
+  const updateOrderField = async (id: string, updates: Partial<Order>, auditInfo?: { action: string; prev: string; next: string; field: string }) => {
     const { error } = await supabase.from('orders').update(updates).eq('id', id);
-    if (error) { toast.error('Update failed'); return; }
+    if (error) { toast.error('Update failed: ' + error.message); return; }
     toast.success('Order updated');
+    if (auditInfo) {
+      const order = orders.find(o => o.id === id);
+      await logAudit({
+        action: auditInfo.action,
+        module: 'Orders',
+        target_ref: order?.ref_number ?? id,
+        prev_value: auditInfo.prev,
+        new_value: auditInfo.next,
+        explanation: `${auditInfo.field} updated for order ${order?.ref_number ?? id} (${order?.tiktok_handle ?? ''})`,
+      });
+    }
     loadOrders();
+  };
+
+  const handleStatusChange = (order: Order, newStatus: string) => {
+    // Payment Verified requires reference number confirmation
+    if (newStatus === 'Payment Verified' || newStatus === 'Fully Paid') {
+      setConfirmPaymentOrder(order);
+      return;
+    }
+    // Refunded requires refund details
+    if (newStatus === 'Refunded') {
+      setRefundOrder(order);
+      return;
+    }
+    // All other status changes go through notes modal
+    setStatusChangeOrder({ order, newStatus });
   };
 
   const toggleNotes = (id: string) => {
@@ -326,14 +540,19 @@ export default function AdminOrdersContent() {
     });
   };
 
+  const allStatuses = [...new Set([...ORDER_STATUSES, ...PREORDER_STATUSES])].sort();
+
   const filtered = orders.filter(o => {
+    if (filterType === 'order' && o.is_preorder) return false;
+    if (filterType === 'preorder' && !o.is_preorder) return false;
     if (filterStatus && o.status !== filterStatus) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
-        o.ref_number.toLowerCase().includes(q) ||
-        o.tiktok_handle.toLowerCase().includes(q) ||
-        o.customer_name.toLowerCase().includes(q)
+        (o.ref_number ?? '').toLowerCase().includes(q) ||
+        (o.tiktok_handle ?? '').toLowerCase().includes(q) ||
+        (o.customer_name ?? '').toLowerCase().includes(q) ||
+        (o.payment_ref ?? '').toLowerCase().includes(q)
       );
     }
     return true;
@@ -356,12 +575,42 @@ export default function AdminOrdersContent() {
           onRefunded={loadOrders}
         />
       )}
+      {statusChangeOrder && (
+        <StatusChangeModal
+          order={statusChangeOrder.order}
+          newStatus={statusChangeOrder.newStatus}
+          onClose={() => setStatusChangeOrder(null)}
+          onSaved={loadOrders}
+        />
+      )}
 
-      {/* Filters */}
+      {/* Type filter tabs */}
+      <div className="flex gap-2 mb-4">
+        {([
+          { key: 'all', label: `All Orders (${orders.length})` },
+          { key: 'order', label: `Regular (${orders.filter(o => !o.is_preorder).length})` },
+          { key: 'preorder', label: `Preorders (${orders.filter(o => o.is_preorder).length})` },
+        ] as const).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setFilterType(tab.key)}
+            className="px-4 py-2 rounded-lg text-xs font-semibold transition-all"
+            style={{
+              background: filterType === tab.key ? 'var(--primary-glow)' : 'var(--muted)',
+              color: filterType === tab.key ? 'var(--primary-bright)' : 'var(--foreground-muted)',
+              border: `1px solid ${filterType === tab.key ? 'rgba(139,92,246,0.4)' : 'var(--border)'}`,
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Search + status filter */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <input
           type="search"
-          placeholder="Search by ref, handle, name..."
+          placeholder="Search by ref, TikTok handle, name, payment ref..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="input-field text-sm py-2 flex-1 min-w-[200px]"
@@ -372,7 +621,7 @@ export default function AdminOrdersContent() {
           className="select-field text-sm py-2"
         >
           <option value="">All Statuses</option>
-          {ORDER_STATUSES.map(s => <option key={s}>{s}</option>)}
+          {allStatuses.map(s => <option key={s}>{s}</option>)}
         </select>
         <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>{filtered.length} orders</p>
       </div>
@@ -387,6 +636,8 @@ export default function AdminOrdersContent() {
         <div className="space-y-3">
           {filtered.map(order => {
             const notesOpen = expandedNotes.has(order.id);
+            const statusColor = STATUS_COLORS[order.status] ?? '#6b7280';
+            const statusList = order.is_preorder ? PREORDER_STATUSES : ORDER_STATUSES;
             return (
               <div
                 key={order.id}
@@ -398,12 +649,17 @@ export default function AdminOrdersContent() {
                   <div>
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <p className="font-semibold text-sm font-mono" style={{ color: 'var(--foreground)' }}>{order.ref_number}</p>
+                      {order.is_preorder && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                          Preorder
+                        </span>
+                      )}
                       {order.is_test && (
                         <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>[TEST]</span>
                       )}
                       <span
                         className="text-xs px-2.5 py-1 rounded-full font-semibold"
-                        style={{ background: `${STATUS_COLORS[order.status] ?? '#6b7280'}20`, color: STATUS_COLORS[order.status] ?? '#6b7280' }}
+                        style={{ background: `${statusColor}20`, color: statusColor }}
                       >
                         {order.status}
                       </span>
@@ -468,13 +724,7 @@ export default function AdminOrdersContent() {
                       </span>
                     )}
                     {order.tracking_link && (
-                      <a
-                        href={order.tracking_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline"
-                        style={{ color: 'var(--primary-bright)' }}
-                      >
+                      <a href={order.tracking_link} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--primary-bright)' }}>
                         Track Shipment ↗
                       </a>
                     )}
@@ -490,19 +740,28 @@ export default function AdminOrdersContent() {
 
                 {/* Controls row */}
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {/* Order status */}
+                  {/* Order status — only payment/fulfillment states */}
                   <select
                     value={order.status}
-                    onChange={e => updateOrder(order.id, { status: e.target.value })}
+                    onChange={e => handleStatusChange(order, e.target.value)}
                     className="select-field text-xs py-1.5 px-2"
                   >
-                    {ORDER_STATUSES.map(s => <option key={s}>{s}</option>)}
+                    {statusList.map(s => <option key={s}>{s}</option>)}
                   </select>
 
-                  {/* Processing status — separate menu */}
+                  {/* Processing status — shipment lifecycle, separate dropdown */}
                   <select
                     value={order.processing_status || 'Preparing'}
-                    onChange={e => updateOrder(order.id, { processing_status: e.target.value })}
+                    onChange={async e => {
+                      const prev = order.processing_status || 'Preparing';
+                      const next = e.target.value;
+                      await updateOrderField(order.id, { processing_status: next }, {
+                        action: 'PROCESSING_STATUS_CHANGED',
+                        prev,
+                        next,
+                        field: 'Processing status',
+                      });
+                    }}
                     className="select-field text-xs py-1.5 px-2"
                     title="Shipment Processing Status"
                   >
@@ -516,19 +775,20 @@ export default function AdminOrdersContent() {
                       defaultValue={order.waybill_number}
                       placeholder="Waybill #"
                       className="input-field text-xs py-1.5 w-32"
-                      onBlur={e => {
+                      onBlur={async e => {
                         if (e.target.value !== order.waybill_number) {
-                          updateOrder(order.id, { waybill_number: e.target.value });
+                          await updateOrderField(order.id, { waybill_number: e.target.value }, {
+                            action: 'WAYBILL_UPDATED',
+                            prev: order.waybill_number || '',
+                            next: e.target.value,
+                            field: 'Waybill number',
+                          });
                         }
                       }}
                     />
                   ) : (
                     order.waybill_number ? null : (
-                      <span
-                        className="text-xs px-2 py-1.5 rounded-lg"
-                        style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)' }}
-                        title="Only the owner can edit the waybill number"
-                      >
+                      <span className="text-xs px-2 py-1.5 rounded-lg" style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)' }} title="Only the owner can edit the waybill number">
                         Waybill: owner only
                       </span>
                     )
@@ -541,9 +801,14 @@ export default function AdminOrdersContent() {
                       defaultValue={order.tracking_link}
                       placeholder="Tracking URL..."
                       className="input-field text-xs py-1.5 w-44"
-                      onBlur={e => {
+                      onBlur={async e => {
                         if (e.target.value !== order.tracking_link) {
-                          updateOrder(order.id, { tracking_link: e.target.value });
+                          await updateOrderField(order.id, { tracking_link: e.target.value }, {
+                            action: 'TRACKING_LINK_UPDATED',
+                            prev: order.tracking_link || '',
+                            next: e.target.value,
+                            field: 'Tracking link',
+                          });
                         }
                       }}
                     />
@@ -552,8 +817,8 @@ export default function AdminOrdersContent() {
 
                 {/* Action buttons row */}
                 <div className="flex flex-wrap gap-2 items-center">
-                  {/* Confirm payment — owner only */}
-                  {ownerAccess && order.status === 'Pending' && order.payment_ref && (
+                  {/* Confirm payment — owner only, for pending orders with payment ref */}
+                  {ownerAccess && (order.status === 'Pending' || order.status === 'Pending Payment Verification') && order.payment_ref && (
                     <button
                       onClick={() => setConfirmPaymentOrder(order)}
                       className="text-xs px-3 py-1.5 rounded-lg font-semibold"
@@ -564,7 +829,7 @@ export default function AdminOrdersContent() {
                   )}
 
                   {/* Refund — owner only */}
-                  {ownerAccess && (order.status === 'Fully Paid' || order.status === 'Packed' || order.status === 'Shipped') && (
+                  {ownerAccess && !['Refunded', 'Cancelled', 'Abandoned'].includes(order.status) && (
                     <button
                       onClick={() => setRefundOrder(order)}
                       className="text-xs px-3 py-1.5 rounded-lg font-semibold"
@@ -592,9 +857,14 @@ export default function AdminOrdersContent() {
                       placeholder="Add notes for this order..."
                       rows={2}
                       className="input-field text-xs w-full resize-none"
-                      onBlur={e => {
+                      onBlur={async e => {
                         if (e.target.value !== order.order_notes) {
-                          updateOrder(order.id, { order_notes: e.target.value });
+                          await updateOrderField(order.id, { order_notes: e.target.value }, {
+                            action: 'ORDER_NOTES_UPDATED',
+                            prev: order.order_notes || '',
+                            next: e.target.value,
+                            field: 'Order notes',
+                          });
                         }
                       }}
                     />
