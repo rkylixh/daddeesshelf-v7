@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import Icon from '@/components/ui/AppIcon';
 import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 interface Customer {
   id: string;
@@ -341,6 +342,7 @@ export default function AdminCustomersContent() {
   const [search, setSearch] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [resetTarget, setResetTarget] = useState<Customer | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
@@ -359,6 +361,85 @@ export default function AdminCustomersContent() {
   }, []);
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
+
+  const syncCustomersFromOrders = async () => {
+    setSyncing(true);
+    try {
+      const supabase = createClient();
+
+      // Fetch all orders
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select('tiktok_handle, customer_name');
+
+      if (error) throw error;
+
+      if (!orders || orders.length === 0) {
+        toast.info('No orders found to sync.');
+        setSyncing(false);
+        return;
+      }
+
+      // Deduplicate handles — normalize by stripping leading "@"
+      const seen = new Map<string, string>(); // normalized handle → display_name
+      for (const o of orders) {
+        if (!o.tiktok_handle) continue;
+        const normalized = o.tiktok_handle.replace(/^@/, '').trim().toLowerCase();
+        if (!normalized) continue;
+        if (!seen.has(normalized)) {
+          seen.set(normalized, o.customer_name ?? '');
+        }
+      }
+
+      if (seen.size === 0) {
+        toast.info('No valid customer handles found in orders.');
+        setSyncing(false);
+        return;
+      }
+
+      // Upsert each unique customer
+      let added = 0;
+      let skipped = 0;
+      for (const [handle, displayName] of seen.entries()) {
+        const { error: upsertErr } = await supabase
+          .from('customers')
+          .upsert(
+            {
+              tiktok_handle: handle,
+              display_name: displayName || null,
+              pin_enrolled: false,
+              pin_hash: '',
+            },
+            { onConflict: 'tiktok_handle', ignoreDuplicates: true }
+          );
+        if (upsertErr) {
+          skipped++;
+        } else {
+          added++;
+        }
+      }
+
+      // Audit log
+      const session = JSON.parse(sessionStorage.getItem('admin_session') ?? '{}');
+      await supabase.from('audit_logs').insert({
+        admin_handle: session.tiktok_handle ?? 'unknown',
+        action: 'CUSTOMERS_SYNCED',
+        module: 'Customer Management',
+        target_ref: 'bulk_sync',
+        prev_value: '',
+        new_value: `${added} synced`,
+        explanation: `Admin synced ${added} customers from orders (${skipped} skipped/already exist).`,
+      });
+
+      toast.success(`Sync complete: ${added} customer(s) added/updated. ${skipped > 0 ? `${skipped} skipped.` : ''}`);
+      loadCustomers();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast.error('Sync failed: ' + msg);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const filtered = customers.filter(c => {
     if (!search) return true;
@@ -384,6 +465,27 @@ export default function AdminCustomersContent() {
             className="input-field text-sm py-2 pl-9"
           />
         </div>
+        <button
+          onClick={syncCustomersFromOrders}
+          disabled={syncing}
+          className="text-xs px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition-all"
+          style={{
+            background: syncing ? 'var(--muted)' : 'rgba(139,92,246,0.15)',
+            color: syncing ? 'var(--foreground-subtle)' : 'var(--primary-bright)',
+            border: '1px solid rgba(139,92,246,0.3)',
+            cursor: syncing ? 'not-allowed' : 'pointer',
+          }}
+          title="Push all order customers into the customers table"
+        >
+          {syncing ? (
+            <>
+              <span className="w-3 h-3 rounded-full border border-t-transparent animate-spin inline-block" style={{ borderColor: 'var(--primary-bright)', borderTopColor: 'transparent' }} />
+              Syncing...
+            </>
+          ) : (
+            '↻ Sync from Orders'
+          )}
+        </button>
         <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
           {filtered.length} customer{filtered.length !== 1 ? 's' : ''}
         </p>
