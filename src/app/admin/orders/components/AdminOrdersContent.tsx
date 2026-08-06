@@ -492,6 +492,7 @@ function DeleteOrderModal({
   onDeleted: () => void;
 }) {
   const [pin, setPin] = useState('');
+  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'warn' | 'pin'>('warn');
 
@@ -565,6 +566,7 @@ function DeleteOrderModal({
       prev_value: order.status,
       new_value: 'DELETED',
       explanation: `Order ${order.ref_number} (${order.tiktok_handle}) deleted by admin. Stock restored for ${order.items?.length ?? 0} item(s).`,
+      notes,
     });
 
     toast.success(`Order ${order.ref_number} deleted. Stock restored.`);
@@ -643,10 +645,21 @@ function DeleteOrderModal({
               value={pin}
               onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="Enter your PIN..."
-              className="input-field text-sm w-full mb-4 text-center tracking-widest font-mono"
+              className="input-field text-sm w-full mb-3 text-center tracking-widest font-mono"
               inputMode="numeric"
               autoFocus
               onKeyDown={e => { if (e.key === 'Enter') handleDelete(); }}
+            />
+
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--foreground-muted)' }}>
+              Admin Note <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Reason for deleting this order (visible in audit log)..."
+              rows={2}
+              className="input-field text-sm w-full mb-4 resize-none"
             />
 
             <div className="flex gap-2 justify-end">
