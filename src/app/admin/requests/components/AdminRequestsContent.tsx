@@ -35,7 +35,7 @@ function getAdminSession() {
 
 function isOwner() {
   const session = getAdminSession();
-  return session?.role === 'Owner';
+  return session?.role === 'Owner' || session?.role === 'Developer';
 }
 
 export default function AdminRequestsContent() {
