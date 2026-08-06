@@ -129,11 +129,19 @@ export default function ShopContent() {
     <div className="content-wrapper py-8">
       {(searchParams.get('genre') || searchParams.get('subgenre')) && (
         <button
-          onClick={() => router.back()}
+          onClick={() => {
+            const subgenre = searchParams.get('subgenre');
+            const genre = searchParams.get('genre');
+            if (subgenre && genre) {
+              router.push(`/genres?genre=${encodeURIComponent(genre)}`);
+            } else {
+              router.back();
+            }
+          }}
           className="flex items-center gap-2 text-sm mb-6 transition-colors"
           style={{ color: 'var(--foreground-muted)' }}
         >
-          ← Back to Genres
+          {searchParams.get('subgenre') ? '← Back to Subgenres' : '← Back to Genres'}
         </button>
       )}
       <ShopHeader
