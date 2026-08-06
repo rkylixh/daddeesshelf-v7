@@ -605,9 +605,15 @@ export default function PreorderContent() {
                       )}
                     </div>
                     <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
-                      ETA: <strong style={{ color: 'var(--foreground)' }}>{formatDate(batchEta)}</strong>
-                      {daysUntil !== null && daysUntil > 0 && (
-                        <span className="ml-2 text-xs" style={{ color: 'var(--foreground-subtle)' }}>({daysUntil} days away)</span>
+                      {books.some(b => b.is_eta_visible !== false) ? (
+                        <>
+                          ETA: <strong style={{ color: 'var(--foreground)' }}>{formatDate(batchEta)}</strong>
+                          {daysUntil !== null && daysUntil > 0 && (
+                            <span className="ml-2 text-xs" style={{ color: 'var(--foreground-subtle)' }}>({daysUntil} days away)</span>
+                          )}
+                        </>
+                      ) : (
+                        <span>ETA: <strong style={{ color: 'var(--foreground)' }}>TBA</strong></span>
                       )}
                     </p>
                   </div>
@@ -644,7 +650,11 @@ export default function PreorderContent() {
                                 <p className="text-xs font-medium mb-0.5 truncate" style={{ color: 'var(--foreground-subtle)' }}>{book.genre}</p>
                                 <h3 className="font-display text-xs font-semibold leading-snug mb-0.5 line-clamp-2" style={{ color: 'var(--foreground)' }}>{book.title}</h3>
                                 <p className="text-xs mb-1.5 truncate" style={{ color: 'var(--foreground-muted)' }}>{book.author}</p>
-                                <p className="text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>₱{book.final_srp.toLocaleString()}</p>
+                                {book.is_price_visible !== false ? (
+                                  <p className="text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>₱{book.final_srp.toLocaleString()}</p>
+                                ) : (
+                                  <p className="text-xs font-medium" style={{ color: 'var(--foreground-subtle)' }}>Price TBA</p>
+                                )}
                               </div>
                             </div>
                           </Link>

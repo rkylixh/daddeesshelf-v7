@@ -217,7 +217,7 @@ export default function BookDetailContent() {
     { label: 'Batch', value: book.batch || '—' },
     ...(extBook.reading_age ? [{ label: 'Reading Age', value: extBook.reading_age }] : []),
     ...(extBook.content_warnings ? [{ label: 'Content Warnings', value: extBook.content_warnings }] : []),
-    ...(book.arrival_date ? [{ label: 'Estimated Arrival (ETA)', value: new Date(book.arrival_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) }] : []),
+    ...(book.arrival_date && book.is_eta_visible !== false ? [{ label: 'Estimated Arrival (ETA)', value: new Date(book.arrival_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) }] : []),
   ];
 
   return (
@@ -317,9 +317,15 @@ export default function BookDetailContent() {
 
           {/* Price */}
           <div className="flex items-baseline gap-3 mb-4">
-            <span className="font-display text-3xl font-bold tabular-nums" style={{ color: 'var(--primary-bright)' }}>
-              ₱{book.final_srp.toLocaleString()}
-            </span>
+            {book.is_price_visible !== false ? (
+              <span className="font-display text-3xl font-bold tabular-nums" style={{ color: 'var(--primary-bright)' }}>
+                ₱{book.final_srp.toLocaleString()}
+              </span>
+            ) : (
+              <span className="font-display text-xl font-semibold" style={{ color: 'var(--foreground-muted)' }}>
+                Price TBA
+              </span>
+            )}
             <span className="text-sm" style={{ color: 'var(--foreground-subtle)' }}>
               {book.format}
             </span>
@@ -566,7 +572,11 @@ export default function BookDetailContent() {
                   <div className="p-2">
                     <p className="text-xs font-semibold truncate" style={{ color: 'var(--foreground)' }}>{related.title}</p>
                     <p className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>{related.author}</p>
-                    <p className="text-xs font-bold tabular-nums mt-1" style={{ color: 'var(--primary-bright)' }}>₱{related.final_srp.toLocaleString()}</p>
+                    {related.is_price_visible !== false ? (
+                      <p className="text-xs font-bold tabular-nums mt-1" style={{ color: 'var(--primary-bright)' }}>₱{related.final_srp.toLocaleString()}</p>
+                    ) : (
+                      <p className="text-xs font-medium mt-1" style={{ color: 'var(--foreground-subtle)' }}>Price TBA</p>
+                    )}
                   </div>
                 </div>
               </Link>

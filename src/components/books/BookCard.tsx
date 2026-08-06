@@ -146,9 +146,13 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
               {book.author}
             </p>
             <div className="flex items-center justify-between">
-              <span className="text-sm font-bold tabular-nums" style={{ color: '#8B6A20' }}>
-                ₱{book.final_srp.toLocaleString()}
-              </span>
+              {book.is_price_visible !== false ? (
+                <span className="text-sm font-bold tabular-nums" style={{ color: '#8B6A20' }}>
+                  ₱{book.final_srp.toLocaleString()}
+                </span>
+              ) : (
+                <span className="text-sm font-medium" style={{ color: '#7B6454' }}>Price TBA</span>
+              )}
               {book.series && (
                 <span className="text-xs truncate max-w-[100px]" style={{ color: '#7B6454' }}>
                   {book.series}

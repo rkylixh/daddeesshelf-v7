@@ -9,6 +9,35 @@ import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import AppImage from '@/components/ui/AppImage';
 
+type VisibilityField = 'is_visible' | 'is_price_visible' | 'is_eta_visible';
+
+const TOGGLE_CONFIG: { field: VisibilityField; label: string; shortLabel: string; color: string; bg: string; border: string }[] = [
+  {
+    field: 'is_visible',
+    label: 'Visible',
+    shortLabel: 'Visible',
+    color: '#4ade80',
+    bg: 'rgba(74,222,128,0.12)',
+    border: 'rgba(74,222,128,0.3)',
+  },
+  {
+    field: 'is_price_visible',
+    label: 'Price Visible',
+    shortLabel: 'Price',
+    color: '#60a5fa',
+    bg: 'rgba(96,165,250,0.12)',
+    border: 'rgba(96,165,250,0.3)',
+  },
+  {
+    field: 'is_eta_visible',
+    label: 'ETA Visible',
+    shortLabel: 'ETA',
+    color: '#f59e0b',
+    bg: 'rgba(245,158,11,0.12)',
+    border: 'rgba(245,158,11,0.3)',
+  },
+];
+
 export default function AdminVisibilityContent() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,13 +53,11 @@ export default function AdminVisibilityContent() {
     setLoading(true);
     const data = await getAllBooksAdmin();
     setBooks(data);
-    // Expand all batches by default
     const batches = [...new Set(data.map(b => b.batch).filter(Boolean))];
     setExpandedBatches(new Set(batches));
     setLoading(false);
   };
 
-  // Group books by batch
   const batchGroups = useMemo(() => {
     const filtered = search
       ? books.filter(b =>
@@ -47,45 +74,48 @@ export default function AdminVisibilityContent() {
       groups[batch].push(book);
     });
 
-    // Sort batches
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [books, search]);
 
-  const toggleBookVisibility = async (book: Book) => {
-    const newVisible = !book.is_visible;
-    setSaving(prev => new Set(prev).add(book.id));
+  const toggleBookField = async (book: Book, field: VisibilityField) => {
+    const newValue = !book[field];
+    const saveKey = `${book.id}-${field}`;
+    setSaving(prev => new Set(prev).add(saveKey));
     try {
       const supabase = createClient();
       const { error } = await supabase
         .from('books')
-        .update({ is_visible: newVisible, updated_at: new Date().toISOString() })
+        .update({ [field]: newValue, updated_at: new Date().toISOString() })
         .eq('id', book.id);
       if (error) throw error;
-      setBooks(prev => prev.map(b => b.id === book.id ? { ...b, is_visible: newVisible } : b));
-      toast.success(`"${book.title}" is now ${newVisible ? 'visible' : 'hidden'} on the website`);
+      setBooks(prev => prev.map(b => b.id === book.id ? { ...b, [field]: newValue } : b));
+      const cfg = TOGGLE_CONFIG.find(c => c.field === field)!;
+      toast.success(`"${book.title}" — ${cfg.label} ${newValue ? 'on' : 'off'}`);
     } catch {
       toast.error('Failed to update visibility');
     } finally {
-      setSaving(prev => { const next = new Set(prev); next.delete(book.id); return next; });
+      setSaving(prev => { const next = new Set(prev); next.delete(saveKey); return next; });
     }
   };
 
-  const toggleBatchVisibility = async (batchName: string, batchBooks: Book[], makeVisible: boolean) => {
+  const toggleBatchField = async (batchName: string, batchBooks: Book[], field: VisibilityField, makeVisible: boolean) => {
     const ids = batchBooks.map(b => b.id);
-    setSaving(prev => { const next = new Set(prev); ids.forEach(id => next.add(id)); return next; });
+    const saveKeys = ids.map(id => `${id}-${field}`);
+    setSaving(prev => { const next = new Set(prev); saveKeys.forEach(k => next.add(k)); return next; });
     try {
       const supabase = createClient();
       const { error } = await supabase
         .from('books')
-        .update({ is_visible: makeVisible, updated_at: new Date().toISOString() })
+        .update({ [field]: makeVisible, updated_at: new Date().toISOString() })
         .in('id', ids);
       if (error) throw error;
-      setBooks(prev => prev.map(b => ids.includes(b.id) ? { ...b, is_visible: makeVisible } : b));
-      toast.success(`${batchName}: all ${ids.length} titles ${makeVisible ? 'shown' : 'hidden'} on website`);
+      setBooks(prev => prev.map(b => ids.includes(b.id) ? { ...b, [field]: makeVisible } : b));
+      const cfg = TOGGLE_CONFIG.find(c => c.field === field)!;
+      toast.success(`${batchName}: ${cfg.label} ${makeVisible ? 'on' : 'off'} for all ${ids.length} titles`);
     } catch {
       toast.error('Failed to update batch visibility');
     } finally {
-      setSaving(prev => { const next = new Set(prev); ids.forEach(id => next.delete(id)); return next; });
+      setSaving(prev => { const next = new Set(prev); saveKeys.forEach(k => next.delete(k)); return next; });
     }
   };
 
@@ -98,9 +128,12 @@ export default function AdminVisibilityContent() {
   };
 
   const getBatchStats = (batchBooks: Book[]) => {
-    const visible = batchBooks.filter(b => b.is_visible).length;
-    const hidden = batchBooks.length - visible;
-    return { visible, hidden, total: batchBooks.length };
+    return {
+      total: batchBooks.length,
+      visible: batchBooks.filter(b => b.is_visible).length,
+      priceVisible: batchBooks.filter(b => b.is_price_visible).length,
+      etaVisible: batchBooks.filter(b => b.is_eta_visible).length,
+    };
   };
 
   const totalVisible = books.filter(b => b.is_visible).length;
@@ -141,6 +174,16 @@ export default function AdminVisibilityContent() {
         />
       </div>
 
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        {TOGGLE_CONFIG.map(cfg => (
+          <div key={cfg.field} className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cfg.color }} />
+            <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>{cfg.label}</span>
+          </div>
+        ))}
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
@@ -154,9 +197,9 @@ export default function AdminVisibilityContent() {
           {batchGroups.map(([batchName, batchBooks]) => {
             const stats = getBatchStats(batchBooks);
             const isExpanded = expandedBatches.has(batchName);
-            const allVisible = stats.visible === stats.total;
-            const allHidden = stats.hidden === stats.total;
-            const anyBatchSaving = batchBooks.some(b => saving.has(b.id));
+            const anyBatchSaving = batchBooks.some(b =>
+              TOGGLE_CONFIG.some(cfg => saving.has(`${b.id}-${cfg.field}`))
+            );
 
             return (
               <div
@@ -165,7 +208,7 @@ export default function AdminVisibilityContent() {
                 style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
               >
                 {/* Batch header */}
-                <div className="flex items-center gap-3 p-4">
+                <div className="flex items-start gap-3 p-4">
                   <button
                     onClick={() => toggleBatchExpand(batchName)}
                     className="flex items-center gap-2 flex-1 min-w-0 text-left"
@@ -173,42 +216,52 @@ export default function AdminVisibilityContent() {
                     <Icon
                       name={isExpanded ? 'ChevronDownIcon' : 'ChevronRightIcon'}
                       size={16}
-                      style={{ color: 'var(--foreground-subtle)', flexShrink: 0 } as React.CSSProperties}
+                      style={{ color: 'var(--foreground-subtle)', flexShrink: 0, marginTop: 2 } as React.CSSProperties}
                     />
                     <div className="min-w-0">
                       <p className="font-semibold text-sm" style={{ color: 'var(--foreground)' }}>{batchName}</p>
                       <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-subtle)' }}>
                         {stats.total} title{stats.total !== 1 ? 's' : ''} &middot;{' '}
                         <span style={{ color: '#4ade80' }}>{stats.visible} visible</span>
-                        {stats.hidden > 0 && (
-                          <span style={{ color: '#f87171' }}> &middot; {stats.hidden} hidden</span>
+                        {stats.total - stats.visible > 0 && (
+                          <span style={{ color: '#f87171' }}> &middot; {stats.total - stats.visible} hidden</span>
                         )}
                       </p>
                     </div>
                   </button>
 
-                  {/* Batch-level controls */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {!allVisible && (
-                      <button
-                        onClick={() => toggleBatchVisibility(batchName, batchBooks, true)}
-                        disabled={anyBatchSaving}
-                        className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50"
-                        style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.3)' }}
-                      >
-                        Show All
-                      </button>
-                    )}
-                    {!allHidden && (
-                      <button
-                        onClick={() => toggleBatchVisibility(batchName, batchBooks, false)}
-                        disabled={anyBatchSaving}
-                        className="text-xs px-3 py-1.5 rounded-lg font-medium transition-all disabled:opacity-50"
-                        style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}
-                      >
-                        Hide All
-                      </button>
-                    )}
+                  {/* Batch-level controls — one row per toggle type */}
+                  <div className="flex flex-col gap-1.5 flex-shrink-0">
+                    {TOGGLE_CONFIG.map(cfg => {
+                      const onCount = batchBooks.filter(b => b[cfg.field]).length;
+                      const allOn = onCount === stats.total;
+                      const allOff = onCount === 0;
+                      return (
+                        <div key={cfg.field} className="flex items-center gap-1.5">
+                          <span className="text-xs w-14 text-right" style={{ color: 'var(--foreground-subtle)' }}>{cfg.shortLabel}</span>
+                          {!allOn && (
+                            <button
+                              onClick={() => toggleBatchField(batchName, batchBooks, cfg.field, true)}
+                              disabled={anyBatchSaving}
+                              className="text-xs px-2 py-1 rounded-lg font-medium transition-all disabled:opacity-50"
+                              style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
+                            >
+                              Show All
+                            </button>
+                          )}
+                          {!allOff && (
+                            <button
+                              onClick={() => toggleBatchField(batchName, batchBooks, cfg.field, false)}
+                              disabled={anyBatchSaving}
+                              className="text-xs px-2 py-1 rounded-lg font-medium transition-all disabled:opacity-50"
+                              style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}
+                            >
+                              Hide All
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -216,7 +269,6 @@ export default function AdminVisibilityContent() {
                 {isExpanded && (
                   <div style={{ borderTop: '1px solid var(--border)' }}>
                     {batchBooks.map((book, idx) => {
-                      const isSaving = saving.has(book.id);
                       return (
                         <div
                           key={book.id}
@@ -259,43 +311,42 @@ export default function AdminVisibilityContent() {
                             </p>
                           </div>
 
-                          {/* Visibility badge */}
-                          <div
-                            className="flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium"
-                            style={book.is_visible
-                              ? { background: 'rgba(74,222,128,0.12)', color: '#4ade80' }
-                              : { background: 'rgba(248,113,113,0.12)', color: '#f87171' }
-                            }
-                          >
-                            {book.is_visible ? 'Visible' : 'Hidden'}
+                          {/* Three toggles */}
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            {TOGGLE_CONFIG.map(cfg => {
+                              const isOn = !!book[cfg.field];
+                              const saveKey = `${book.id}-${cfg.field}`;
+                              const isSaving = saving.has(saveKey);
+                              return (
+                                <div key={cfg.field} className="flex flex-col items-center gap-1">
+                                  <span className="text-xs" style={{ color: 'var(--foreground-subtle)', fontSize: '10px' }}>{cfg.shortLabel}</span>
+                                  <button
+                                    onClick={() => toggleBookField(book, cfg.field)}
+                                    disabled={isSaving}
+                                    className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 disabled:opacity-50"
+                                    style={{
+                                      background: isOn ? cfg.color : 'rgba(255,255,255,0.15)',
+                                    }}
+                                    aria-label={`${cfg.label}: ${isOn ? 'on' : 'off'} for ${book.title}`}
+                                  >
+                                    {isSaving ? (
+                                      <span className="absolute inset-0 flex items-center justify-center">
+                                        <span
+                                          className="w-2.5 h-2.5 rounded-full border border-t-transparent animate-spin"
+                                          style={{ borderColor: 'rgba(255,255,255,0.6)' }}
+                                        />
+                                      </span>
+                                    ) : (
+                                      <span
+                                        className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200"
+                                        style={{ transform: isOn ? 'translateX(18px)' : 'translateX(3px)' }}
+                                      />
+                                    )}
+                                  </button>
+                                </div>
+                              );
+                            })}
                           </div>
-
-                          {/* Toggle */}
-                          <button
-                            onClick={() => toggleBookVisibility(book)}
-                            disabled={isSaving}
-                            className="flex-shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 disabled:opacity-50"
-                            style={{
-                              background: book.is_visible ? 'var(--primary)' : 'rgba(255,255,255,0.15)',
-                            }}
-                            aria-label={book.is_visible ? `Hide ${book.title}` : `Show ${book.title}`}
-                          >
-                            {isSaving ? (
-                              <span
-                                className="absolute inset-0 flex items-center justify-center"
-                              >
-                                <span
-                                  className="w-3 h-3 rounded-full border border-t-transparent animate-spin"
-                                  style={{ borderColor: 'rgba(255,255,255,0.6)' }}
-                                />
-                              </span>
-                            ) : (
-                              <span
-                                className="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200"
-                                style={{ transform: book.is_visible ? 'translateX(24px)' : 'translateX(4px)' }}
-                              />
-                            )}
-                          </button>
                         </div>
                       );
                     })}
