@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import StarField from '@/components/layout/StarField';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -15,7 +15,9 @@ export default function GenresPage() {
       <StarField />
       <Navbar />
       <main className="pt-20">
-        <GenresContent />
+        <Suspense fallback={null}>
+          <GenresContent />
+        </Suspense>
       </main>
       <Footer />
     </div>

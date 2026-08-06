@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { getBooks } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
@@ -213,7 +214,8 @@ function GenreDetailView({ genre, books, imageMap, onBack }: GenreDetailViewProp
 export default function GenresContent() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const [selectedGenre, setSelectedGenre] = useState<string | null>(searchParams.get('genre'));
   const [imageMap, setImageMap] = useState<GenreImageMap>({});
 
   useEffect(() => {
