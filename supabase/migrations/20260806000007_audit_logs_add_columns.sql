@@ -1,0 +1,6 @@
+-- Add missing columns to audit_logs table
+ALTER TABLE public.audit_logs
+  ADD COLUMN IF NOT EXISTS module TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS prev_value TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS new_value TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS explanation TEXT NOT NULL DEFAULT '';
