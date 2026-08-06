@@ -193,7 +193,7 @@ function ConfirmPaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
       <div className="rounded-2xl p-6 w-full max-w-md" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
         <h3 className="font-semibold text-base mb-1" style={{ color: 'var(--foreground)' }}>Confirm Payment</h3>
         <p className="text-xs mb-4" style={{ color: 'var(--foreground-muted)' }}>
@@ -314,7 +314,7 @@ function RefundModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
       <div className="rounded-2xl p-6 w-full max-w-md" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
         <h3 className="font-semibold text-base mb-1" style={{ color: 'var(--foreground)' }}>Process Refund</h3>
         <p className="text-xs mb-4" style={{ color: 'var(--foreground-muted)' }}>
@@ -446,7 +446,7 @@ function StatusChangeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
       <div className="rounded-2xl p-6 w-full max-w-sm" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
         <h3 className="font-semibold text-base mb-1" style={{ color: 'var(--foreground)' }}>Change Order Status</h3>
         <p className="text-xs mb-4" style={{ color: 'var(--foreground-muted)' }}>
@@ -573,7 +573,7 @@ function DeleteOrderModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
       <div className="rounded-2xl p-6 w-full max-w-md" style={{ background: 'var(--background-card)', border: '1px solid rgba(239,68,68,0.4)' }}>
         {step === 'warn' ? (
           <>

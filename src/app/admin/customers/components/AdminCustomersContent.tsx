@@ -85,7 +85,7 @@ function ResetPinModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
+      style={{ background: 'rgba(0,0,0,0.92)' }}
     >
       <div
         className="w-full max-w-md rounded-2xl overflow-hidden"
@@ -199,7 +199,7 @@ function CustomerDetailPanel({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}
+      style={{ background: 'rgba(0,0,0,0.92)' }}
     >
       <div
         className="w-full max-w-2xl rounded-2xl overflow-hidden"
