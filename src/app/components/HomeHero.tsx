@@ -81,7 +81,7 @@ export default function HomeHero({ stats }: HomeHeroProps) {
     <section
       ref={heroRef}
       className="relative min-h-[100vh] flex flex-col items-center justify-center text-center px-6 overflow-hidden"
-      style={{ background: 'rgba(251,245,236,0.55)' }}
+      style={{ background: 'transparent' }}
     >
       {/* ── Layer 1: Warm sunbeam light rays ── */}
       <div
@@ -344,10 +344,11 @@ export default function HomeHero({ stats }: HomeHeroProps) {
                 key={stat.label}
                 className="rounded-xl p-3 text-center"
                 style={{
-                  background: 'rgba(247,239,225,0.75)',
-                  border: '1px solid rgba(200,164,91,0.3)',
+                  background: 'rgba(247,239,225,0.72)',
+                  border: '1px solid rgba(200,164,91,0.35)',
                   boxShadow: '0 2px 16px rgba(75,53,42,0.1), inset 0 1px 0 rgba(255,255,255,0.6)',
-                  backdropFilter: 'blur(6px)',
+                  backdropFilter: 'blur(10px)',
+                  WebkitBackdropFilter: 'blur(10px)',
                 }}
               >
                 <p className="font-display text-xl font-bold" style={{ color: 'var(--primary-bright)' }}>{stat.value}</p>

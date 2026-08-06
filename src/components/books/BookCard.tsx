@@ -61,8 +61,10 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
       <div
         className="card-glow rounded-xl overflow-hidden"
         style={{
-          background: '#FFFAF4',
-          border: '1px solid var(--border)',
+          background: 'rgba(251,245,236,0.55)',
+          border: '1px solid rgba(216,196,168,0.55)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
         }}
       >
         {/* Cover */}
@@ -99,8 +101,8 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
           </div>
         </div>
 
-        {/* Info — parchment card style */}
-        <div className="p-3" style={{ borderTop: '1px solid var(--border)' }}>
+        {/* Info — translucent parchment card style */}
+        <div className="p-3" style={{ borderTop: '1px solid rgba(216,196,168,0.5)' }}>
           <p
             className="text-xs font-medium mb-0.5 truncate"
             style={{ color: 'var(--foreground-subtle)', letterSpacing: '0.03em' }}

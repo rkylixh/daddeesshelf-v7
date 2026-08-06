@@ -2,8 +2,8 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
-// Deterministic sparkle data
-interface Sparkle {
+// Deterministic glitter/dust particle data — warm palette only
+interface GlitterMote {
   id: string;
   x: number;
   y: number;
@@ -11,6 +11,11 @@ interface Sparkle {
   opacity: number;
   dur: number;
   delay: number;
+  driftX: number;
+  driftY: number;
+  color: string;
+  blur: number;
+  br: string;
 }
 
 function seededRand(seed: number): number {
@@ -18,59 +23,101 @@ function seededRand(seed: number): number {
   return x - Math.floor(x);
 }
 
-function buildSparkles(count: number, offset: number): Sparkle[] {
+// Warm palette: ivory, champagne, antique gold, cream, soft amber
+const WARM_COLORS = [
+  'rgba(255,248,220,1)',   // ivory
+  'rgba(245,232,190,1)',   // champagne
+  'rgba(212,185,120,1)',   // antique gold
+  'rgba(255,252,235,1)',   // cream
+  'rgba(230,210,155,1)',   // warm gold
+  'rgba(255,240,200,1)',   // soft amber
+  'rgba(240,220,160,1)',   // golden wheat
+];
+
+function buildMotes(count: number, offset: number): GlitterMote[] {
   return Array.from({ length: count }, (_, i) => {
-    const s = offset + i * 13;
+    const s = offset + i * 17;
     const r = (n: number) => seededRand(s + n);
     return {
-      id: `sparkle-${offset}-${i}`,
+      id: `mote-${offset}-${i}`,
       x: r(0) * 100,
       y: r(1) * 100,
-      size: 0.8 + r(2) * 2.2,
-      opacity: 0.25 + r(3) * 0.65,
-      dur: 2.5 + r(4) * 5,
-      delay: r(5) * 8,
+      size: 1 + r(2) * 3.5,
+      opacity: 0.06 + r(3) * 0.22,
+      dur: 12 + r(4) * 22,
+      delay: r(5) * 18,
+      driftX: (r(6) - 0.5) * 30,
+      driftY: -(10 + r(7) * 30),
+      color: WARM_COLORS[Math.floor(r(8) * WARM_COLORS.length)],
+      blur: 0.3 + r(9) * 1.4,
+      br: `${38 + r(10) * 32}% ${62 - r(11) * 22}% ${48 + r(12) * 28}% ${44 + r(13) * 22}%`,
     };
   });
 }
 
-const SPARKLES_SM = buildSparkles(80, 0);
-const SPARKLES_LG = buildSparkles(20, 1000);
+// Three layers for depth
+const MOTES_BG = buildMotes(55, 0);
+const MOTES_MID = buildMotes(35, 2000);
+const MOTES_FG = buildMotes(20, 4000);
 
-const SPARKLE_KEYFRAMES = `
-@keyframes sparkleTwinkle {
-  0%, 100% { opacity: var(--sp-op-lo); transform: scale(1); }
-  50%       { opacity: var(--sp-op-hi); transform: scale(1.4); }
+// Glitter sparkle points — tiny bright flashes
+function buildSparkles(count: number, offset: number) {
+  return Array.from({ length: count }, (_, i) => {
+    const s = offset + i * 11;
+    const r = (n: number) => seededRand(s + n);
+    return {
+      id: `sp-${offset}-${i}`,
+      x: r(0) * 100,
+      y: r(1) * 100,
+      size: 1 + r(2) * 2,
+      opacity: 0.15 + r(3) * 0.45,
+      dur: 3 + r(4) * 6,
+      delay: r(5) * 12,
+    };
+  });
 }
-@keyframes sparkleFloat {
-  0%, 100% { transform: translateY(0px) scale(1); opacity: var(--sp-op-lo); }
-  33%       { transform: translateY(-6px) scale(1.1); opacity: var(--sp-op-hi); }
-  66%       { transform: translateY(-3px) scale(0.95); opacity: var(--sp-op-mid); }
+
+const SPARKLES = buildSparkles(40, 6000);
+
+const KEYFRAMES = `
+@keyframes warmMoteDrift {
+  0%   { transform: translate(0px, 0px) scale(1);    opacity: var(--mo-lo); }
+  25%  { transform: translate(var(--mo-dx), calc(var(--mo-dy) * 0.4)) scale(1.05); opacity: var(--mo-hi); }
+  50%  { transform: translate(calc(var(--mo-dx) * 0.6), calc(var(--mo-dy) * 0.7)) scale(0.95); opacity: var(--mo-mid); }
+  75%  { transform: translate(calc(var(--mo-dx) * 0.9), var(--mo-dy)) scale(1.02); opacity: var(--mo-hi); }
+  100% { transform: translate(0px, 0px) scale(1);    opacity: var(--mo-lo); }
+}
+@keyframes warmGlitterFlash {
+  0%, 100% { opacity: var(--sp-lo); transform: scale(0.8); }
+  40%       { opacity: var(--sp-hi); transform: scale(1.3); }
+  60%       { opacity: var(--sp-mid); transform: scale(1.1); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sparkle-dot { animation: none !important; }
+  .warm-mote, .warm-sparkle { animation: none !important; }
 }
 `;
 
-function injectSparkleKeyframes() {
+function injectKeyframes() {
   if (typeof document === 'undefined') return;
-  if (document.getElementById('sparkle-keyframes')) return;
+  if (document.getElementById('warm-field-keyframes')) return;
   const style = document.createElement('style');
-  style.id = 'sparkle-keyframes';
-  style.textContent = SPARKLE_KEYFRAMES;
+  style.id = 'warm-field-keyframes';
+  style.textContent = KEYFRAMES;
   document.head.appendChild(style);
 }
 
 export default function StarField() {
   const [mounted, setMounted] = useState(false);
-  const layerRef = useRef<HTMLDivElement>(null);
+  const bgLayerRef = useRef<HTMLDivElement>(null);
+  const midLayerRef = useRef<HTMLDivElement>(null);
+  const fgLayerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    injectSparkleKeyframes();
+    injectKeyframes();
     setMounted(true);
   }, []);
 
-  // Subtle parallax on scroll
+  // Subtle parallax — each layer at different speed
   useEffect(() => {
     if (!mounted) return;
     let ticking = false;
@@ -78,9 +125,10 @@ export default function StarField() {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
-        if (layerRef.current) {
-          layerRef.current.style.transform = `translateY(${window.scrollY * 0.08}px)`;
-        }
+        const sy = window.scrollY;
+        if (bgLayerRef.current)  bgLayerRef.current.style.transform  = `translateY(${sy * 0.04}px)`;
+        if (midLayerRef.current) midLayerRef.current.style.transform = `translateY(${sy * 0.07}px)`;
+        if (fgLayerRef.current)  fgLayerRef.current.style.transform  = `translateY(${sy * 0.11}px)`;
         ticking = false;
       });
     };
@@ -90,84 +138,71 @@ export default function StarField() {
 
   return (
     <div className="starfield-bg" aria-hidden="true">
-      {/* Deep space base — dark navy/purple like the reference */}
+
+      {/* ── Warm parchment base ── */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(160deg, #0d0b1a 0%, #110e24 30%, #0e0c1e 60%, #0a0816 100%)',
+          background: 'linear-gradient(160deg, #FBF5EC 0%, #F5E8D0 30%, #F8EFE0 60%, #F2E4CC 100%)',
         }}
       />
 
-      {/* Subtle nebula glow — soft purple/indigo in the center */}
+      {/* ── Sunray beams from upper-left ── */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           background: `
-            radial-gradient(ellipse 75% 55% at 50% 35%, rgba(80,50,140,0.18) 0%, rgba(50,30,100,0.08) 50%, transparent 75%),
-            radial-gradient(ellipse 50% 40% at 20% 70%, rgba(60,40,110,0.10) 0%, transparent 55%),
-            radial-gradient(ellipse 40% 35% at 80% 20%, rgba(70,45,120,0.08) 0%, transparent 50%)
+            linear-gradient(148deg, rgba(255,220,130,0.28) 0%, rgba(255,200,90,0.12) 25%, transparent 55%),
+            linear-gradient(155deg, rgba(255,235,160,0.18) 0%, rgba(255,215,110,0.08) 35%, transparent 60%)
           `,
         }}
       />
 
-      {/* Moving sparkle layer */}
+      {/* ── Warm ambient radial glows ── */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: `
+            radial-gradient(ellipse 70% 50% at 30% 15%, rgba(255,220,130,0.22) 0%, rgba(200,164,91,0.08) 45%, transparent 70%),
+            radial-gradient(ellipse 55% 40% at 75% 25%, rgba(255,235,160,0.14) 0%, rgba(216,180,108,0.06) 40%, transparent 65%),
+            radial-gradient(ellipse 80% 35% at 50% 100%, rgba(200,164,91,0.10) 0%, transparent 60%)
+          `,
+        }}
+      />
+
+      {/* ── Background dust layer (slowest parallax) ── */}
       {mounted && (
         <div
-          ref={layerRef}
+          ref={bgLayerRef}
           style={{ position: 'absolute', inset: 0, willChange: 'transform' }}
         >
-          {/* Small twinkling stars */}
-          {SPARKLES_SM.map(sp => (
+          {MOTES_BG.map(m => (
             <div
-              key={sp.id}
-              className="sparkle-dot"
+              key={m.id}
+              className="warm-mote"
               style={{
                 position: 'absolute',
-                left: `${sp.x}%`,
-                top: `${sp.y}%`,
-                width: `${sp.size}px`,
-                height: `${sp.size}px`,
-                borderRadius: '50%',
-                background: sp.size > 2 ? 'rgba(200,190,255,1)' : 'rgba(255,255,255,1)',
-                animationName: 'sparkleTwinkle',
-                animationDuration: `${sp.dur}s`,
-                animationDelay: `${sp.delay}s`,
+                left: `${m.x}%`,
+                top: `${m.y}%`,
+                width: `${m.size}px`,
+                height: `${m.size * 0.8}px`,
+                borderRadius: m.br,
+                background: m.color,
+                filter: `blur(${m.blur}px)`,
+                animationName: 'warmMoteDrift',
+                animationDuration: `${m.dur}s`,
+                animationDelay: `${m.delay}s`,
                 animationTimingFunction: 'ease-in-out',
                 animationIterationCount: 'infinite',
                 animationFillMode: 'both',
-                ['--sp-op-lo' as string]: `${sp.opacity * 0.3}`,
-                ['--sp-op-mid' as string]: `${sp.opacity * 0.6}`,
-                ['--sp-op-hi' as string]: `${sp.opacity}`,
-                pointerEvents: 'none',
-              }}
-            />
-          ))}
-
-          {/* Larger glowing stars */}
-          {SPARKLES_LG.map(sp => (
-            <div
-              key={sp.id}
-              className="sparkle-dot"
-              style={{
-                position: 'absolute',
-                left: `${sp.x}%`,
-                top: `${sp.y}%`,
-                width: `${sp.size + 1}px`,
-                height: `${sp.size + 1}px`,
-                borderRadius: '50%',
-                background: 'rgba(220,210,255,1)',
-                boxShadow: `0 0 ${sp.size * 3}px ${sp.size}px rgba(160,140,255,0.35)`,
-                animationName: 'sparkleFloat',
-                animationDuration: `${sp.dur + 2}s`,
-                animationDelay: `${sp.delay}s`,
-                animationTimingFunction: 'ease-in-out',
-                animationIterationCount: 'infinite',
-                animationFillMode: 'both',
-                ['--sp-op-lo' as string]: `${sp.opacity * 0.25}`,
-                ['--sp-op-mid' as string]: `${sp.opacity * 0.55}`,
-                ['--sp-op-hi' as string]: `${sp.opacity}`,
+                ['--mo-lo' as string]: `${m.opacity * 0.35}`,
+                ['--mo-mid' as string]: `${m.opacity * 0.65}`,
+                ['--mo-hi' as string]: `${m.opacity}`,
+                ['--mo-dx' as string]: `${m.driftX}px`,
+                ['--mo-dy' as string]: `${m.driftY}px`,
                 pointerEvents: 'none',
               }}
             />
@@ -175,12 +210,115 @@ export default function StarField() {
         </div>
       )}
 
-      {/* Soft vignette edges */}
+      {/* ── Mid dust layer ── */}
+      {mounted && (
+        <div
+          ref={midLayerRef}
+          style={{ position: 'absolute', inset: 0, willChange: 'transform' }}
+        >
+          {MOTES_MID.map(m => (
+            <div
+              key={m.id}
+              className="warm-mote"
+              style={{
+                position: 'absolute',
+                left: `${m.x}%`,
+                top: `${m.y}%`,
+                width: `${m.size * 0.75}px`,
+                height: `${m.size * 0.6}px`,
+                borderRadius: m.br,
+                background: m.color,
+                filter: `blur(${m.blur * 0.7}px)`,
+                animationName: 'warmMoteDrift',
+                animationDuration: `${m.dur * 0.85}s`,
+                animationDelay: `${m.delay}s`,
+                animationTimingFunction: 'ease-in-out',
+                animationIterationCount: 'infinite',
+                animationFillMode: 'both',
+                ['--mo-lo' as string]: `${m.opacity * 0.4}`,
+                ['--mo-mid' as string]: `${m.opacity * 0.7}`,
+                ['--mo-hi' as string]: `${m.opacity * 1.1}`,
+                ['--mo-dx' as string]: `${m.driftX * 0.7}px`,
+                ['--mo-dy' as string]: `${m.driftY * 0.8}px`,
+                pointerEvents: 'none',
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Foreground glitter sparkles (fastest parallax) ── */}
+      {mounted && (
+        <div
+          ref={fgLayerRef}
+          style={{ position: 'absolute', inset: 0, willChange: 'transform' }}
+        >
+          {/* Foreground dust motes */}
+          {MOTES_FG.map(m => (
+            <div
+              key={m.id}
+              className="warm-mote"
+              style={{
+                position: 'absolute',
+                left: `${m.x}%`,
+                top: `${m.y}%`,
+                width: `${m.size * 0.55}px`,
+                height: `${m.size * 0.45}px`,
+                borderRadius: m.br,
+                background: m.color,
+                filter: `blur(${m.blur * 0.4}px)`,
+                animationName: 'warmMoteDrift',
+                animationDuration: `${m.dur * 0.7}s`,
+                animationDelay: `${m.delay}s`,
+                animationTimingFunction: 'ease-in-out',
+                animationIterationCount: 'infinite',
+                animationFillMode: 'both',
+                ['--mo-lo' as string]: `${m.opacity * 0.5}`,
+                ['--mo-mid' as string]: `${m.opacity * 0.8}`,
+                ['--mo-hi' as string]: `${m.opacity * 1.2}`,
+                ['--mo-dx' as string]: `${m.driftX * 0.5}px`,
+                ['--mo-dy' as string]: `${m.driftY * 0.6}px`,
+                pointerEvents: 'none',
+              }}
+            />
+          ))}
+
+          {/* Glitter sparkle flashes */}
+          {SPARKLES.map(sp => (
+            <div
+              key={sp.id}
+              className="warm-sparkle"
+              style={{
+                position: 'absolute',
+                left: `${sp.x}%`,
+                top: `${sp.y}%`,
+                width: `${sp.size}px`,
+                height: `${sp.size}px`,
+                borderRadius: '50%',
+                background: 'rgba(255,248,210,1)',
+                boxShadow: `0 0 ${sp.size * 2}px ${sp.size * 0.8}px rgba(212,185,120,0.4)`,
+                animationName: 'warmGlitterFlash',
+                animationDuration: `${sp.dur}s`,
+                animationDelay: `${sp.delay}s`,
+                animationTimingFunction: 'ease-in-out',
+                animationIterationCount: 'infinite',
+                animationFillMode: 'both',
+                ['--sp-lo' as string]: `${sp.opacity * 0.15}`,
+                ['--sp-mid' as string]: `${sp.opacity * 0.5}`,
+                ['--sp-hi' as string]: `${sp.opacity}`,
+                pointerEvents: 'none',
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Soft vignette to keep edges warm ── */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: `radial-gradient(ellipse 100% 100% at 50% 50%, transparent 50%, rgba(5,3,12,0.4) 80%, rgba(3,2,8,0.7) 100%)`,
+          background: `radial-gradient(ellipse 110% 110% at 50% 50%, transparent 55%, rgba(200,164,91,0.06) 75%, rgba(168,116,69,0.10) 100%)`,
         }}
       />
     </div>
