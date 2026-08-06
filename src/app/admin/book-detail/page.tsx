@@ -18,7 +18,6 @@ const ALL_READER_TAGS = [
   'Vampires', 'Witches', 'Fae', 'Academy Setting', 'Slow Worldbuilding',
   'Fast-Paced', 'Character-Driven', 'Plot-Driven', 'Touch Her and Die',
   'Who Did This to You?', 'Emotional', 'Political Fantasy', 'Character Driven',
-  'Cozy Fantasy', 'Dark Academia', 'Mystery', 'High Stakes',
 ];
 
 interface BookDetailFields {
