@@ -446,6 +446,7 @@ export default function MyOrdersContent() {
                   onChange={e => setHandle(e.target.value)}
                   className="input-field"
                   placeholder="@yourtiktok"
+                  suppressHydrationWarning
                 />
               </div>
               {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
