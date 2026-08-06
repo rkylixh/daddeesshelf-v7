@@ -237,21 +237,7 @@ export default function AdminUsersContent() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    {/* Role selector */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Role:</span>
-                      <select
-                        value={user.role}
-                        onChange={e => updateRole(user.tiktok_handle, e.target.value as Role)}
-                        disabled={saving === user.tiktok_handle || user.tiktok_handle === '@daddees.shelf'}
-                        className="select-field text-xs py-1.5 px-2"
-                        style={{ color: roleColor }}
-                      >
-                        {ROLES.map(r => <option key={r}>{r}</option>)}
-                      </select>
-                    </div>
-
-                    {/* Role badge */}
+                    {/* Role badge (read-only) */}
                     <span
                       className="text-xs px-3 py-1 rounded-full font-semibold"
                       style={{ background: `${roleColor}20`, color: roleColor, border: `1px solid ${roleColor}40` }}
