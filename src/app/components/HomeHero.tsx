@@ -260,8 +260,8 @@ export default function HomeHero({ stats }: HomeHeroProps) {
         </p>
 
         <p
-          className="text-base mb-10 max-w-lg mx-auto font-serif overflow-hidden"
-          style={{ color: 'var(--foreground-muted)', lineHeight: '1.9', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+          className="text-base mb-10 max-w-2xl mx-auto font-serif"
+          style={{ color: 'var(--foreground-muted)', lineHeight: '1.75' }}
         >
           From enchanted kingdoms and haunted halls to timeless classics, gripping mysteries, unforgettable romances, and beautifully human stories—discover stories that invite you to leave the ordinary behind, broaden your perspective, and escape into worlds beyond imagination.
         </p>

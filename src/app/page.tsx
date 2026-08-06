@@ -28,19 +28,21 @@ interface SiteStats {
 }
 
 // ── Section divider that feels like a bookstore aisle ──
-function BookstoreDivider({ label }: { label: string }) {
+function BookstoreDivider({ label, seamless = false }: { label: string; seamless?: boolean }) {
   return (
     <div
       className="relative text-center content-wrapper"
       style={{ margin: '3.5rem auto', padding: '0 1.5rem' }}
     >
-      <div
-        className="absolute top-1/2 left-0 right-0 h-px"
-        style={{
-          background: 'linear-gradient(90deg, transparent, rgba(200,164,91,0.2), rgba(200,164,91,0.5), rgba(200,164,91,0.2), transparent)',
-          transform: 'translateY(-50%)',
-        }}
-      />
+      {!seamless && (
+        <div
+          className="absolute top-1/2 left-0 right-0 h-px"
+          style={{
+            background: 'linear-gradient(90deg, transparent, rgba(200,164,91,0.2), rgba(200,164,91,0.5), rgba(200,164,91,0.2), transparent)',
+            transform: 'translateY(-50%)',
+          }}
+        />
+      )}
       <span
         className="relative inline-block px-5 text-xs font-semibold uppercase tracking-widest font-sans"
         style={{
@@ -51,7 +53,7 @@ function BookstoreDivider({ label }: { label: string }) {
       >
         <span
           style={{
-            background: 'linear-gradient(180deg, #F9F1E3, #F4E8D2)',
+            background: seamless ? 'transparent' : 'linear-gradient(180deg, #F9F1E3, #F4E8D2)',
             padding: '0 1rem',
             display: 'inline-block',
           }}
@@ -351,7 +353,7 @@ export default function HomePage() {
               {/* ── 2. Best Sellers — the front table ── */}
               {bestSellers.length > 0 && (
                 <>
-                  <BookstoreDivider label="✦ Best Sellers ✦" />
+                  <BookstoreDivider label="✦ Best Sellers ✦" seamless />
                   <BookstoreSection>
                     {/* Warm reading nook glow behind this section */}
                     <div
