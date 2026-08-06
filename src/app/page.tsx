@@ -352,7 +352,7 @@ export default function HomePage() {
               {/* ── 2. Best Sellers — the front table ── */}
               {bestSellers.length > 0 && (
                 <>
-                  <BookstoreDivider label="✦ Best Sellers ✦" seamless />
+                  <BookstoreDivider label="✦ Best-Selling Titles ✦" seamless />
                   <BookstoreSection>
                     {/* Warm reading nook glow behind this section */}
                     <div
@@ -364,10 +364,6 @@ export default function HomePage() {
                     />
                     <div className="flex items-end justify-between mb-6 relative">
                       <div>
-                        <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Best Sellers</h2>
-                        <p className="text-sm mt-1 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>
-                          Top BookTok titles — curated from the strongest picks
-                        </p>
                       </div>
                       <Link href="/preorder-list" className="text-sm font-medium flex items-center gap-1" style={{ color: 'var(--primary-bright)' }}>
                         View all →
@@ -428,7 +424,7 @@ export default function HomePage() {
                         <div className="flex items-end justify-between mb-6">
                           <div>
                             <h3 className="font-display text-xl font-bold" style={{ color: 'var(--foreground)' }}>Titles in This Batch</h3>
-                            <p className="text-sm mt-1 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>Reserve your copy before the batch closes</p>
+                            <p className="text-sm mt-1 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>Reserve your copy while stocks last</p>
                           </div>
                           <Link href="/preorder-list" className="text-sm font-medium flex items-center gap-1" style={{ color: 'var(--primary-bright)' }}>
                             View all →
