@@ -26,6 +26,9 @@ function AuditLogContent() {
   const [search, setSearch] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [noteEdits, setNoteEdits] = useState<Record<string, string>>({});
+  const [savingNote, setSavingNote] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,6 +87,39 @@ function AuditLogContent() {
     'STORE_CREDIT_CANCELLED': '#ef4444',
     'STORE_CREDIT_REASON_UPDATED': '#3b82f6',
   };
+
+  const getNoteValue = (log: AuditLog) =>
+    noteEdits[log.id] !== undefined ? noteEdits[log.id] : (log.notes ?? '');
+
+  const handleNoteChange = (id: string, value: string) => {
+    setNoteEdits(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSaveNote = async (log: AuditLog) => {
+    const newNote = noteEdits[log.id] ?? log.notes ?? '';
+    setSavingNote(log.id);
+    try {
+      await supabase
+        .from('audit_logs')
+        .update({ notes: newNote })
+        .eq('id', log.id);
+      setLogs(prev => prev.map(l => l.id === log.id ? { ...l, notes: newNote } : l));
+      setNoteEdits(prev => {
+        const next = { ...prev };
+        delete next[log.id];
+        return next;
+      });
+      setSavedNote(log.id);
+      setTimeout(() => setSavedNote(null), 2000);
+    } catch {
+      // silently fail
+    } finally {
+      setSavingNote(null);
+    }
+  };
+
+  const isNoteDirty = (log: AuditLog) =>
+    noteEdits[log.id] !== undefined && noteEdits[log.id] !== (log.notes ?? '');
 
   return (
     <div>
@@ -197,14 +233,6 @@ function AuditLogContent() {
                         <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>{log.explanation}</p>
                       </div>
                     )}
-                    {log.notes && (
-                      <div className="sm:col-span-2">
-                        <p className="text-xs font-semibold mb-1" style={{ color: '#f59e0b' }}>Admin Notes</p>
-                        <div className="rounded-lg p-2.5 text-xs" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: 'var(--foreground-muted)' }}>
-                          {log.notes}
-                        </div>
-                      </div>
-                    )}
                     {log.reason && (
                       <div>
                         <p className="text-xs font-semibold mb-1" style={{ color: 'var(--foreground-subtle)' }}>Reason</p>
@@ -223,6 +251,54 @@ function AuditLogContent() {
                         <p className="text-xs font-mono" style={{ color: '#10b981' }}>{log.new_value}</p>
                       </div>
                     )}
+
+                    {/* Editable Admin Note */}
+                    <div className="sm:col-span-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-semibold" style={{ color: '#f59e0b' }}>Admin Note</p>
+                        {savedNote === log.id && (
+                          <span className="text-xs flex items-center gap-1" style={{ color: '#10b981' }}>
+                            <Icon name="CheckIcon" size={11} />
+                            Saved
+                          </span>
+                        )}
+                      </div>
+                      <textarea
+                        rows={3}
+                        placeholder="Add a note for transparency or explanation…"
+                        value={getNoteValue(log)}
+                        onChange={e => handleNoteChange(log.id, e.target.value)}
+                        className="w-full rounded-lg px-3 py-2 text-xs resize-none"
+                        style={{
+                          background: 'rgba(245,158,11,0.06)',
+                          border: `1px solid ${isNoteDirty(log) ? 'rgba(245,158,11,0.5)' : 'rgba(245,158,11,0.2)'}`,
+                          color: 'var(--foreground-muted)',
+                          outline: 'none',
+                        }}
+                      />
+                      {isNoteDirty(log) && (
+                        <div className="flex justify-end mt-1.5">
+                          <button
+                            onClick={() => handleSaveNote(log)}
+                            disabled={savingNote === log.id}
+                            className="text-xs px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 disabled:opacity-60"
+                            style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.35)' }}
+                          >
+                            {savingNote === log.id ? (
+                              <>
+                                <div className="w-3 h-3 rounded-full border border-t-transparent animate-spin" style={{ borderColor: '#f59e0b' }} />
+                                Saving…
+                              </>
+                            ) : (
+                              <>
+                                <Icon name="CheckIcon" size={11} />
+                                Save Note
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
