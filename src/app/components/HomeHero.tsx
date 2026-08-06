@@ -44,6 +44,20 @@ const STAR_PARTICLES = Array.from({ length: 60 }, (_, i) => {
   };
 });
 
+// Sparkle flash points — white/cream glitter matching StarField
+const HERO_SPARKLES = Array.from({ length: 35 }, (_, i) => {
+  const r = (n: number) => seededRand(i * 11 + 5000 + n);
+  return {
+    id: i,
+    x: r(0) * 100,
+    y: r(1) * 100,
+    size: 1 + r(2) * 2,
+    opacity: 0.15 + r(3) * 0.45,
+    dur: 3 + r(4) * 6,
+    delay: r(5) * 12,
+  };
+});
+
 export default function HomeHero({ stats }: HomeHeroProps) {
   const heroRef = useRef<HTMLElement>(null);
   const lightRef = useRef<HTMLDivElement>(null);
@@ -171,6 +185,28 @@ export default function HomeHero({ stats }: HomeHeroProps) {
               }}
             />
           ))}
+
+          {/* Sparkle flash points — white glitter matching StarField */}
+          {HERO_SPARKLES.map(sp => (
+            <div
+              key={`sp-${sp.id}`}
+              style={{
+                position: 'absolute',
+                left: `${sp.x}%`,
+                top: `${sp.y}%`,
+                width: `${sp.size}px`,
+                height: `${sp.size}px`,
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,1)',
+                boxShadow: `0 0 ${sp.size * 3}px ${sp.size * 1.2}px rgba(255,255,255,0.7), 0 0 ${sp.size * 6}px ${sp.size * 2}px rgba(240,220,160,0.3)`,
+                animation: `heroSparkleFlash ${sp.dur}s ease-in-out infinite`,
+                animationDelay: `${sp.delay}s`,
+                ['--sp-lo' as string]: `${sp.opacity * 0.15}`,
+                ['--sp-mid' as string]: `${sp.opacity * 0.5}`,
+                ['--sp-hi' as string]: `${sp.opacity}`,
+              } as React.CSSProperties}
+            />
+          ))}
         </div>
       )}
 
@@ -195,7 +231,7 @@ export default function HomeHero({ stats }: HomeHeroProps) {
           className="text-xs font-semibold uppercase tracking-widest mb-6 font-sans"
           style={{ color: 'var(--primary-bright)', letterSpacing: '0.22em', opacity: 0.85 }}
         >
-          ❧ Your Cozy Independent Bookstore ❧
+          ❧ Discovering Your Next Favorite Story ❧
         </p>
 
         {/* Logo — the bookstore sign above the door */}
@@ -220,15 +256,14 @@ export default function HomeHero({ stats }: HomeHeroProps) {
           className="text-lg sm:text-xl font-light mb-2 font-display italic"
           style={{ color: 'var(--foreground-muted)' }}
         >
-          Your cozy corner for pre-loved and pre-ordered books
+          Your Portal to Extraordinary Worlds.
         </p>
 
         <p
           className="text-sm mb-10 max-w-lg mx-auto font-serif"
           style={{ color: 'var(--foreground-subtle)', lineHeight: '1.9' }}
         >
-          Carefully curated titles for Filipino readers — from epic fantasy to heartwarming fiction,
-          all delivered to your door.
+          From enchanted kingdoms and haunted halls to timeless classics, gripping mysteries, unforgettable romances, and beautifully human stories—discover stories that invite you to leave the ordinary behind, broaden your perspective, and escape into worlds beyond imagination.
         </p>
 
         {/* Dynamic Stats — library catalogue card style */}
@@ -243,9 +278,9 @@ export default function HomeHero({ stats }: HomeHeroProps) {
                 key={stat.label}
                 className="rounded-xl p-3 text-center"
                 style={{
-                  background: 'rgba(247,239,225,0.72)',
+                  background: 'rgba(251,245,236,0.28)',
                   border: '1px solid rgba(200,164,91,0.35)',
-                  boxShadow: '0 2px 16px rgba(75,53,42,0.1), inset 0 1px 0 rgba(255,255,255,0.6)',
+                  boxShadow: '0 2px 16px rgba(75,53,42,0.1), inset 0 1px 0 rgba(255,255,255,0.4)',
                   backdropFilter: 'blur(10px)',
                   WebkitBackdropFilter: 'blur(10px)',
                 }}
@@ -276,6 +311,11 @@ export default function HomeHero({ stats }: HomeHeroProps) {
           60%  { transform: translate(7px, -18px) scale(1.03); }
           80%  { transform: translate(-2px, -10px) scale(0.98); }
           100% { transform: translate(0px, 0px) scale(1); }
+        }
+        @keyframes heroSparkleFlash {
+          0%, 100% { opacity: var(--sp-lo); transform: scale(0.8); }
+          40%       { opacity: var(--sp-hi); transform: scale(1.3); }
+          60%       { opacity: var(--sp-mid); transform: scale(1.1); }
         }
         @keyframes heroBotanicalFloat {
           0%, 100% { transform: translateY(0px) rotate(var(--rot, 0deg)); }

@@ -222,48 +222,52 @@ export default function StarField() {
       />
 
       {/* ── Papyrus dark brown spots — background layer ── */}
-      <div style={{ position: 'absolute', inset: 0 }}>
-        {PAPYRUS_SPOTS_BG.map(spot => (
-          <div
-            key={spot.id}
-            style={{
-              position: 'absolute',
-              left: `${spot.x}%`,
-              top: `${spot.y}%`,
-              width: `${spot.w}px`,
-              height: `${spot.h}px`,
-              borderRadius: spot.br,
-              background: spot.color,
-              opacity: spot.opacity,
-              filter: `blur(${spot.blur}px)`,
-              transform: `rotate(${spot.rotate}deg)`,
-              pointerEvents: 'none',
-            }}
-          />
-        ))}
-      </div>
+      {mounted && (
+        <div style={{ position: 'absolute', inset: 0 }}>
+          {PAPYRUS_SPOTS_BG.map(spot => (
+            <div
+              key={spot.id}
+              style={{
+                position: 'absolute',
+                left: `${spot.x}%`,
+                top: `${spot.y}%`,
+                width: `${spot.w}px`,
+                height: `${spot.h}px`,
+                borderRadius: spot.br,
+                background: spot.color,
+                opacity: spot.opacity,
+                filter: `blur(${spot.blur}px)`,
+                transform: `rotate(${spot.rotate}deg)`,
+                pointerEvents: 'none',
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* ── Papyrus dark brown spots — foreground layer ── */}
-      <div style={{ position: 'absolute', inset: 0 }}>
-        {PAPYRUS_SPOTS_FG.map(spot => (
-          <div
-            key={spot.id}
-            style={{
-              position: 'absolute',
-              left: `${spot.x}%`,
-              top: `${spot.y}%`,
-              width: `${spot.w * 0.7}px`,
-              height: `${spot.h * 0.7}px`,
-              borderRadius: spot.br,
-              background: spot.color,
-              opacity: spot.opacity * 0.8,
-              filter: `blur(${spot.blur * 0.6}px)`,
-              transform: `rotate(${spot.rotate * 1.3}deg)`,
-              pointerEvents: 'none',
-            }}
-          />
-        ))}
-      </div>
+      {mounted && (
+        <div style={{ position: 'absolute', inset: 0 }}>
+          {PAPYRUS_SPOTS_FG.map(spot => (
+            <div
+              key={spot.id}
+              style={{
+                position: 'absolute',
+                left: `${spot.x}%`,
+                top: `${spot.y}%`,
+                width: `${spot.w * 0.7}px`,
+                height: `${spot.h * 0.7}px`,
+                borderRadius: spot.br,
+                background: spot.color,
+                opacity: spot.opacity * 0.8,
+                filter: `blur(${spot.blur * 0.6}px)`,
+                transform: `rotate(${spot.rotate * 1.3}deg)`,
+                pointerEvents: 'none',
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* ── Background dust layer (slowest parallax) ── */}
       {mounted && (

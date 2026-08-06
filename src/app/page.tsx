@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import StarField from '@/components/layout/StarField';
 import HomeHero from './components/HomeHero';
 import BookGrid from '@/components/books/BookGrid';
 import BookCard from '@/components/books/BookCard';
@@ -24,125 +25,6 @@ interface SiteStats {
   activeBatchCount: number;
   lowestPrice: number;
   wishlistCount: number;
-}
-
-// ── Ambient bookstore background that spans the whole page ──
-function BookstoreAmbience() {
-  const bgRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    let ticking = false;
-    const handleScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        if (bgRef.current) {
-          const scrollY = window.scrollY;
-          bgRef.current.style.transform = `translateY(${scrollY * 0.08}px)`;
-        }
-        ticking = false;
-      });
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [mounted]);
-
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: -1 }} aria-hidden="true">
-      {/* Papyrus base — warm aged parchment matching the rest of the site */}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #FBF5EC 0%, #F5E8D0 30%, #F8EFE0 60%, #F2E4CC 100%)' }} />
-
-      {/* Sunray beams from upper-left — same as StarField */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `
-            linear-gradient(148deg, rgba(255,220,130,0.28) 0%, rgba(255,200,90,0.12) 25%, transparent 55%),
-            linear-gradient(155deg, rgba(255,235,160,0.18) 0%, rgba(255,215,110,0.08) 35%, transparent 60%)
-          `,
-        }}
-      />
-
-      {/* Warm ambient radial glows */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `
-            radial-gradient(ellipse 70% 50% at 30% 15%, rgba(255,220,130,0.22) 0%, rgba(200,164,91,0.08) 45%, transparent 70%),
-            radial-gradient(ellipse 55% 40% at 75% 25%, rgba(255,235,160,0.14) 0%, rgba(216,180,108,0.06) 40%, transparent 65%),
-            radial-gradient(ellipse 80% 35% at 50% 100%, rgba(200,164,91,0.10) 0%, transparent 60%)
-          `,
-        }}
-      />
-
-      {/* Brown gradient spots — warm papyrus tones, matching StarField */}
-      <div className="absolute inset-0">
-        {[
-          { x: 12, y: 8, w: 280, h: 160, opacity: 0.08, blur: 45, rotate: -12, color: 'rgba(160,100,45,1)' },
-          { x: 72, y: 5, w: 220, h: 120, opacity: 0.07, blur: 38, rotate: 8, color: 'rgba(175,115,55,1)' },
-          { x: 45, y: 35, w: 320, h: 180, opacity: 0.06, blur: 55, rotate: -5, color: 'rgba(145,90,38,1)' },
-          { x: 5, y: 55, w: 200, h: 110, opacity: 0.08, blur: 40, rotate: 15, color: 'rgba(140,85,35,1)' },
-          { x: 80, y: 60, w: 260, h: 140, opacity: 0.07, blur: 50, rotate: -8, color: 'rgba(155,95,40,1)' },
-          { x: 25, y: 78, w: 300, h: 160, opacity: 0.06, blur: 48, rotate: 10, color: 'rgba(165,105,48,1)' },
-          { x: 60, y: 85, w: 240, h: 130, opacity: 0.08, blur: 42, rotate: -18, color: 'rgba(130,78,30,1)' },
-        ].map((spot, i) => (
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              left: `${spot.x}%`,
-              top: `${spot.y}%`,
-              width: `${spot.w}px`,
-              height: `${spot.h}px`,
-              borderRadius: '50%',
-              background: spot.color,
-              opacity: spot.opacity,
-              filter: `blur(${spot.blur}px)`,
-              transform: `rotate(${spot.rotate}deg)`,
-              pointerEvents: 'none',
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Slow-moving parallax layer */}
-      <div
-        ref={bgRef}
-        className="absolute inset-0 will-change-transform"
-        style={{ background: 'transparent' }}
-      />
-
-      {/* Subtle papyrus fiber texture via SVG noise */}
-      <div
-        className="absolute inset-0"
-        style={{
-          opacity: 0.04,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-          backgroundRepeat: 'repeat',
-          backgroundSize: '200px 200px',
-        }}
-      />
-
-      {/* Soft edge vignette */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `
-            radial-gradient(ellipse 100% 100% at 50% 50%,
-              transparent 55%,
-              rgba(120,80,40,0.05) 75%,
-              rgba(90,55,25,0.10) 90%,
-              rgba(65,35,12,0.16) 100%
-            )
-          `,
-        }}
-      />
-    </div>
-  );
 }
 
 // ── Section divider that feels like a bookstore aisle ──
@@ -268,9 +150,11 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
               <div
                 className="rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-[1.02]"
                 style={{
-                  background: 'rgba(247,239,225,0.9)',
-                  border: '1px solid rgba(200,164,91,0.25)',
+                  background: 'rgba(251,245,236,0.22)',
+                  border: '1px solid rgba(200,164,91,0.35)',
                   boxShadow: '0 4px 20px rgba(75,53,42,0.12), 0 1px 4px rgba(75,53,42,0.08)',
+                  backdropFilter: 'blur(6px)',
+                  WebkitBackdropFilter: 'blur(6px)',
                 }}
               >
                 <div className="relative aspect-[2/3]">
@@ -448,8 +332,8 @@ export default function HomePage() {
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh' }}>
-      {/* Continuous bookstore environment behind everything */}
-      <BookstoreAmbience />
+      {/* StarField background — same as all other pages */}
+      <StarField />
 
       {/* Page content sits above the environment */}
       <div className="relative" style={{ zIndex: 1 }}>
@@ -502,10 +386,11 @@ export default function HomePage() {
                     <div
                       className="rounded-2xl p-6 mb-8 relative overflow-hidden"
                       style={{
-                        background: 'rgba(247,239,225,0.85)',
-                        border: '1px solid rgba(200,164,91,0.3)',
-                        boxShadow: '0 4px 24px rgba(75,53,42,0.1), inset 0 1px 0 rgba(255,255,255,0.6)',
-                        backdropFilter: 'blur(4px)',
+                        background: 'rgba(251,245,236,0.22)',
+                        border: '1px solid rgba(200,164,91,0.35)',
+                        boxShadow: '0 4px 24px rgba(75,53,42,0.10), inset 0 1px 0 rgba(255,255,255,0.4)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
                       }}
                     >
                                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -596,10 +481,11 @@ export default function HomePage() {
                       key={item.step}
                       className="rounded-xl p-5 text-center"
                       style={{
-                        background: 'rgba(247,239,225,0.95)',
+                        background: 'rgba(251,245,236,0.22)',
                         border: '1px solid rgba(200,164,91,0.45)',
-                        boxShadow: '0 6px 24px rgba(75,53,42,0.16), 0 2px 8px rgba(75,53,42,0.10), inset 0 1px 0 rgba(255,255,255,0.8)',
+                        boxShadow: '0 6px 24px rgba(75,53,42,0.14), 0 2px 8px rgba(75,53,42,0.08), inset 0 1px 0 rgba(255,255,255,0.5)',
                         backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
                       }}
                     >
                       <div
@@ -708,10 +594,11 @@ function FAQPreview() {
           key={i}
           className="rounded-xl overflow-hidden"
           style={{
-            background: 'rgba(247,239,225,0.85)',
+            background: 'rgba(251,245,236,0.22)',
             border: `1px solid ${openIdx === i ? 'rgba(200,164,91,0.5)' : 'rgba(200,164,91,0.2)'}`,
             boxShadow: '0 2px 8px rgba(75,53,42,0.06)',
-            backdropFilter: 'blur(4px)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
           }}
         >
           <button
