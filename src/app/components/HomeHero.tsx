@@ -229,7 +229,7 @@ export default function HomeHero({ stats }: HomeHeroProps) {
         {/* Eyebrow label */}
         <p
           className="text-xs font-semibold uppercase tracking-widest mb-6 font-sans"
-          style={{ color: 'var(--primary-bright)', letterSpacing: '0.22em', opacity: 0.85 }}
+          style={{ color: 'var(--primary-bright)', letterSpacing: '0.22em', opacity: 1 }}
         >
           ❧ Discovering Your Next Favorite Story ❧
         </p>
@@ -253,15 +253,15 @@ export default function HomeHero({ stats }: HomeHeroProps) {
 
         {/* Tagline */}
         <p
-          className="text-lg sm:text-xl font-light mb-2 font-display italic"
-          style={{ color: 'var(--foreground-muted)' }}
+          className="text-xl sm:text-2xl font-light mb-2 font-display italic"
+          style={{ color: 'var(--foreground)' }}
         >
           Your Portal to Extraordinary Worlds.
         </p>
 
         <p
-          className="text-sm mb-10 max-w-lg mx-auto font-serif"
-          style={{ color: 'var(--foreground-subtle)', lineHeight: '1.9' }}
+          className="text-base mb-10 max-w-lg mx-auto font-serif overflow-hidden"
+          style={{ color: 'var(--foreground-muted)', lineHeight: '1.9', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
         >
           From enchanted kingdoms and haunted halls to timeless classics, gripping mysteries, unforgettable romances, and beautifully human stories—discover stories that invite you to leave the ordinary behind, broaden your perspective, and escape into worlds beyond imagination.
         </p>
