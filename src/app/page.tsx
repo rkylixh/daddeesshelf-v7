@@ -352,7 +352,7 @@ export default function HomePage() {
               {/* ── 2. Best Sellers — the front table ── */}
               {bestSellers.length > 0 && (
                 <>
-                  <BookstoreDivider label="✦ Best-Selling Titles ✦" seamless />
+                  <BookstoreDivider label="✦ Best-Selling Titles ✦" />
                   <BookstoreSection>
                     {/* Warm reading nook glow behind this section */}
                     <div
