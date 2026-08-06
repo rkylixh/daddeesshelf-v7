@@ -984,7 +984,51 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
   const [confirmation, setConfirmation] = useState<{ order_ref: string; tiktok_handle: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const total = items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  // ── Store Credit ──────────────────────────────────────────
+  const [storeCredit, setStoreCredit] = useState<{ id: string; amount: number } | null>(null);
+  const [creditLoading, setCreditLoading] = useState(false);
+  const creditLookupRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const rawTotal = items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  const creditApplied = storeCredit ? Math.min(storeCredit.amount, rawTotal) : 0;
+  const total = Math.max(0, rawTotal - creditApplied);
+
+  // Lookup store credit whenever tiktok_handle changes (debounced)
+  useEffect(() => {
+    if (creditLookupRef.current) clearTimeout(creditLookupRef.current);
+    const handle = form.tiktok_handle.trim();
+    if (!handle) {
+      setStoreCredit(null);
+      return;
+    }
+    creditLookupRef.current = setTimeout(async () => {
+      setCreditLoading(true);
+      try {
+        const { supabase: sb } = await import('@/lib/supabase');
+        const rawHandle = handle.replace(/^@/, '');
+        const handleWithAt = '@' + rawHandle;
+        // Try both with and without @ prefix
+        const { data } = await sb
+          .from('store_credits')
+          .select('id, amount, tiktok_handle')
+          .eq('is_active', true)
+          .eq('status', 'Active')
+          .is('used_on_order_ref', null)
+          .or(`tiktok_handle.eq.${rawHandle},tiktok_handle.eq.${handleWithAt}`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        setStoreCredit(data ? { id: data.id, amount: Number(data.amount) } : null);
+      } catch {
+        setStoreCredit(null);
+      } finally {
+        setCreditLoading(false);
+      }
+    }, 600);
+    return () => {
+      if (creditLookupRef.current) clearTimeout(creditLookupRef.current);
+    };
+  }, [form.tiktok_handle]);
 
   async function hashPin(pin: string): Promise<string> {
     const encoder = new TextEncoder();
@@ -1039,8 +1083,18 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
         notes: form.notes,
         status: 'Pending Payment Verification',
         is_preorder: true,
+        store_credit_applied: creditApplied > 0 ? creditApplied : 0,
+        store_credit_id: creditApplied > 0 && storeCredit ? storeCredit.id : null,
       });
       if (err) throw err;
+
+      // Mark store credit as used
+      if (creditApplied > 0 && storeCredit) {
+        await sb
+          .from('store_credits')
+          .update({ used_on_order_ref: orderRef, status: 'Used', is_active: false })
+          .eq('id', storeCredit.id);
+      }
 
       clearCart();
       setConfirmation({ order_ref: orderRef, tiktok_handle: normalizedHandle });
@@ -1128,6 +1182,13 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
               <span style={{ color: '#F0DFC4', fontWeight: 600 }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</span>
             </div>
           ))}
+          {/* Store credit deduction row */}
+          {creditApplied > 0 && (
+            <div className="flex justify-between text-xs mt-1">
+              <span style={{ color: '#10b981' }}>Store Credit Applied</span>
+              <span style={{ color: '#10b981', fontWeight: 600 }}>−₱{creditApplied.toLocaleString()}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm font-bold mt-2 pt-2" style={{ borderTop: '1px solid rgba(184,134,11,0.2)' }}>
             <span style={{ color: '#F0DFC4' }}>Total</span>
             <span style={{ color: '#C8A45B' }}>₱{total.toLocaleString()}</span>
@@ -1149,6 +1210,27 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
               placeholder="@yourtiktok"
             />
             <p className="text-xs mt-1" style={{ color: '#8a7060' }}>You must be a follower of @daddees.shelf to place preorders.</p>
+
+            {/* Store credit status indicator */}
+            {form.tiktok_handle.trim() && (
+              <div className="mt-2">
+                {creditLoading ? (
+                  <p className="text-xs flex items-center gap-1.5" style={{ color: '#8a7060' }}>
+                    <span className="inline-block w-3 h-3 rounded-full border border-t-transparent animate-spin" style={{ borderColor: '#8a7060' }} />
+                    Checking for store credit…
+                  </p>
+                ) : storeCredit ? (
+                  <div className="rounded-lg px-3 py-2 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.35)' }}>
+                    <span style={{ color: '#10b981' }}>✦</span>
+                    <p className="text-xs font-semibold" style={{ color: '#10b981' }}>
+                      Store credit found: <span className="font-bold">₱{storeCredit.amount.toLocaleString()}</span> will be deducted from your total.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs" style={{ color: '#8a7060' }}>No active store credit found for this handle.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* PIN */}
