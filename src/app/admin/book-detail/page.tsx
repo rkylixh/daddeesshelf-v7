@@ -555,7 +555,7 @@ function BookDetailManagementContent() {
           className="text-xs px-3 py-1.5 rounded-lg font-semibold"
           style={{ background: 'rgba(139,92,246,0.12)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}
         >
-          {filtered.length} titles
+          {filtered.filter(b => b.synopsis?.trim()).length}/{filtered.length} synopses done
         </div>
       </div>
 
