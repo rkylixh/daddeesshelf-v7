@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getBooks } from '@/lib/books';
 import { Book } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
+import AppImage from '@/components/ui/AppImage';
 
 const GENRE_ICONS: Record<string, string> = {
   'Fantasy': '🧙',
@@ -22,9 +24,7 @@ const GENRE_ICONS: Record<string, string> = {
   'Religion': '✝️',
 };
 
-// Distinct icons per subgenre
 const SUBGENRE_ICONS: Record<string, string> = {
-  // Fantasy
   'Romantasy': '🌹',
   'Epic Fantasy': '⚔️',
   'Dark Fantasy': '🌑',
@@ -33,49 +33,40 @@ const SUBGENRE_ICONS: Record<string, string> = {
   'Historical Fantasy': '🗡️',
   'High Fantasy': '🏰',
   'Fae Fantasy': '🧚',
-  // Romance
   'Contemporary Romance': '💌',
   'Historical Romance': '🕯️',
   'Paranormal Romance': '🌙',
   'Dark Romance': '🖤',
   'Sports Romance': '🏆',
   'Small Town Romance': '🌻',
-  // Thriller
   'Psychological Thriller': '🧠',
   'Crime Thriller': '🔫',
   'Legal Thriller': '⚖️',
   'Political Thriller': '🏛️',
   'Domestic Thriller': '🏠',
-  // Mystery
   'Cozy Mystery': '☕',
   'Detective Mystery': '🕵️',
   'Crime Mystery': '🔎',
   'Paranormal Mystery': '👁️',
-  // Horror
   'Gothic Horror': '🦇',
   'Psychological Horror': '😱',
   'Supernatural Horror': '👁️',
-  'Dark Fantasy': '🌑',
-  // Science Fiction
   'Space Opera': '🌌',
   'Dystopian': '🏚️',
   'Cyberpunk': '🤖',
   'Hard Sci-Fi': '🔬',
   'Time Travel': '⏳',
-  // Historical Fiction
   'Medieval': '🛡️',
   'Victorian': '🎩',
   'World War': '🎖️',
   'Ancient World': '🏺',
   'Renaissance': '🎨',
-  // Literary Fiction
   'Contemporary': '🌆',
   'Coming of Age': '🌱',
   'Family Saga': '🏡',
   'Magical Realism': '✨',
 };
 
-// Predefined subgenres per genre
 const GENRE_SUBGENRES: Record<string, string[]> = {
   'Fantasy': ['Romantasy', 'Epic Fantasy', 'Dark Fantasy', 'Urban Fantasy', 'Cozy Fantasy', 'Historical Fantasy', 'High Fantasy', 'Fae Fantasy'],
   'Romance': ['Contemporary Romance', 'Historical Romance', 'Paranormal Romance', 'Dark Romance', 'Sports Romance', 'Small Town Romance'],
@@ -87,6 +78,10 @@ const GENRE_SUBGENRES: Record<string, string[]> = {
   'Literary Fiction': ['Contemporary', 'Coming of Age', 'Family Saga', 'Magical Realism'],
 };
 
+interface GenreImageMap {
+  [key: string]: string; // key: "genre" or "genre|||subgenre"
+}
+
 interface SubgenreCard {
   name: string;
   count: number;
@@ -95,10 +90,11 @@ interface SubgenreCard {
 interface GenreDetailViewProps {
   genre: string;
   books: Book[];
+  imageMap: GenreImageMap;
   onBack: () => void;
 }
 
-function GenreDetailView({ genre, books, onBack }: GenreDetailViewProps) {
+function GenreDetailView({ genre, books, imageMap, onBack }: GenreDetailViewProps) {
   const router = useRouter();
 
   const subgenreMap = books.reduce<Record<string, number>>((acc, b) => {
@@ -120,6 +116,8 @@ function GenreDetailView({ genre, books, onBack }: GenreDetailViewProps) {
     router.push(`/shop?genre=${encodeURIComponent(genre)}&subgenre=${encodeURIComponent(subgenre)}`);
   };
 
+  const getSubgenreImage = (sg: string) => imageMap[`${genre}|||${sg}`] ?? '';
+
   return (
     <div>
       <button
@@ -135,7 +133,9 @@ function GenreDetailView({ genre, books, onBack }: GenreDetailViewProps) {
           ✦ Browse by Subgenre ✦
         </p>
         <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>
-          <span className="mr-3" aria-hidden="true">{GENRE_ICONS[genre] ?? '📚'}</span>
+          {!imageMap[genre] && (
+            <span className="mr-3" aria-hidden="true">{GENRE_ICONS[genre] ?? '📚'}</span>
+          )}
           {genre}
         </h1>
         <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
@@ -150,38 +150,51 @@ function GenreDetailView({ genre, books, onBack }: GenreDetailViewProps) {
         </div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
-          {subgenres.map(sg => (
-            <button
-              key={sg.name}
-              onClick={() => handleSubgenreClick(sg.name)}
-              className="group flex flex-col items-center gap-2 p-3 rounded-xl text-center transition-all duration-300"
-              style={{
-                background: 'rgba(251,245,236,0.55)',
-                border: '1.5px solid rgba(200,164,91,0.55)',
-                boxShadow: '0 2px 10px rgba(75,53,42,0.10), 0 1px 3px rgba(75,53,42,0.06)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-              }}
-            >
-              <span
-                className="text-2xl leading-none"
+          {subgenres.map(sg => {
+            const sgImg = getSubgenreImage(sg.name);
+            return (
+              <button
+                key={sg.name}
+                onClick={() => handleSubgenreClick(sg.name)}
+                className="group flex flex-col items-center gap-2 p-3 rounded-xl text-center transition-all duration-300"
                 style={{
-                  filter: 'drop-shadow(0 0 6px rgba(139,92,246,0.4))',
+                  background: 'rgba(251,245,236,0.55)',
+                  border: '1.5px solid rgba(200,164,91,0.55)',
+                  boxShadow: '0 2px 10px rgba(75,53,42,0.10), 0 1px 3px rgba(75,53,42,0.06)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
                 }}
-                aria-hidden="true"
               >
-                {SUBGENRE_ICONS[sg.name] ?? GENRE_ICONS[genre] ?? '📚'}
-              </span>
-              <div>
-                <p className="font-display text-xs font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>
-                  {sg.name}
-                </p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-subtle)', fontSize: '0.65rem' }}>
-                  {sg.count > 0 ? `${sg.count} title${sg.count !== 1 ? 's' : ''}` : 'Coming soon'}
-                </p>
-              </div>
-            </button>
-          ))}
+                {sgImg ? (
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                    <AppImage
+                      src={sgImg}
+                      alt={`${sg.name} subgenre`}
+                      width={40}
+                      height={40}
+                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                ) : (
+                  <span
+                    className="text-2xl leading-none"
+                    style={{ filter: 'drop-shadow(0 0 6px rgba(139,92,246,0.4))' }}
+                    aria-hidden="true"
+                  >
+                    {SUBGENRE_ICONS[sg.name] ?? GENRE_ICONS[genre] ?? '📚'}
+                  </span>
+                )}
+                <div>
+                  <p className="font-display text-xs font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>
+                    {sg.name}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-subtle)', fontSize: '0.65rem' }}>
+                    {sg.count > 0 ? `${sg.count} title${sg.count !== 1 ? 's' : ''}` : 'Coming soon'}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -201,9 +214,25 @@ export default function GenresContent() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [imageMap, setImageMap] = useState<GenreImageMap>({});
 
   useEffect(() => {
-    getBooks().then(data => { setBooks(data); setLoading(false); });
+    Promise.all([
+      getBooks(),
+      supabase.from('genre_images').select('genre, subgenre, image_url'),
+    ]).then(([booksData, imgResponse]) => {
+      const imgData = imgResponse.data;
+      setBooks(booksData);
+      if (imgData) {
+        const map: GenreImageMap = {};
+        (imgData as { genre: string; subgenre: string | null; image_url: string }[]).forEach(row => {
+          const key = row.subgenre ? `${row.genre}|||${row.subgenre}` : row.genre;
+          if (row.image_url) map[key] = row.image_url;
+        });
+        setImageMap(map);
+      }
+      setLoading(false);
+    });
   }, []);
 
   const genreMap = books.reduce<Record<string, { count: number; coverUrl: string | null; coverAlt: string }>>((acc, b) => {
@@ -224,6 +253,7 @@ export default function GenresContent() {
         <GenreDetailView
           genre={selectedGenre}
           books={selectedBooks}
+          imageMap={imageMap}
           onBack={() => setSelectedGenre(null)}
         />
       ) : (
@@ -246,26 +276,41 @@ export default function GenresContent() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {genres.map(([genre, data]) => (
-                <button
-                  key={genre}
-                  onClick={() => setSelectedGenre(genre)}
-                  className="group flex flex-col items-center gap-3 p-5 rounded-2xl text-center transition-all duration-300"
-                  style={{
-                    background: 'rgba(251,245,236,0.55)',
-                    border: '1.5px solid rgba(200,164,91,0.55)',
-                    boxShadow: '0 2px 10px rgba(75,53,42,0.10), 0 1px 3px rgba(75,53,42,0.06)',
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)',
-                  }}
-                >
-                  <span className="text-3xl" aria-hidden="true">{GENRE_ICONS[genre] ?? '📚'}</span>
-                  <div>
-                    <p className="font-display text-sm font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>{genre}</p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>{data.count} title{data.count !== 1 ? 's' : ''}</p>
-                  </div>
-                </button>
-              ))}
+              {genres.map(([genre, data]) => {
+                const genreImg = imageMap[genre];
+                return (
+                  <button
+                    key={genre}
+                    onClick={() => setSelectedGenre(genre)}
+                    className="group flex flex-col items-center gap-3 p-5 rounded-2xl text-center transition-all duration-300"
+                    style={{
+                      background: 'rgba(251,245,236,0.55)',
+                      border: '1.5px solid rgba(200,164,91,0.55)',
+                      boxShadow: '0 2px 10px rgba(75,53,42,0.10), 0 1px 3px rgba(75,53,42,0.06)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                    }}
+                  >
+                    {genreImg ? (
+                      <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0">
+                        <AppImage
+                          src={genreImg}
+                          alt={`${genre} genre`}
+                          width={56}
+                          height={56}
+                          className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-3xl" aria-hidden="true">{GENRE_ICONS[genre] ?? '📚'}</span>
+                    )}
+                    <div>
+                      <p className="font-display text-sm font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>{genre}</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>{data.count} title{data.count !== 1 ? 's' : ''}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </>

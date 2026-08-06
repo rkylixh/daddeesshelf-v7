@@ -29,20 +29,19 @@ interface SiteStats {
 
 // ── Section divider that feels like a bookstore aisle ──
 function BookstoreDivider({ label, seamless = false }: { label: string; seamless?: boolean }) {
+  if (seamless) return null;
   return (
     <div
       className="relative text-center content-wrapper"
       style={{ margin: '3.5rem auto', padding: '0 1.5rem' }}
     >
-      {!seamless && (
-        <div
-          className="absolute top-1/2 left-0 right-0 h-px"
-          style={{
-            background: 'linear-gradient(90deg, transparent, rgba(200,164,91,0.2), rgba(200,164,91,0.5), rgba(200,164,91,0.2), transparent)',
-            transform: 'translateY(-50%)',
-          }}
-        />
-      )}
+      <div
+        className="absolute top-1/2 left-0 right-0 h-px"
+        style={{
+          background: 'linear-gradient(90deg, transparent, rgba(200,164,91,0.2), rgba(200,164,91,0.5), rgba(200,164,91,0.2), transparent)',
+          transform: 'translateY(-50%)',
+        }}
+      />
       <span
         className="relative inline-block px-5 text-xs font-semibold uppercase tracking-widest font-sans"
         style={{
@@ -53,7 +52,7 @@ function BookstoreDivider({ label, seamless = false }: { label: string; seamless
       >
         <span
           style={{
-            background: seamless ? 'transparent' : 'linear-gradient(180deg, #F9F1E3, #F4E8D2)',
+            background: 'linear-gradient(180deg, #F9F1E3, #F4E8D2)',
             padding: '0 1rem',
             display: 'inline-block',
           }}
