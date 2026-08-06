@@ -8,12 +8,14 @@ import ShopHeader from './ShopHeader';
 import ShopPagination from './ShopPagination';
 import { getBooks, getDistinctGenres } from '@/lib/books';
 import { Book, BookFilters } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 const PAGE_SIZE_OPTIONS = [15, 20, 30];
 const FORMATS = ['Paperback', 'Hardcover', 'Special Edition', 'Omnibus', 'Bundle'];
 
 export default function ShopContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [allBooks, setAllBooks] = useState<Book[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
   const [authors, setAuthors] = useState<string[]>([]);
@@ -125,6 +127,23 @@ export default function ShopContent() {
 
   return (
     <div className="content-wrapper py-8">
+      {(searchParams.get('genre') || searchParams.get('subgenre')) && (
+        <button
+          onClick={() => {
+            const subgenre = searchParams.get('subgenre');
+            const genre = searchParams.get('genre');
+            if (subgenre && genre) {
+              router.push(`/genres?genre=${encodeURIComponent(genre)}`);
+            } else {
+              router.back();
+            }
+          }}
+          className="flex items-center gap-2 text-sm mb-6 transition-colors"
+          style={{ color: 'var(--foreground-muted)' }}
+        >
+          {searchParams.get('subgenre') ? '← Back to Subgenres' : '← Back to Genres'}
+        </button>
+      )}
       <ShopHeader
         totalCount={filtered.length}
         sort={sort}

@@ -41,6 +41,8 @@ function mapRow(row: Record<string, unknown>): Book {
     goodreads_score: row.goodreads_score != null ? Number(row.goodreads_score) : undefined,
     spice_level: row.spice_level != null ? Number(row.spice_level) : (row.spice_rating != null ? Number(row.spice_rating) : undefined),
     is_visible: row.is_visible !== false,
+    is_price_visible: row.is_price_visible !== false,
+    is_eta_visible: row.is_eta_visible !== false,
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
     available,

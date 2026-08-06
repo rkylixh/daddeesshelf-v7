@@ -15,16 +15,34 @@ interface TitleRequest {
   notes: string;
   status: string;
   admin_notes: string;
+  owner_notes: string;
   is_reviewed: boolean;
   created_at: string;
 }
 
 const STATUS_OPTIONS = ['Pending', 'Noted', 'Added to Batch', 'Declined'];
 
+function getAdminSession() {
+  try {
+    const raw = sessionStorage.getItem('admin_session');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function isOwner() {
+  const session = getAdminSession();
+  return session?.role === 'Owner';
+}
+
 export default function AdminRequestsContent() {
   const [requests, setRequests] = useState<TitleRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const ownerAccess = isOwner();
 
   useEffect(() => { loadRequests(); }, []);
 
@@ -44,6 +62,19 @@ export default function AdminRequestsContent() {
   const updateNotes = async (id: string, notes: string) => {
     await supabase.from('title_requests').update({ admin_notes: notes }).eq('id', id);
     toast.success('Notes saved');
+  };
+
+  const updateOwnerNotes = async (id: string, notes: string) => {
+    await supabase.from('title_requests').update({ owner_notes: notes }).eq('id', id);
+    toast.success('Owner notes saved');
+  };
+
+  const toggleNotes = (id: string) => {
+    setExpandedNotes(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
   const filtered = requests.filter(r =>
@@ -83,45 +114,86 @@ export default function AdminRequestsContent() {
         <div className="text-center py-16" style={{ color: 'var(--foreground-muted)' }}>No requests found.</div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(req => (
-            <div
-              key={req.id}
-              className="rounded-xl p-5"
-              style={{ background: 'var(--background-card)', border: `1px solid ${req.is_reviewed ? 'var(--border)' : 'rgba(139,92,246,0.3)'}` }}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-                <div>
-                  <p className="font-semibold" style={{ color: 'var(--foreground)' }}>{req.requested_title}</p>
-                  {req.requested_author && <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>by {req.requested_author}</p>}
-                  <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
-                    {req.customer_name} · {req.tiktok_handle} · {new Date(req.created_at).toLocaleDateString('en-PH')}
-                  </p>
+          {filtered.map(req => {
+            const notesOpen = expandedNotes.has(req.id);
+            return (
+              <div
+                key={req.id}
+                className="rounded-xl p-5"
+                style={{ background: 'var(--background-card)', border: `1px solid ${req.is_reviewed ? 'var(--border)' : 'rgba(139,92,246,0.3)'}` }}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                  <div>
+                    <p className="font-semibold" style={{ color: 'var(--foreground)' }}>{req.requested_title}</p>
+                    {req.requested_author && <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>by {req.requested_author}</p>}
+                    <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+                      {req.customer_name} · {req.tiktok_handle} · {new Date(req.created_at).toLocaleDateString('en-PH')}
+                    </p>
+                  </div>
+                  <select
+                    value={req.status}
+                    onChange={e => updateStatus(req.id, e.target.value)}
+                    className="select-field text-xs py-1.5 px-2"
+                    style={{ color: STATUS_COLORS[req.status] ?? 'var(--foreground)' }}
+                  >
+                    {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
+                  </select>
                 </div>
-                <select
-                  value={req.status}
-                  onChange={e => updateStatus(req.id, e.target.value)}
-                  className="select-field text-xs py-1.5 px-2"
-                  style={{ color: STATUS_COLORS[req.status] ?? 'var(--foreground)' }}
-                >
-                  {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
-                </select>
+
+                {req.notes && (
+                  <p className="text-xs mb-3 p-2 rounded-lg" style={{ background: 'var(--muted)', color: 'var(--foreground-muted)' }}>
+                    Customer note: {req.notes}
+                  </p>
+                )}
+
+                {/* Owner notes display */}
+                {req.owner_notes && !notesOpen && (
+                  <p className="text-xs mb-3 p-2 rounded-lg" style={{ background: 'rgba(139,92,246,0.08)', color: 'var(--foreground-muted)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    <span className="font-semibold" style={{ color: '#8b5cf6' }}>Owner note: </span>{req.owner_notes}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap gap-2 items-start">
+                  <input
+                    type="text"
+                    defaultValue={req.admin_notes}
+                    placeholder="Admin notes..."
+                    className="input-field text-xs py-1.5 flex-1 min-w-[160px]"
+                    onBlur={e => updateNotes(req.id, e.target.value)}
+                  />
+                  <button
+                    onClick={() => toggleNotes(req.id)}
+                    className="text-xs px-3 py-1.5 rounded-lg whitespace-nowrap"
+                    style={{ background: 'var(--muted)', color: 'var(--foreground-muted)', border: '1px solid var(--border)' }}
+                  >
+                    {notesOpen ? 'Hide Notes' : 'Add Notes'}
+                  </button>
+                </div>
+
+                {/* Notes editor — all admins can add notes; owner notes section only for owner */}
+                {notesOpen && (
+                  <div className="mt-3 space-y-2">
+                    {ownerAccess && (
+                      <div>
+                        <label className="block text-xs font-medium mb-1" style={{ color: '#8b5cf6' }}>Owner Notes</label>
+                        <textarea
+                          defaultValue={req.owner_notes}
+                          placeholder="Owner-only notes for this request..."
+                          rows={2}
+                          className="input-field text-xs w-full resize-none"
+                          onBlur={e => {
+                            if (e.target.value !== req.owner_notes) {
+                              updateOwnerNotes(req.id, e.target.value);
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              {req.notes && (
-                <p className="text-xs mb-3 p-2 rounded-lg" style={{ background: 'var(--muted)', color: 'var(--foreground-muted)' }}>
-                  Customer note: {req.notes}
-                </p>
-              )}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  defaultValue={req.admin_notes}
-                  placeholder="Admin notes..."
-                  className="input-field text-xs py-1.5 flex-1"
-                  onBlur={e => updateNotes(req.id, e.target.value)}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </AdminLayout>

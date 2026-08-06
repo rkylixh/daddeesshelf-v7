@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import StarField from '@/components/layout/StarField';
 import HomeHero from './components/HomeHero';
 import BookGrid from '@/components/books/BookGrid';
 import BookCard from '@/components/books/BookCard';
@@ -26,84 +27,9 @@ interface SiteStats {
   wishlistCount: number;
 }
 
-// ── Ambient bookstore background that spans the whole page ──
-function BookstoreAmbience() {
-  const bgRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    let ticking = false;
-    const handleScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        if (bgRef.current) {
-          const scrollY = window.scrollY;
-          bgRef.current.style.transform = `translateY(${scrollY * 0.08}px)`;
-        }
-        ticking = false;
-      });
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [mounted]);
-
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: -1 }} aria-hidden="true">
-      {/* Papyrus base — warm aged parchment */}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #FBF6EC 0%, #F6EDDC 40%, #F1E4CE 70%, #EBDBC4 100%)' }} />
-
-      {/* Slow-moving parallax layer */}
-      <div
-        ref={bgRef}
-        className="absolute inset-0 will-change-transform"
-        style={{ background: 'transparent' }}
-      />
-
-      {/* Subtle papyrus fiber texture via SVG noise */}
-      <div
-        className="absolute inset-0"
-        style={{
-          opacity: 0.04,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-          backgroundRepeat: 'repeat',
-          backgroundSize: '200px 200px',
-        }}
-      />
-
-      {/* Warm center glow — sunlight through windows */}
-      <div
-        className="absolute top-0 left-0 right-0"
-        style={{
-          height: '60vh',
-          background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,220,140,0.10) 0%, rgba(200,164,91,0.04) 55%, transparent 80%)',
-          filter: 'blur(4px)',
-        }}
-      />
-
-      {/* Soft edge vignette — atmosphere only, must not hide content */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `
-            radial-gradient(ellipse 100% 100% at 50% 50%,
-              transparent 55%,
-              rgba(120,80,40,0.05) 75%,
-              rgba(90,55,25,0.10) 90%,
-              rgba(65,35,12,0.16) 100%
-            )
-          `,
-        }}
-      />
-    </div>
-  );
-}
-
 // ── Section divider that feels like a bookstore aisle ──
-function BookstoreDivider({ label }: { label: string }) {
+function BookstoreDivider({ label, seamless = false }: { label: string; seamless?: boolean }) {
+  if (seamless) return null;
   return (
     <div
       className="relative text-center content-wrapper"
@@ -225,9 +151,11 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
               <div
                 className="rounded-xl overflow-hidden transition-all duration-300 group-hover:scale-[1.02]"
                 style={{
-                  background: 'rgba(247,239,225,0.9)',
-                  border: '1px solid rgba(200,164,91,0.25)',
+                  background: 'rgba(251,245,236,0.22)',
+                  border: '1px solid rgba(200,164,91,0.35)',
                   boxShadow: '0 4px 20px rgba(75,53,42,0.12), 0 1px 4px rgba(75,53,42,0.08)',
+                  backdropFilter: 'blur(6px)',
+                  WebkitBackdropFilter: 'blur(6px)',
                 }}
               >
                 <div className="relative aspect-[2/3]">
@@ -405,8 +333,8 @@ export default function HomePage() {
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh' }}>
-      {/* Continuous bookstore environment behind everything */}
-      <BookstoreAmbience />
+      {/* StarField background — same as all other pages */}
+      <StarField />
 
       {/* Page content sits above the environment */}
       <div className="relative" style={{ zIndex: 1 }}>
@@ -424,7 +352,7 @@ export default function HomePage() {
               {/* ── 2. Best Sellers — the front table ── */}
               {bestSellers.length > 0 && (
                 <>
-                  <BookstoreDivider label="✦ Best Sellers ✦" />
+                  <BookstoreDivider label="✦ Best-Selling Titles ✦" />
                   <BookstoreSection>
                     {/* Warm reading nook glow behind this section */}
                     <div
@@ -436,10 +364,6 @@ export default function HomePage() {
                     />
                     <div className="flex items-end justify-between mb-6 relative">
                       <div>
-                        <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Best Sellers</h2>
-                        <p className="text-sm mt-1 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>
-                          Top BookTok titles — curated from the strongest picks
-                        </p>
                       </div>
                       <Link href="/preorder-list" className="text-sm font-medium flex items-center gap-1" style={{ color: 'var(--primary-bright)' }}>
                         View all →
@@ -459,15 +383,14 @@ export default function HomePage() {
                     <div
                       className="rounded-2xl p-6 mb-8 relative overflow-hidden"
                       style={{
-                        background: 'rgba(247,239,225,0.85)',
-                        border: '1px solid rgba(200,164,91,0.3)',
-                        boxShadow: '0 4px 24px rgba(75,53,42,0.1), inset 0 1px 0 rgba(255,255,255,0.6)',
-                        backdropFilter: 'blur(4px)',
+                        background: 'rgba(251,245,236,0.22)',
+                        border: '1px solid rgba(200,164,91,0.35)',
+                        boxShadow: '0 4px 24px rgba(75,53,42,0.10), inset 0 1px 0 rgba(255,255,255,0.4)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
                       }}
                     >
-                      {/* Decorative corner flourish */}
-                      <div className="absolute top-3 right-4 text-2xl pointer-events-none" style={{ color: 'rgba(200,164,91,0.2)', fontFamily: 'serif' }} aria-hidden="true">❧</div>
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--primary)', letterSpacing: '0.15em' }}>
                             ✦ Now Open for Preorder
@@ -501,7 +424,7 @@ export default function HomePage() {
                         <div className="flex items-end justify-between mb-6">
                           <div>
                             <h3 className="font-display text-xl font-bold" style={{ color: 'var(--foreground)' }}>Titles in This Batch</h3>
-                            <p className="text-sm mt-1 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>Reserve your copy before the batch closes</p>
+                            <p className="text-sm mt-1 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>Reserve your copy while stocks last</p>
                           </div>
                           <Link href="/preorder-list" className="text-sm font-medium flex items-center gap-1" style={{ color: 'var(--primary-bright)' }}>
                             View all →
@@ -555,15 +478,16 @@ export default function HomePage() {
                       key={item.step}
                       className="rounded-xl p-5 text-center"
                       style={{
-                        background: 'rgba(247,239,225,0.85)',
-                        border: '1px solid rgba(200,164,91,0.25)',
-                        boxShadow: '0 2px 12px rgba(75,53,42,0.08), inset 0 1px 0 rgba(255,255,255,0.5)',
-                        backdropFilter: 'blur(4px)',
+                        background: 'rgba(251,245,236,0.22)',
+                        border: '1px solid rgba(200,164,91,0.45)',
+                        boxShadow: '0 6px 24px rgba(75,53,42,0.14), 0 2px 8px rgba(75,53,42,0.08), inset 0 1px 0 rgba(255,255,255,0.5)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
                       }}
                     >
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3"
-                        style={{ background: 'rgba(200,164,91,0.15)', border: '1px solid rgba(200,164,91,0.3)' }}
+                        style={{ background: 'rgba(200,164,91,0.25)', border: '1.5px solid rgba(200,164,91,0.5)' }}
                       >
                         <span className="font-display text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>{item.step}</span>
                       </div>
@@ -580,8 +504,18 @@ export default function HomePage() {
               <BookstoreSection style={{ marginBottom: '4rem' }}>
                 <div className="text-center mb-6">
                   <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>Frequently Asked Questions</h2>
-                  <p className="text-sm mb-4 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>Your guide to pre-orders, payments, shipping, and everything in between.</p>
-                  <Link href="/faqs" className="btn-secondary text-sm px-8 py-3 inline-block">
+                  <p className="text-sm mb-6 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>Your guide to pre-orders, payments, shipping, and everything in between.</p>
+                  <Link
+                    href="/faqs"
+                    className="inline-flex items-center gap-2 text-sm font-semibold px-8 py-3 rounded-xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(200,164,91,0.22) 0%, rgba(175,115,55,0.18) 100%)',
+                      border: '1.5px solid rgba(200,164,91,0.55)',
+                      color: 'var(--primary-bright)',
+                      boxShadow: '0 4px 16px rgba(200,164,91,0.20), 0 1px 4px rgba(75,53,42,0.10), inset 0 1px 0 rgba(255,255,255,0.6)',
+                      backdropFilter: 'blur(6px)',
+                    }}
+                  >
                     View All FAQs ✦
                   </Link>
                 </div>
@@ -657,10 +591,11 @@ function FAQPreview() {
           key={i}
           className="rounded-xl overflow-hidden"
           style={{
-            background: 'rgba(247,239,225,0.85)',
+            background: 'rgba(251,245,236,0.22)',
             border: `1px solid ${openIdx === i ? 'rgba(200,164,91,0.5)' : 'rgba(200,164,91,0.2)'}`,
             boxShadow: '0 2px 8px rgba(75,53,42,0.06)',
-            backdropFilter: 'blur(4px)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
           }}
         >
           <button

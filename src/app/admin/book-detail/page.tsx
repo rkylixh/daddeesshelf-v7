@@ -18,7 +18,6 @@ const ALL_READER_TAGS = [
   'Vampires', 'Witches', 'Fae', 'Academy Setting', 'Slow Worldbuilding',
   'Fast-Paced', 'Character-Driven', 'Plot-Driven', 'Touch Her and Die',
   'Who Did This to You?', 'Emotional', 'Political Fantasy', 'Character Driven',
-  'Cozy Fantasy', 'Dark Academia', 'Mystery', 'High Stakes',
 ];
 
 interface BookDetailFields {
@@ -41,6 +40,8 @@ interface BookDetailFields {
   darkness: number;
   action: number;
   quotes: string[];
+  genre: string;
+  subgenre: string;
 }
 
 async function logAudit(adminHandle: string, action: string, bookTitle: string, field: string, prevVal: string, newVal: string) {
@@ -121,6 +122,8 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
         darkness: form.darkness,
         action: form.action,
         quotes: form.quotes,
+        genre: form.genre,
+        subgenre: form.subgenre,
       }).eq('id', form.id);
 
       if (error) throw error;
@@ -194,7 +197,7 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
           <div className="flex gap-3 items-start">
             <div className="flex-1">
               <input
-                type="url"
+                type="text"
                 value={form.cover_url}
                 onChange={e => setForm(f => ({ ...f, cover_url: e.target.value }))}
                 className="input-field text-sm"
@@ -265,11 +268,40 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>Goodreads URL</label>
               <input
-                type="url"
+                type="text"
                 value={form.goodreads_url}
                 onChange={e => setForm(f => ({ ...f, goodreads_url: e.target.value }))}
                 className="input-field text-sm"
                 placeholder="https://goodreads.com/book/show/..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Genre & Subgenre */}
+        <div>
+          <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--foreground-subtle)' }}>
+            Genre &amp; Subgenre
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>Genre</label>
+              <input
+                type="text"
+                value={form.genre}
+                onChange={e => setForm(f => ({ ...f, genre: e.target.value }))}
+                className="input-field text-sm"
+                placeholder="e.g. Fantasy, Romance, Thriller"
+              />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>Subgenre</label>
+              <input
+                type="text"
+                value={form.subgenre}
+                onChange={e => setForm(f => ({ ...f, subgenre: e.target.value }))}
+                className="input-field text-sm"
+                placeholder="e.g. Romantasy, Dark Romance"
               />
             </div>
           </div>
@@ -457,12 +489,13 @@ function BookDetailManagementContent() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from('books')
-      .select('id, title, author, cover_url, synopsis, goodreads_url, goodreads_score, goodreads_ratings_count, spice_level, why_readers_love, reader_tags, emotional_intensity, romance_level, worldbuilding_complexity, pace, humor, darkness, action, quotes')
+      .select('id, title, author, cover_url, synopsis, goodreads_url, goodreads_score, goodreads_ratings_count, spice_level, why_readers_love, reader_tags, emotional_intensity, romance_level, worldbuilding_complexity, pace, humor, darkness, action, quotes, genre, subgenre')
       .order('title', { ascending: true });
 
     setBooks((data ?? []).map(b => ({
@@ -482,17 +515,31 @@ function BookDetailManagementContent() {
       darkness: b.darkness ?? 0,
       action: b.action ?? 0,
       quotes: Array.isArray(b.quotes) ? b.quotes : [],
+      genre: b.genre ?? '',
+      subgenre: b.subgenre ?? '',
     })));
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
+  const handleBookSaved = useCallback((savedBookId: string) => {
+    setSavedIds(prev => prev.includes(savedBookId) ? prev : [...prev, savedBookId]);
+    setExpandedId(null);
+    load();
+  }, [load]);
+
   const filtered = books.filter(b => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q);
   });
+
+  // Sort: unsaved books first (in original order), saved books at the bottom
+  const sorted = [
+    ...filtered.filter(b => !savedIds.includes(b.id)),
+    ...filtered.filter(b => savedIds.includes(b.id)),
+  ];
 
   return (
     <div>
@@ -507,7 +554,7 @@ function BookDetailManagementContent() {
           className="text-xs px-3 py-1.5 rounded-lg font-semibold"
           style={{ background: 'rgba(139,92,246,0.12)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}
         >
-          {filtered.length} titles
+          {filtered.filter(b => b.synopsis?.trim()).length}/{filtered.length} synopses done
         </div>
       </div>
 
@@ -535,7 +582,7 @@ function BookDetailManagementContent() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(book => (
+          {sorted.map(book => (
             <div key={book.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
               <button
                 onClick={() => setExpandedId(expandedId === book.id ? null : book.id)}
@@ -580,7 +627,7 @@ function BookDetailManagementContent() {
 
               {expandedId === book.id && (
                 <div className="p-4" style={{ borderTop: '1px solid var(--border)', background: 'var(--background)' }}>
-                  <BookDetailEditor book={book} onSaved={load} />
+                  <BookDetailEditor book={book} onSaved={() => handleBookSaved(book.id)} />
                 </div>
               )}
             </div>

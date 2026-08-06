@@ -6,7 +6,7 @@
 import { createBrowserClient } from '@supabase/ssr';
 
 // Re-export the browser client for backward compatibility
-export { createBrowserClient as createClient } from '@supabase/ssr';
+export const createClient = createBrowserClient;
 
 export const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -24,6 +24,8 @@ export interface Book {
   goodreads_ratings_count?: number;
   spice_level?: number;
   is_visible?: boolean;
+  is_price_visible?: boolean;
+  is_eta_visible?: boolean;
   visibility?: string;
   created_at: string;
   updated_at: string;

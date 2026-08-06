@@ -44,6 +44,20 @@ const STAR_PARTICLES = Array.from({ length: 60 }, (_, i) => {
   };
 });
 
+// Sparkle flash points — white/cream glitter matching StarField
+const HERO_SPARKLES = Array.from({ length: 35 }, (_, i) => {
+  const r = (n: number) => seededRand(i * 11 + 5000 + n);
+  return {
+    id: i,
+    x: r(0) * 100,
+    y: r(1) * 100,
+    size: 1 + r(2) * 2,
+    opacity: 0.15 + r(3) * 0.45,
+    dur: 3 + r(4) * 6,
+    delay: r(5) * 12,
+  };
+});
+
 export default function HomeHero({ stats }: HomeHeroProps) {
   const heroRef = useRef<HTMLElement>(null);
   const lightRef = useRef<HTMLDivElement>(null);
@@ -171,111 +185,32 @@ export default function HomeHero({ stats }: HomeHeroProps) {
               }}
             />
           ))}
+
+          {/* Sparkle flash points — white glitter matching StarField */}
+          {HERO_SPARKLES.map(sp => (
+            <div
+              key={`sp-${sp.id}`}
+              style={{
+                position: 'absolute',
+                left: `${sp.x}%`,
+                top: `${sp.y}%`,
+                width: `${sp.size}px`,
+                height: `${sp.size}px`,
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,1)',
+                boxShadow: `0 0 ${sp.size * 3}px ${sp.size * 1.2}px rgba(255,255,255,0.7), 0 0 ${sp.size * 6}px ${sp.size * 2}px rgba(240,220,160,0.3)`,
+                animation: `heroSparkleFlash ${sp.dur}s ease-in-out infinite`,
+                animationDelay: `${sp.delay}s`,
+                ['--sp-lo' as string]: `${sp.opacity * 0.15}`,
+                ['--sp-mid' as string]: `${sp.opacity * 0.5}`,
+                ['--sp-hi' as string]: `${sp.opacity}`,
+              } as React.CSSProperties}
+            />
+          ))}
         </div>
       )}
 
-      {/* ── Layer 3: Botanical / decorative accents ── */}
-      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 4 }} aria-hidden="true">
-        {/* Top-left pressed flower */}
-        <div
-          className="absolute"
-          style={{
-            top: '8%',
-            left: '6%',
-            fontSize: '28px',
-            opacity: 0.18,
-            transform: 'rotate(-15deg)',
-            filter: 'sepia(0.4)',
-            animation: 'heroBotanicalFloat 12s ease-in-out infinite',
-            animationDelay: '0s',
-            color: '#8B5E3C',
-          }}
-        >❧</div>
-        {/* Top-right botanical */}
-        <div
-          className="absolute"
-          style={{
-            top: '12%',
-            right: '7%',
-            fontSize: '22px',
-            opacity: 0.15,
-            transform: 'rotate(12deg)',
-            animation: 'heroBotanicalFloat 15s ease-in-out infinite',
-            animationDelay: '3s',
-            color: '#7A5230',
-          }}
-        >✿</div>
-        {/* Bottom-left gold flourish */}
-        <div
-          className="absolute"
-          style={{
-            bottom: '15%',
-            left: '8%',
-            fontSize: '20px',
-            opacity: 0.2,
-            transform: 'rotate(8deg)',
-            animation: 'heroBotanicalFloat 18s ease-in-out infinite',
-            animationDelay: '6s',
-            color: '#C8A45B',
-          }}
-        >⚜</div>
-        {/* Bottom-right ornament */}
-        <div
-          className="absolute"
-          style={{
-            bottom: '20%',
-            right: '9%',
-            fontSize: '18px',
-            opacity: 0.16,
-            transform: 'rotate(-10deg)',
-            animation: 'heroBotanicalFloat 14s ease-in-out infinite',
-            animationDelay: '2s',
-            color: '#A87445',
-          }}
-        >✾</div>
-        {/* Mid-left quill */}
-        <div
-          className="absolute"
-          style={{
-            top: '45%',
-            left: '4%',
-            fontSize: '16px',
-            opacity: 0.14,
-            animation: 'heroBotanicalFloat 20s ease-in-out infinite',
-            animationDelay: '9s',
-            color: '#8B5E3C',
-          }}
-        >❦</div>
-        {/* Mid-right ornament */}
-        <div
-          className="absolute"
-          style={{
-            top: '38%',
-            right: '5%',
-            fontSize: '14px',
-            opacity: 0.18,
-            animation: 'heroBotanicalFloat 16s ease-in-out infinite',
-            animationDelay: '4s',
-            color: '#C8A45B',
-          }}
-        >✽</div>
-        {/* Wax seal hint — top center */}
-        <div
-          className="absolute"
-          style={{
-            top: '6%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            fontSize: '12px',
-            opacity: 0.12,
-            letterSpacing: '0.5em',
-            color: '#A87445',
-            fontFamily: 'serif',
-          }}
-        >— ✦ —</div>
-      </div>
-
-      {/* ── Layer 4: Light parchment vignette ── */}
+      {/* ── Layer 3: Light parchment vignette ── */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -289,14 +224,14 @@ export default function HomeHero({ stats }: HomeHeroProps) {
         aria-hidden="true"
       />
 
-      {/* ── Layer 5: Hero content ── */}
+      {/* ── Layer 4: Hero content ── */}
       <div className="relative flex flex-col items-center justify-center text-center" style={{ zIndex: 6 }}>
         {/* Eyebrow label */}
         <p
           className="text-xs font-semibold uppercase tracking-widest mb-6 font-sans"
-          style={{ color: 'var(--primary-bright)', letterSpacing: '0.22em', opacity: 0.85 }}
+          style={{ color: 'var(--primary-bright)', letterSpacing: '0.22em', opacity: 1 }}
         >
-          ❧ Your Cozy Independent Bookstore ❧
+          ❧ Discovering Your Next Favorite Story ❧
         </p>
 
         {/* Logo — the bookstore sign above the door */}
@@ -318,18 +253,17 @@ export default function HomeHero({ stats }: HomeHeroProps) {
 
         {/* Tagline */}
         <p
-          className="text-lg sm:text-xl font-light mb-2 font-display italic"
-          style={{ color: 'var(--foreground-muted)' }}
+          className="text-xl sm:text-2xl font-light mb-2 font-display italic"
+          style={{ color: 'var(--foreground)' }}
         >
-          Your cozy corner for pre-loved and pre-ordered books
+          Your Portal to Extraordinary Worlds.
         </p>
 
         <p
-          className="text-sm mb-10 max-w-lg mx-auto font-serif"
-          style={{ color: 'var(--foreground-subtle)', lineHeight: '1.9' }}
+          className="text-base mb-10 max-w-2xl mx-auto font-serif"
+          style={{ color: 'var(--foreground-muted)', lineHeight: '1.75' }}
         >
-          Carefully curated titles for Filipino readers — from epic fantasy to heartwarming fiction,
-          all delivered to your door.
+          From enchanted kingdoms and haunted halls to timeless classics, gripping mysteries, unforgettable romances, and beautifully human stories—discover stories that invite you to leave the ordinary behind, broaden your perspective, and escape into worlds beyond imagination.
         </p>
 
         {/* Dynamic Stats — library catalogue card style */}
@@ -344,9 +278,9 @@ export default function HomeHero({ stats }: HomeHeroProps) {
                 key={stat.label}
                 className="rounded-xl p-3 text-center"
                 style={{
-                  background: 'rgba(247,239,225,0.72)',
+                  background: 'rgba(251,245,236,0.28)',
                   border: '1px solid rgba(200,164,91,0.35)',
-                  boxShadow: '0 2px 16px rgba(75,53,42,0.1), inset 0 1px 0 rgba(255,255,255,0.6)',
+                  boxShadow: '0 2px 16px rgba(75,53,42,0.1), inset 0 1px 0 rgba(255,255,255,0.4)',
                   backdropFilter: 'blur(10px)',
                   WebkitBackdropFilter: 'blur(10px)',
                 }}
@@ -377,6 +311,11 @@ export default function HomeHero({ stats }: HomeHeroProps) {
           60%  { transform: translate(7px, -18px) scale(1.03); }
           80%  { transform: translate(-2px, -10px) scale(0.98); }
           100% { transform: translate(0px, 0px) scale(1); }
+        }
+        @keyframes heroSparkleFlash {
+          0%, 100% { opacity: var(--sp-lo); transform: scale(0.8); }
+          40%       { opacity: var(--sp-hi); transform: scale(1.3); }
+          60%       { opacity: var(--sp-mid); transform: scale(1.1); }
         }
         @keyframes heroBotanicalFloat {
           0%, 100% { transform: translateY(0px) rotate(var(--rot, 0deg)); }
