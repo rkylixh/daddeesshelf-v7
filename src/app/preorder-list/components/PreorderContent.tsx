@@ -95,7 +95,7 @@ function SuccessOverlay({ data, onClose }: { data: ConfirmationData; onClose: ()
   const totalPrice = data.items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
       <div className="relative w-full max-w-lg rounded-2xl overflow-hidden animate-fade-in-up" style={{ background: 'var(--background-card)', border: '1px solid rgba(184,134,11,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
         <div className="px-6 py-5 text-center" style={{ background: 'linear-gradient(135deg, rgba(184,134,11,0.15), rgba(139,69,19,0.1))', borderBottom: '1px solid rgba(184,134,11,0.3)' }}>
           <div className="text-4xl mb-2" aria-hidden="true">✓</div>
@@ -283,7 +283,7 @@ function PreorderFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
       <div className="relative w-full max-w-lg rounded-2xl animate-fade-in-up" style={{ background: 'var(--background-card)', border: '1px solid var(--border)', maxHeight: '90vh', overflowY: 'auto' }}>
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <h2 className="font-display text-lg font-bold" style={{ color: 'var(--foreground)' }}>Submit Preorder</h2>

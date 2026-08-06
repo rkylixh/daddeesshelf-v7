@@ -193,7 +193,7 @@ function ConfirmPaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
       <div className="rounded-2xl p-6 w-full max-w-md" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
         <h3 className="font-semibold text-base mb-1" style={{ color: 'var(--foreground)' }}>Confirm Payment</h3>
         <p className="text-xs mb-4" style={{ color: 'var(--foreground-muted)' }}>
@@ -314,7 +314,7 @@ function RefundModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
       <div className="rounded-2xl p-6 w-full max-w-md" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
         <h3 className="font-semibold text-base mb-1" style={{ color: 'var(--foreground)' }}>Process Refund</h3>
         <p className="text-xs mb-4" style={{ color: 'var(--foreground-muted)' }}>
@@ -446,7 +446,7 @@ function StatusChangeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
       <div className="rounded-2xl p-6 w-full max-w-sm" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
         <h3 className="font-semibold text-base mb-1" style={{ color: 'var(--foreground)' }}>Change Order Status</h3>
         <p className="text-xs mb-4" style={{ color: 'var(--foreground-muted)' }}>
@@ -481,6 +481,194 @@ function StatusChangeModal({
   );
 }
 
+// ── Delete Order Modal ─────────────────────────────────────────────────────
+function DeleteOrderModal({
+  order,
+  onClose,
+  onDeleted,
+}: {
+  order: Order;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [pin, setPin] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<'warn' | 'pin'>('warn');
+
+  const handleDelete = async () => {
+    if (!pin.trim()) { toast.error('Please enter your admin PIN'); return; }
+    setLoading(true);
+
+    // Verify admin PIN
+    const session = getAdminSession();
+    const { data: adminData } = await supabase
+      .from('admin_users')
+      .select('pin_hash, pin_set')
+      .eq('tiktok_handle', session?.tiktok_handle ?? '')
+      .single();
+
+    if (!adminData?.pin_set || !adminData?.pin_hash) {
+      toast.error('No admin PIN configured. Please set a PIN first.');
+      setLoading(false);
+      return;
+    }
+
+    // Hash the entered PIN
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin + 'daddees-shelf-salt');
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const enteredHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    if (enteredHash !== adminData.pin_hash) {
+      toast.error('Incorrect PIN. Please try again.');
+      setPin('');
+      setLoading(false);
+      return;
+    }
+
+    // Restore stock for each item in the order
+    if (Array.isArray(order.items) && order.items.length > 0) {
+      for (const item of order.items) {
+        if (!item.sku) continue;
+        const qty = item.qty ?? 1;
+        // Get current inventory
+        const { data: bookData } = await supabase
+          .from('books')
+          .select('id, inventory, reserved')
+          .eq('sku', item.sku)
+          .single();
+        if (bookData) {
+          await supabase
+            .from('books')
+            .update({
+              inventory: (bookData.inventory ?? 0) + qty,
+              reserved: Math.max(0, (bookData.reserved ?? 0) - qty),
+            })
+            .eq('id', bookData.id);
+        }
+      }
+    }
+
+    // Delete the order
+    const { error } = await supabase.from('orders').delete().eq('id', order.id);
+    if (error) {
+      toast.error('Failed to delete order: ' + error.message);
+      setLoading(false);
+      return;
+    }
+
+    await logAudit({
+      action: 'ORDER_DELETED',
+      module: 'Orders',
+      target_ref: order.ref_number,
+      prev_value: order.status,
+      new_value: 'DELETED',
+      explanation: `Order ${order.ref_number} (${order.tiktok_handle}) deleted by admin. Stock restored for ${order.items?.length ?? 0} item(s).`,
+    });
+
+    toast.success(`Order ${order.ref_number} deleted. Stock restored.`);
+    onDeleted();
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.92)' }}>
+      <div className="rounded-2xl p-6 w-full max-w-md" style={{ background: 'var(--background-card)', border: '1px solid rgba(239,68,68,0.4)' }}>
+        {step === 'warn' ? (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(239,68,68,0.15)' }}>
+                <span className="text-lg">⚠</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-base" style={{ color: '#ef4444' }}>Delete Order</h3>
+                <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl p-4 mb-4 space-y-2" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                Order <span className="font-mono">{order.ref_number}</span>
+              </p>
+              <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
+                {order.customer_name} · {order.tiktok_handle}
+              </p>
+              {Array.isArray(order.items) && order.items.length > 0 && (
+                <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(239,68,68,0.15)' }}>
+                  <p className="text-xs font-semibold mb-1" style={{ color: 'var(--foreground-muted)' }}>Items to be restored to stock:</p>
+                  {order.items.map((item, i) => (
+                    <p key={i} className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>
+                      ✦ {item.title} ({item.sku}) × {item.qty}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs mb-5" style={{ color: 'var(--foreground-muted)' }}>
+              Deleting this order will permanently remove it and restore all item quantities back to inventory. You will need to enter your admin PIN to confirm.
+            </p>
+
+            <div className="flex gap-2 justify-end">
+              <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm" style={{ background: 'var(--muted)', color: 'var(--foreground-muted)' }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => setStep('pin')}
+                className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: '#ef4444', color: '#fff' }}
+              >
+                Continue to PIN Confirmation →
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(239,68,68,0.15)' }}>
+                <span className="text-lg">🔐</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-base" style={{ color: 'var(--foreground)' }}>Enter Admin PIN</h3>
+                <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>Confirm deletion of <span className="font-mono font-semibold">{order.ref_number}</span></p>
+              </div>
+            </div>
+
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+              Admin PIN *
+            </label>
+            <input
+              type="password"
+              value={pin}
+              onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="Enter your PIN..."
+              className="input-field text-sm w-full mb-4 text-center tracking-widest font-mono"
+              inputMode="numeric"
+              autoFocus
+              onKeyDown={e => { if (e.key === 'Enter') handleDelete(); }}
+            />
+
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setStep('warn'); setPin(''); }} className="px-4 py-2 rounded-lg text-sm" style={{ background: 'var(--muted)', color: 'var(--foreground-muted)' }}>
+                ← Back
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={loading || !pin}
+                className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ background: '#ef4444', color: '#fff', opacity: loading || !pin ? 0.6 : 1 }}
+              >
+                {loading ? 'Deleting...' : 'Confirm Delete'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function AdminOrdersContent() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -491,6 +679,7 @@ export default function AdminOrdersContent() {
   const [confirmPaymentOrder, setConfirmPaymentOrder] = useState<Order | null>(null);
   const [refundOrder, setRefundOrder] = useState<Order | null>(null);
   const [statusChangeOrder, setStatusChangeOrder] = useState<{ order: Order; newStatus: string } | null>(null);
+  const [deleteOrder, setDeleteOrder] = useState<Order | null>(null);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const ownerAccess = hasOrderAccess();
 
@@ -585,6 +774,13 @@ export default function AdminOrdersContent() {
           newStatus={statusChangeOrder.newStatus}
           onClose={() => setStatusChangeOrder(null)}
           onSaved={loadOrders}
+        />
+      )}
+      {deleteOrder && (
+        <DeleteOrderModal
+          order={deleteOrder}
+          onClose={() => setDeleteOrder(null)}
+          onDeleted={loadOrders}
         />
       )}
 
@@ -840,6 +1036,18 @@ export default function AdminOrdersContent() {
                       style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
                     >
                       Process Refund
+                    </button>
+                  )}
+
+                  {/* Delete order — owner only */}
+                  {ownerAccess && (
+                    <button
+                      onClick={() => setDeleteOrder(order)}
+                      className="text-xs px-3 py-1.5 rounded-lg font-semibold"
+                      style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                      title="Delete order and restore stock"
+                    >
+                      🗑 Delete
                     </button>
                   )}
 

@@ -107,7 +107,10 @@ function IssueCreditModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.92)' }}
+    >
       <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.3)' }}>
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>Issue Store Credit</h2>
@@ -219,7 +222,10 @@ function CancelCreditModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.92)' }}
+    >
       <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--background-card)', border: '1px solid rgba(239,68,68,0.3)' }}>
         <div className="px-6 py-5 space-y-4">
           <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>Cancel Store Credit?</h2>
@@ -277,7 +283,10 @@ function EditReasonModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.92)' }}
+    >
       <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--background-card)', border: '1px solid rgba(139,92,246,0.3)' }}>
         <div className="px-6 py-5 space-y-4">
           <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>Edit Reason</h2>

@@ -107,7 +107,7 @@ function WishlistAccountPrompt({ bookId, onClose, onSaved }: WishlistPromptProps
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-      style={{ background: 'rgba(44,26,14,0.88)', backdropFilter: 'blur(8px)' }}
+      style={{ background: 'rgba(44,26,14,0.97)' }}
     >
       <div
         className="relative w-full max-w-sm rounded-2xl animate-fade-in-up"
@@ -339,7 +339,7 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: 'rgba(44,26,14,0.92)', backdropFilter: 'blur(8px)' }}
+      style={{ background: 'rgba(44,26,14,0.97)' }}
     >
       <div
         className="relative w-full max-w-sm rounded-2xl animate-fade-in-up"
@@ -489,7 +489,7 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={onClose} />
       <div
         className="relative w-full max-w-sm h-full overflow-y-auto animate-fade-in flex flex-col"
         style={{ background: 'var(--background-card)', borderLeft: '1px solid var(--border)' }}
