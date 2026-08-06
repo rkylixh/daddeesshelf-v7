@@ -41,6 +41,8 @@ interface BookDetailFields {
   darkness: number;
   action: number;
   quotes: string[];
+  genre: string;
+  subgenre: string;
 }
 
 async function logAudit(adminHandle: string, action: string, bookTitle: string, field: string, prevVal: string, newVal: string) {
@@ -121,6 +123,8 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
         darkness: form.darkness,
         action: form.action,
         quotes: form.quotes,
+        genre: form.genre,
+        subgenre: form.subgenre,
       }).eq('id', form.id);
 
       if (error) throw error;
@@ -194,7 +198,7 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
           <div className="flex gap-3 items-start">
             <div className="flex-1">
               <input
-                type="url"
+                type="text"
                 value={form.cover_url}
                 onChange={e => setForm(f => ({ ...f, cover_url: e.target.value }))}
                 className="input-field text-sm"
@@ -265,11 +269,40 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>Goodreads URL</label>
               <input
-                type="url"
+                type="text"
                 value={form.goodreads_url}
                 onChange={e => setForm(f => ({ ...f, goodreads_url: e.target.value }))}
                 className="input-field text-sm"
                 placeholder="https://goodreads.com/book/show/..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Genre & Subgenre */}
+        <div>
+          <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--foreground-subtle)' }}>
+            Genre &amp; Subgenre
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>Genre</label>
+              <input
+                type="text"
+                value={form.genre}
+                onChange={e => setForm(f => ({ ...f, genre: e.target.value }))}
+                className="input-field text-sm"
+                placeholder="e.g. Fantasy, Romance, Thriller"
+              />
+            </div>
+            <div>
+              <label className="block text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>Subgenre</label>
+              <input
+                type="text"
+                value={form.subgenre}
+                onChange={e => setForm(f => ({ ...f, subgenre: e.target.value }))}
+                className="input-field text-sm"
+                placeholder="e.g. Romantasy, Dark Romance"
               />
             </div>
           </div>
@@ -462,7 +495,7 @@ function BookDetailManagementContent() {
     setLoading(true);
     const { data } = await supabase
       .from('books')
-      .select('id, title, author, cover_url, synopsis, goodreads_url, goodreads_score, goodreads_ratings_count, spice_level, why_readers_love, reader_tags, emotional_intensity, romance_level, worldbuilding_complexity, pace, humor, darkness, action, quotes')
+      .select('id, title, author, cover_url, synopsis, goodreads_url, goodreads_score, goodreads_ratings_count, spice_level, why_readers_love, reader_tags, emotional_intensity, romance_level, worldbuilding_complexity, pace, humor, darkness, action, quotes, genre, subgenre')
       .order('title', { ascending: true });
 
     setBooks((data ?? []).map(b => ({
@@ -482,6 +515,8 @@ function BookDetailManagementContent() {
       darkness: b.darkness ?? 0,
       action: b.action ?? 0,
       quotes: Array.isArray(b.quotes) ? b.quotes : [],
+      genre: b.genre ?? '',
+      subgenre: b.subgenre ?? '',
     })));
     setLoading(false);
   }, []);
