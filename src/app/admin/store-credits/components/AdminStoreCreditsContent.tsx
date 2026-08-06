@@ -56,6 +56,7 @@ function IssueCreditModal({
     reason: CREDIT_REASONS[0],
     custom_reason: '',
     order_ref: '',
+    note: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -131,7 +132,7 @@ function IssueCreditModal({
         prev_value: '0',
         new_value: String(amount),
         explanation: `Issued ₱${amount} store credit to @${handle}. Reason: ${finalReason}. Pending activation.`,
-        notes: '',
+        notes: form.note.trim(),
       });
 
       setDone(true);
@@ -260,6 +261,19 @@ function IssueCreditModal({
                 <input type="text" value={form.order_ref} onChange={e => setForm(f => ({ ...f, order_ref: e.target.value }))} className="input-field text-sm font-mono" placeholder="DDS-20260804-XXXX" />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                  Admin Note <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+                </label>
+                <textarea
+                  value={form.note}
+                  onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+                  className="input-field text-sm resize-none"
+                  rows={2}
+                  placeholder="Add a transparency note for this action (visible in audit log)..."
+                />
+              </div>
+
               {error && <p className="text-xs" style={{ color: '#f87171' }}>{error}</p>}
 
               <div className="flex gap-3 justify-end pt-1">
@@ -286,6 +300,7 @@ function CancelCreditModal({
   onSuccess: () => void;
 }) {
   const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState('');
 
   const handleCancel = async () => {
     setSaving(true);
@@ -301,7 +316,7 @@ function CancelCreditModal({
         prev_value: 'Active',
         new_value: 'Cancelled',
         explanation: `Cancelled ₱${credit.amount} store credit for @${credit.tiktok_handle}`,
-        notes: '',
+        notes: note.trim(),
       });
       onSuccess();
       onClose();
@@ -321,6 +336,19 @@ function CancelCreditModal({
           <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
             This will cancel the <strong style={{ color: 'var(--primary-bright)' }}>₱{credit.amount.toLocaleString()}</strong> credit for <strong>@{credit.tiktok_handle}</strong>. This action cannot be undone.
           </p>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+              Admin Note <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              className="input-field text-sm resize-none w-full"
+              rows={2}
+              placeholder="Reason for cancellation (visible in audit log)..."
+              autoFocus
+            />
+          </div>
           <div className="flex gap-3 justify-end">
             <button onClick={onClose} className="btn-ghost text-sm px-5 py-2.5 rounded-xl">Keep</button>
             <button onClick={handleCancel} disabled={saving} className="text-sm px-6 py-2.5 rounded-xl font-semibold transition-all" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', opacity: saving ? 0.7 : 1 }}>
@@ -345,6 +373,7 @@ function EditReasonModal({
 }) {
   const [reason, setReason] = useState(credit.reason);
   const [customReason, setCustomReason] = useState('');
+  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -362,7 +391,7 @@ function EditReasonModal({
         prev_value: credit.reason,
         new_value: finalReason,
         explanation: `Reason updated for ₱${credit.amount} store credit of @${credit.tiktok_handle}`,
-        notes: '',
+        notes: note.trim(),
       });
       onSuccess();
       onClose();
@@ -392,10 +421,113 @@ function EditReasonModal({
               <input type="text" value={customReason} onChange={e => setCustomReason(e.target.value)} className="input-field text-sm" placeholder="Describe the reason..." />
             </div>
           )}
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+              Admin Note <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              className="input-field text-sm resize-none w-full"
+              rows={2}
+              placeholder="Add a transparency note for this change (visible in audit log)..."
+            />
+          </div>
           <div className="flex gap-3 justify-end">
             <button onClick={onClose} className="btn-ghost text-sm px-5 py-2.5 rounded-xl">Cancel</button>
             <button onClick={handleSave} disabled={saving} className="btn-primary text-sm px-6 py-2.5" style={{ opacity: saving ? 0.7 : 1 }}>
               {saving ? 'Saving...' : 'Save Reason'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Toggle Active Modal ────────────────────────────────────────────────────
+function ToggleActiveModal({
+  credit,
+  onClose,
+  onSuccess,
+}: {
+  credit: StoreCredit;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const newActive = !credit.is_active;
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleToggle = async () => {
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const session = JSON.parse(sessionStorage.getItem('admin_session') ?? '{}');
+      await supabase.from('store_credits').update({ is_active: newActive, updated_at: new Date().toISOString() }).eq('id', credit.id);
+      await supabase.from('audit_logs').insert({
+        admin_handle: session.tiktok_handle ?? 'unknown',
+        action: newActive ? 'STORE_CREDIT_ACTIVATED' : 'STORE_CREDIT_DEACTIVATED',
+        module: 'Store Credits',
+        target_ref: credit.tiktok_handle,
+        prev_value: credit.is_active ? 'Active' : 'Inactive',
+        new_value: newActive ? 'Active' : 'Inactive',
+        explanation: `Store credit of ₱${credit.amount} for @${credit.tiktok_handle} ${newActive ? 'activated' : 'deactivated'}`,
+        notes: note.trim(),
+      });
+      onSuccess();
+      onClose();
+    } catch {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.92)' }}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl overflow-hidden"
+        style={{
+          background: 'var(--background-card)',
+          border: `1px solid ${newActive ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+        }}
+      >
+        <div className="px-6 py-5 space-y-4">
+          <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>
+            {newActive ? 'Activate' : 'Deactivate'} Store Credit?
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+            <strong style={{ color: 'var(--primary-bright)' }}>₱{credit.amount.toLocaleString()}</strong> credit for <strong>@{credit.tiktok_handle}</strong> will be {newActive ? 'activated and usable by the customer' : 'deactivated and temporarily unusable'}.
+          </p>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+              Admin Note <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              className="input-field text-sm resize-none w-full"
+              rows={2}
+              placeholder={`Reason for ${newActive ? 'activating' : 'deactivating'} this credit (visible in audit log)...`}
+              autoFocus
+            />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <button onClick={onClose} className="btn-ghost text-sm px-5 py-2.5 rounded-xl">Cancel</button>
+            <button
+              onClick={handleToggle}
+              disabled={saving}
+              className="text-sm px-6 py-2.5 rounded-xl font-semibold transition-all"
+              style={{
+                background: newActive ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                color: newActive ? '#10b981' : '#f59e0b',
+                border: `1px solid ${newActive ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                opacity: saving ? 0.7 : 1,
+              }}
+            >
+              {saving ? 'Saving...' : (newActive ? 'Activate Credit' : 'Deactivate Credit')}
             </button>
           </div>
         </div>
@@ -412,6 +544,7 @@ export default function AdminStoreCreditsContent() {
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<StoreCredit | null>(null);
   const [editReasonTarget, setEditReasonTarget] = useState<StoreCredit | null>(null);
+  const [toggleTarget, setToggleTarget] = useState<StoreCredit | null>(null);
   const [isOwnerRole, setIsOwnerRole] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -610,7 +743,7 @@ export default function AdminStoreCreditsContent() {
                     <td className="px-4 py-3">
                       {credit.status === 'Active' ? (
                         <button
-                          onClick={() => isOwnerRole && handleToggleActive(credit)}
+                          onClick={() => isOwnerRole && setToggleTarget(credit)}
                           disabled={togglingId === credit.id || !isOwnerRole}
                           className="relative inline-flex items-center h-6 w-11 rounded-full transition-colors duration-200 focus:outline-none"
                           style={{
@@ -664,6 +797,10 @@ export default function AdminStoreCreditsContent() {
 
       {editReasonTarget && isOwnerRole && (
         <EditReasonModal credit={editReasonTarget} onClose={() => setEditReasonTarget(null)} onSuccess={loadCredits} />
+      )}
+
+      {toggleTarget && isOwnerRole && (
+        <ToggleActiveModal credit={toggleTarget} onClose={() => setToggleTarget(null)} onSuccess={() => { setToggleTarget(null); loadCredits(); }} />
       )}
     </AdminLayout>
   );
