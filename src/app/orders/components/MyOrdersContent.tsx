@@ -230,12 +230,13 @@ export default function MyOrdersContent() {
     try {
       const supabase = createClient();
       const rawHandle = handle.trim().replace(/^@/, '');
+      const normalizedHandle = '@' + rawHandle;
 
       // Check customers table first
       const { data: customer } = await supabase
         .from('customers')
         .select('id, tiktok_handle, pin_hash, pin_enrolled')
-        .eq('tiktok_handle', rawHandle)
+        .eq('tiktok_handle', normalizedHandle)
         .maybeSingle();
 
       if (customer) {
@@ -254,14 +255,14 @@ export default function MyOrdersContent() {
       const { data: existingOrders } = await supabase
         .from('orders')
         .select('id, customer_pin')
-        .eq('tiktok_handle', rawHandle)
+        .eq('tiktok_handle', normalizedHandle)
         .limit(1);
 
       if (existingOrders && existingOrders.length > 0) {
         // Legacy customer with orders but no customer record — create customer record and prompt PIN creation
         const { data: newCustomer, error: insertErr } = await supabase
           .from('customers')
-          .insert({ tiktok_handle: rawHandle, pin_hash: '', pin_enrolled: false })
+          .insert({ tiktok_handle: normalizedHandle, pin_hash: '', pin_enrolled: false })
           .select('id')
           .single();
 
@@ -270,7 +271,7 @@ export default function MyOrdersContent() {
           const { data: retryCustomer } = await supabase
             .from('customers')
             .select('id, pin_hash, pin_enrolled')
-            .eq('tiktok_handle', rawHandle)
+            .eq('tiktok_handle', normalizedHandle)
             .maybeSingle();
           if (retryCustomer) {
             setCustomerId(retryCustomer.id);
@@ -308,6 +309,7 @@ export default function MyOrdersContent() {
     try {
       const supabase = createClient();
       const rawHandle = handle.trim().replace(/^@/, '');
+      const normalizedHandle = '@' + rawHandle;
       const hashedPin = await hashPin(pin);
 
       // Verify PIN against customers table
@@ -329,7 +331,7 @@ export default function MyOrdersContent() {
       const { data: orderData, error: ordersErr } = await supabase
         .from('orders')
         .select('*')
-        .eq('tiktok_handle', rawHandle)
+        .eq('tiktok_handle', normalizedHandle)
         .order('created_at', { ascending: false });
 
       if (ordersErr) throw ordersErr;
@@ -354,6 +356,7 @@ export default function MyOrdersContent() {
     try {
       const supabase = createClient();
       const rawHandle = handle.trim().replace(/^@/, '');
+      const normalizedHandle = '@' + rawHandle;
       const hashedPin = await hashPin(newPin);
 
       let cid = customerId;
@@ -362,7 +365,7 @@ export default function MyOrdersContent() {
       if (!cid) {
         const { data: newCustomer, error: insertErr } = await supabase
           .from('customers')
-          .insert({ tiktok_handle: rawHandle, pin_hash: hashedPin, pin_enrolled: true })
+          .insert({ tiktok_handle: normalizedHandle, pin_hash: hashedPin, pin_enrolled: true })
           .select('id')
           .single();
 
@@ -370,7 +373,7 @@ export default function MyOrdersContent() {
           // Try upsert
           const { data: upserted } = await supabase
             .from('customers')
-            .upsert({ tiktok_handle: rawHandle, pin_hash: hashedPin, pin_enrolled: true }, { onConflict: 'tiktok_handle' })
+            .upsert({ tiktok_handle: normalizedHandle, pin_hash: hashedPin, pin_enrolled: true }, { onConflict: 'tiktok_handle' })
             .select('id')
             .single();
           if (upserted) cid = upserted.id;
@@ -392,7 +395,7 @@ export default function MyOrdersContent() {
       const { data: orderData } = await supabase
         .from('orders')
         .select('*')
-        .eq('tiktok_handle', rawHandle)
+        .eq('tiktok_handle', normalizedHandle)
         .order('created_at', { ascending: false });
 
       setOrders((orderData ?? []) as Order[]);

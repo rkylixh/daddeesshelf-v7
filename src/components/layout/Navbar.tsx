@@ -1016,8 +1016,9 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
       const { supabase: sb } = await import('@/lib/supabase');
       const orderRef = generateOrderRef();
       const hashedPin = await hashPin(form.customer_pin);
-      // Normalize handle: strip leading @ so My Orders lookup always matches
-      const normalizedHandle = form.tiktok_handle.trim().replace(/^@/, '');
+      // Normalize handle: always store WITH @ prefix so My Orders lookup matches
+      const rawHandle = form.tiktok_handle.trim().replace(/^@/, '');
+      const normalizedHandle = '@' + rawHandle;
       const orderItems = items.map(i => ({
         sku: i.book.sku,
         title: i.book.title,
