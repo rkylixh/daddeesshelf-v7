@@ -5,6 +5,7 @@ import '../styles/tailwind.css';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/components/layout/Navbar';
+import AmbientDust from '@/components/layout/AmbientDust';
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
     "Browse pre-orders, on-hand titles, and curated book bundles from Daddee's Shelf — the cozy online bookstore for Filipino readers.",
   icons: {
     icon: [
-      { url: '/assets/images/ChatGPT_Image_Aug_5__2026__03_56_22_PM-1785916609214.png', type: 'image/png' },
+      { url: '/assets/images/Untitled_design__7_-1785917477724.png', type: 'image/png' },
     ],
   },
 };
@@ -37,6 +38,7 @@ export default function RootLayout({
       <body className={dmSans.className}>
         <AuthProvider>
           <CartProvider>
+            <AmbientDust />
             {children}
           </CartProvider>
         </AuthProvider>

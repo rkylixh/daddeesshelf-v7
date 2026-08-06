@@ -53,7 +53,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         {/* Sidebar header */}
         <div className="flex items-center gap-3 px-5 h-14 flex-shrink-0" style={{ borderBottom: '1px solid rgba(200,164,91,0.15)' }}>
           <img
-            src="/assets/images/image-1785915949797.png"
+            src="/assets/images/Untitled_design__7_-1785917477724.png"
             alt="Daddee's Shelf logo"
             width={28}
             height={28}
