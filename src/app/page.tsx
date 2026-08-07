@@ -218,7 +218,6 @@ export default function HomePage() {
   const [bestSellers, setBestSellers] = useState<Book[]>([]);
   const [booktokFavorites, setBooktokFavorites] = useState<Book[]>([]);
   const [featuredBooks, setFeaturedBooks] = useState<Book[]>([]);
-  const [freshPicks, setFreshPicks] = useState<Book[]>([]);
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [howItWorksSteps, setHowItWorksSteps] = useState<{ step: string; icon: string; title: string; desc: string }[]>([
@@ -229,7 +228,7 @@ export default function HomePage() {
   ]);
   const [sectionVisibility, setSectionVisibility] = useState({
     best_sellers: true, current_batch: true, booktok_favorites: true,
-    featured_books: true, fresh_picks: true, how_it_works: true, faqs: true,
+    featured_books: true, how_it_works: true, faqs: true,
   });
 
   useEffect(() => {
@@ -331,17 +330,6 @@ export default function HomePage() {
           .limit(6);
         if (featuredData && featuredData.length > 0) {
           setFeaturedBooks(featuredData.map(mapBookRow));
-        }
-
-        // Fresh Picks — newest arrivals
-        const { data: freshData } = await supabase
-          .from('books')
-          .select('*')
-          .eq('is_visible', true)
-          .order('created_at', { ascending: false })
-          .limit(6);
-        if (freshData && freshData.length > 0) {
-          setFreshPicks(freshData.map(mapBookRow));
         }
 
         const { data: btFavs } = await supabase
@@ -523,27 +511,6 @@ export default function HomePage() {
                       </Link>
                     </div>
                     <BookGrid books={featuredBooks} />
-                  </BookstoreSection>
-                </>
-              )}
-
-              {/* ── 4c. Fresh Picks — newest arrivals ── */}
-              {sectionVisibility.fresh_picks && freshPicks.length > 0 && (
-                <>
-                  <BookstoreDivider label="✦ Fresh Picks ✦" />
-                  <BookstoreSection>
-                    <div className="flex items-end justify-between mb-6">
-                      <div>
-                        <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Fresh Picks</h2>
-                        <p className="text-sm mt-1 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>
-                          Newly added titles — be the first to grab them
-                        </p>
-                      </div>
-                      <Link href="/shop" className="text-sm font-medium flex items-center gap-1" style={{ color: 'var(--primary-bright)' }}>
-                        View all →
-                      </Link>
-                    </div>
-                    <BookGrid books={freshPicks} />
                   </BookstoreSection>
                 </>
               )}
