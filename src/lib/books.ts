@@ -19,6 +19,41 @@ function computeStatus(book: Partial<Book> & { visibility?: string }): Book['sta
   return 'Sold Out';
 }
 
+/** Admin Price toggle — default true when flag is missing. */
+export function isPriceVisible(book: { is_price_visible?: boolean }): boolean {
+  return book.is_price_visible !== false;
+}
+
+/** Admin ETA toggle — default true when flag is missing. */
+export function isEtaVisible(book: { is_eta_visible?: boolean }): boolean {
+  return book.is_eta_visible !== false;
+}
+
+/** Format storefront price or "Price TBA" when hidden. */
+export function formatBookPrice(book: { is_price_visible?: boolean; final_srp?: number }): string {
+  if (!isPriceVisible(book)) return 'Price TBA';
+  return `₱${Number(book.final_srp ?? 0).toLocaleString()}`;
+}
+
+/**
+ * Whether a title can be added to cart / preordered.
+ * Price must be visible; sold-out / zero stock cannot be purchased.
+ */
+export function canPurchase(book: Book): boolean {
+  if (!isPriceVisible(book)) return false;
+  if (book.status === 'Sold Out') return false;
+  const isReservedSoldOut = (book.reserved ?? 0) === 1;
+  const available = isReservedSoldOut
+    ? 0
+    : Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0));
+  return available > 0;
+}
+
+/** Re-export mapper for homepage / local selects so flags never drift. */
+export function mapBookFromRow(row: Record<string, unknown>): Book {
+  return mapRow(row);
+}
+
 function mapRow(row: Record<string, unknown>): Book {
   const available = Number(row.inventory ?? 0) - Number(row.reserved ?? 0);
   return {

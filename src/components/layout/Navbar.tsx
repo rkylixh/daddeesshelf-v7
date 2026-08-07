@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
-import { getBooks } from '@/lib/books';
+import { getBooks, isPriceVisible } from '@/lib/books';
 import { Book } from '@/lib/types';
 
 // ── Preorder Cart Context ──────────────────────────────────
@@ -40,6 +40,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
   const addItem = useCallback((book: Book) => {
+    // Never allow cart add when admin has hidden the price
+    if (!isPriceVisible(book)) return;
     setItems(prev => {
       const existing = prev.find(i => i.book.id === book.id);
       // Compute available stock: reserved=1 means sold out regardless
@@ -83,38 +85,45 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const ids = items.map(i => i.book.id);
       const { data } = await supabase
         .from('books')
-        .select('id, inventory, reserved, visibility, arrival_date')
+        .select('id, inventory, reserved, visibility, arrival_date, is_price_visible')
         .in('id', ids);
       if (!data) return;
-      setItems(prev => prev.map(item => {
-        const fresh = data.find((r: Record<string, unknown>) => r.id === item.book.id);
-        if (!fresh) return item;
-        const isReservedSoldOut = Number(fresh.reserved) === 1;
-        const isVisibilityReserved = fresh.visibility === 'Reserved';
-        const available = (isReservedSoldOut || isVisibilityReserved)
-          ? 0
-          : Math.max(0, Number(fresh.inventory) - Number(fresh.reserved));
-        const soldOut = available <= 0;
-        const cappedQty = soldOut ? item.qty : Math.min(item.qty, available);
-        return {
-          ...item,
-          qty: cappedQty,
-          soldOut,
-          book: {
-            ...item.book,
-            inventory: Number(fresh.inventory),
-            reserved: Number(fresh.reserved),
-            available,
-          },
-        };
-      }));
+      setItems(prev => prev
+        .map(item => {
+          const fresh = data.find((r: Record<string, unknown>) => r.id === item.book.id);
+          if (!fresh) return item;
+          const priceVisible = fresh.is_price_visible !== false;
+          // Drop titles whose price was hidden after they were added
+          if (!priceVisible) return null;
+          const isReservedSoldOut = Number(fresh.reserved) === 1;
+          const isVisibilityReserved = fresh.visibility === 'Reserved';
+          const available = (isReservedSoldOut || isVisibilityReserved)
+            ? 0
+            : Math.max(0, Number(fresh.inventory) - Number(fresh.reserved));
+          const soldOut = available <= 0;
+          const cappedQty = soldOut ? item.qty : Math.min(item.qty, available);
+          return {
+            ...item,
+            qty: cappedQty,
+            soldOut,
+            book: {
+              ...item.book,
+              inventory: Number(fresh.inventory),
+              reserved: Number(fresh.reserved),
+              available,
+              is_price_visible: priceVisible,
+            },
+          };
+        })
+        .filter((item): item is CartItem => item !== null)
+      );
     } catch {
       // ignore
     }
   }, [items]);
 
   const total = items
-    .filter(i => !i.soldOut)
+    .filter(i => !i.soldOut && isPriceVisible(i.book))
     .reduce((s, i) => s + i.book.final_srp * i.qty, 0);
 
   return (
@@ -678,7 +687,11 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
                           </div>
                         </div>
                       ) : (
-                        <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--primary-bright)' }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</p>
+                        <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--primary-bright)' }}>
+                          {isPriceVisible(item.book)
+                            ? `₱${(item.book.final_srp * item.qty).toLocaleString()}`
+                            : 'Price TBA'}
+                        </p>
                       )}
                     </div>
                     {!item.soldOut && (
@@ -889,7 +902,7 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
                 </div>
               </div>
               <div className="flex-shrink-0 text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>
-                {book.is_price_visible !== false ? `₱${Number(book.final_srp).toLocaleString()}` : 'Price TBA'}
+                {isPriceVisible(book) ? `₱${Number(book.final_srp).toLocaleString()}` : 'Price TBA'}
               </div>
             </button>
           ))}
@@ -993,7 +1006,7 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
                 <p className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>{book.author}</p>
               </div>
               <span className="text-xs font-bold flex-shrink-0" style={{ color: 'var(--primary-bright)' }}>
-                {book.is_price_visible !== false ? `₱${Number(book.final_srp).toLocaleString()}` : 'Price TBA'}
+                {isPriceVisible(book) ? `₱${Number(book.final_srp).toLocaleString()}` : 'Price TBA'}
               </span>
             </button>
           ))}
@@ -1265,7 +1278,9 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
   const [creditLoading, setCreditLoading] = useState(false);
   const creditLookupRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const rawTotal = items.filter(i => !i.soldOut).reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  const rawTotal = items
+    .filter(i => !i.soldOut && isPriceVisible(i.book))
+    .reduce((s, i) => s + i.book.final_srp * i.qty, 0);
   const creditApplied = storeCredit ? Math.min(storeCredit.amount, rawTotal) : 0;
   const total = Math.max(0, rawTotal - creditApplied);
 
@@ -1377,18 +1392,28 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
       const { supabase: sb } = await import('@/lib/supabase');
 
       // ── Stock validation at checkout time ──────────────────
-      const checkableItems = items.filter(i => !i.soldOut);
+      const checkableItems = items.filter(i => !i.soldOut && isPriceVisible(i.book));
+      if (checkableItems.length === 0) {
+        setError('Your cart has no purchasable titles. Titles with Price TBA cannot be ordered.');
+        setSubmitting(false);
+        return;
+      }
       const bookIds = checkableItems.map(i => i.book.id);
       const { data: freshBooks } = await sb
         .from('books')
-        .select('id, inventory, reserved, visibility')
+        .select('id, inventory, reserved, visibility, is_price_visible')
         .in('id', bookIds);
 
       if (freshBooks) {
         const soldOutTitles: string[] = [];
+        const priceHiddenTitles: string[] = [];
         for (const item of checkableItems) {
           const fresh = freshBooks.find((b: Record<string, unknown>) => b.id === item.book.id);
           if (!fresh) continue;
+          if (fresh.is_price_visible === false) {
+            priceHiddenTitles.push(item.book.title);
+            continue;
+          }
           const isReservedSoldOut = Number(fresh.reserved) === 1;
           const isVisibilityReserved = fresh.visibility === 'Reserved';
           const available = (isReservedSoldOut || isVisibilityReserved)
@@ -1402,6 +1427,11 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
             setSubmitting(false);
             return;
           }
+        }
+        if (priceHiddenTitles.length > 0) {
+          setError(`The following title(s) no longer have a listed price: ${priceHiddenTitles.join(', ')}. Please remove them from your cart.`);
+          setSubmitting(false);
+          return;
         }
         if (soldOutTitles.length > 0) {
           setError(`The following title(s) are now sold out: ${soldOutTitles.join(', ')}. Please remove them from your cart.`);
@@ -1571,8 +1601,8 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
 
         {/* Cart summary */}
         <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(184,134,11,0.2)', background: 'rgba(184,134,11,0.04)' }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: '#C8A45B' }}>Your Cart ({items.filter(i => !i.soldOut).length} {items.filter(i => !i.soldOut).length === 1 ? 'title' : 'titles'})</p>
-          {items.filter(i => !i.soldOut).map((item, i) => (
+          <p className="text-xs font-semibold mb-2" style={{ color: '#C8A45B' }}>Your Cart ({items.filter(i => !i.soldOut && isPriceVisible(i.book)).length} {items.filter(i => !i.soldOut && isPriceVisible(i.book)).length === 1 ? 'title' : 'titles'})</p>
+          {items.filter(i => !i.soldOut && isPriceVisible(i.book)).map((item, i) => (
             <div key={i} className="flex justify-between text-xs mb-1">
               <span style={{ color: '#D4B896' }}>{item.book.title} × {item.qty}</span>
               <span style={{ color: '#F0DFC4', fontWeight: 600 }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</span>

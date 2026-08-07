@@ -6,7 +6,7 @@ import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
 import StatusBadge from '@/components/books/StatusBadge';
 import Icon from '@/components/ui/AppIcon';
-import { getBookById, getBooks } from '@/lib/books';
+import { getBookById, getBooks, isPriceVisible, isEtaVisible, canPurchase, formatBookPrice } from '@/lib/books';
 import { Book, OnHandItem } from '@/lib/types';
 import { CartContext } from '@/components/layout/Navbar';
 import { createClient } from '@/lib/supabase/client';
@@ -151,7 +151,7 @@ function OnHandDetailView({ itemId }: { itemId: string }) {
   }, [itemId]);
 
   const handleAddToCart = () => {
-    if (!item) return;
+    if (!item || !isPriceVisible(item) || item.inventory <= 0) return;
     // Convert on-hand item to Book-like for cart
     const bookLike: Book = {
       id: item.id,
@@ -224,10 +224,25 @@ function OnHandDetailView({ itemId }: { itemId: string }) {
             <AppImage src={item.cover_url || '/assets/images/no_image.png'} alt={`Cover of ${item.title} by ${item.author}`} fill sizes="(max-width: 1024px) 80vw, 380px" className="object-cover" priority />
           </div>
           <div className="w-full max-w-[320px] space-y-3">
-            {item.inventory > 0 && (
+            {item.inventory > 0 && isPriceVisible(item) && (
               <button onClick={handleAddToCart} className="w-full btn-primary flex items-center justify-center gap-3 py-3 text-sm">
                 <Icon name="ShoppingCartIcon" size={16} />
                 <span>{addedToCart ? 'Added to Cart ✓' : 'Add to Cart'}</span>
+              </button>
+            )}
+            {item.inventory > 0 && !isPriceVisible(item) && (
+              <button
+                disabled
+                className="w-full flex items-center justify-center gap-3 py-3 text-sm rounded-xl font-semibold"
+                style={{
+                  background: 'rgba(120,100,80,0.10)',
+                  color: '#9E8E7E',
+                  border: '1px solid rgba(120,100,80,0.25)',
+                  cursor: 'not-allowed',
+                  opacity: 0.7,
+                }}
+              >
+                Price TBA
               </button>
             )}
           </div>
@@ -242,7 +257,7 @@ function OnHandDetailView({ itemId }: { itemId: string }) {
           <h1 className="font-display text-3xl sm:text-4xl font-bold mb-2 leading-tight" style={{ color: 'var(--foreground)' }}>{item.title}</h1>
           <p className="text-lg font-medium mb-4" style={{ color: 'var(--foreground-muted)' }}>by {item.author}</p>
 
-          {item.is_price_visible ? (
+          {isPriceVisible(item) ? (
             <div className="flex items-baseline gap-3 mb-4">
               <span className="font-display text-3xl font-bold tabular-nums" style={{ color: 'var(--primary-bright)' }}>₱{item.final_srp.toLocaleString()}</span>
               <span className="text-sm" style={{ color: 'var(--foreground-subtle)' }}>{item.format}</span>
@@ -346,7 +361,7 @@ export default function BookDetailContent() {
   }, [id]);
 
   const handlePreorder = () => {
-    if (!book) return;
+    if (!book || !canPurchase(book)) return;
     addItem(book);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
@@ -429,8 +444,11 @@ export default function BookDetailContent() {
     { label: 'Batch', value: book.batch || '—' },
     ...(extBook.reading_age ? [{ label: 'Reading Age', value: extBook.reading_age }] : []),
     ...(extBook.content_warnings ? [{ label: 'Content Warnings', value: extBook.content_warnings }] : []),
-    ...(book.arrival_date && book.is_eta_visible !== false ? [{ label: 'Estimated Arrival (ETA)', value: new Date(book.arrival_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) }] : []),
+    ...(book.arrival_date && isEtaVisible(book) ? [{ label: 'Estimated Arrival (ETA)', value: new Date(book.arrival_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) }] : []),
   ];
+
+  const priceVisible = isPriceVisible(book);
+  const purchasable = canPurchase(book);
 
   return (
     <div className="content-wrapper py-8">
@@ -461,14 +479,29 @@ export default function BookDetailContent() {
           </div>
 
           <div className="w-full max-w-[320px] space-y-3">
-            {/* Preorder / Add to Cart button */}
-            {book.status !== 'Sold Out' && (
+            {/* Preorder / Add to Cart — blocked when price is hidden */}
+            {book.status !== 'Sold Out' && purchasable && (
               <button
                 onClick={handlePreorder}
                 className="w-full max-w-[320px] btn-primary flex items-center justify-center gap-3 py-3 text-sm"
               >
                 <Icon name="ShoppingCartIcon" size={16} />
                 <span>{addedToCart ? 'Added to Cart' : book.status === 'Pre-order' ? 'Preorder This Book' : 'Add to Cart'}</span>
+              </button>
+            )}
+            {book.status !== 'Sold Out' && !priceVisible && (
+              <button
+                disabled
+                className="w-full max-w-[320px] flex items-center justify-center gap-3 py-3 text-sm rounded-xl font-semibold"
+                style={{
+                  background: 'rgba(120,100,80,0.10)',
+                  color: '#9E8E7E',
+                  border: '1px solid rgba(120,100,80,0.25)',
+                  cursor: 'not-allowed',
+                  opacity: 0.7,
+                }}
+              >
+                Price TBA
               </button>
             )}
 
@@ -531,9 +564,9 @@ export default function BookDetailContent() {
 
           {/* Price */}
           <div className="flex items-baseline gap-3 mb-4">
-            {book.is_price_visible !== false ? (
+            {priceVisible ? (
               <span className="font-display text-3xl font-bold tabular-nums" style={{ color: 'var(--primary-bright)' }}>
-                ₱{book.final_srp.toLocaleString()}
+                {formatBookPrice(book)}
               </span>
             ) : (
               <span className="font-display text-xl font-semibold" style={{ color: 'var(--foreground-muted)' }}>
@@ -606,16 +639,37 @@ export default function BookDetailContent() {
           >
             <div className="flex-1">
               <p className="text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
-                {book.status === 'Pre-order' ? 'Reserve your copy now'
+                {!priceVisible
+                  ? 'Price coming soon'
+                  : book.status === 'Pre-order'
+                  ? 'Reserve your copy now'
                   : book.status === 'On Hand'
                   ? `${book.available} copies available`
                   : 'Currently out of stock'}
               </p>
               <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
-                {book.status === 'Sold Out' ? 'Join the wishlist to be notified when available' : 'Add to cart · Pay via GCash · Shipping information is requested only after your books arrive in the Philippines.'}
+                {!priceVisible
+                  ? 'Preorder will open once the price is announced.'
+                  : book.status === 'Sold Out'
+                  ? 'Join the wishlist to be notified when available'
+                  : 'Add to cart · Pay via GCash · Shipping information is requested only after your books arrive in the Philippines.'}
               </p>
             </div>
-            {book.status !== 'Sold Out' ? (
+            {!priceVisible ? (
+              <button
+                disabled
+                className="whitespace-nowrap text-sm px-6 py-2.5 rounded-xl font-semibold"
+                style={{
+                  background: 'rgba(120,100,80,0.10)',
+                  color: '#9E8E7E',
+                  border: '1px solid rgba(120,100,80,0.25)',
+                  cursor: 'not-allowed',
+                  opacity: 0.7,
+                }}
+              >
+                Price TBA
+              </button>
+            ) : purchasable ? (
               <button onClick={handlePreorder} className="btn-primary whitespace-nowrap text-sm px-6 py-2.5">
                 {addedToCart ? 'Added ✓' : 'Preorder Now ✦'}
               </button>
@@ -732,8 +786,8 @@ export default function BookDetailContent() {
                   <div className="p-2">
                     <p className="text-xs font-semibold truncate" style={{ color: 'var(--foreground)' }}>{related.title}</p>
                     <p className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>{related.author}</p>
-                    {related.is_price_visible !== false ? (
-                      <p className="text-xs font-bold tabular-nums mt-1" style={{ color: 'var(--primary-bright)' }}>₱{related.final_srp.toLocaleString()}</p>
+                    {isPriceVisible(related) ? (
+                      <p className="text-xs font-bold tabular-nums mt-1" style={{ color: 'var(--primary-bright)' }}>{formatBookPrice(related)}</p>
                     ) : (
                       <p className="text-xs font-medium mt-1" style={{ color: 'var(--foreground-subtle)' }}>Price TBA</p>
                     )}

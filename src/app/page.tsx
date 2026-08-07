@@ -8,7 +8,7 @@ import StarField from '@/components/layout/StarField';
 import HomeHero from './components/HomeHero';
 import BookGrid from '@/components/books/BookGrid';
 import BookCard from '@/components/books/BookCard';
-import { getBooks } from '@/lib/books';
+import { getBooks, mapBookFromRow, isEtaVisible, formatBookPrice } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import Icon from '@/components/ui/AppIcon';
@@ -17,6 +17,7 @@ import AppImage from '@/components/ui/AppImage';
 interface BatchInfo {
   name: string;
   eta: string | null;
+  etaVisible: boolean;
   count: number;
 }
 
@@ -177,7 +178,9 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
                 <div className="p-3">
                   <p className="text-xs font-bold truncate" style={{ color: 'var(--foreground)' }}>{book.title}</p>
                   <p className="text-xs truncate mt-0.5" style={{ color: 'var(--foreground-muted)' }}>{book.author}</p>
-                  <p className="text-xs font-bold mt-1" style={{ color: 'var(--primary-bright)' }}>₱{book.final_srp.toLocaleString()}</p>
+                  <p className="text-xs font-bold mt-1" style={{ color: 'var(--primary-bright)' }}>
+                    {formatBookPrice(book)}
+                  </p>
                 </div>
               </div>
             </Link>
@@ -290,8 +293,14 @@ export default function HomePage() {
 
         const books = await getBooks({ batch: activeBatchName });
         const preorderBooks = books.filter(b => b.status === 'Pre-order');
+        const etaVisible = preorderBooks.some(b => isEtaVisible(b));
 
-        setBatchInfo({ name: activeBatchName, eta: activeBatchEta, count: preorderBooks.length });
+        setBatchInfo({
+          name: activeBatchName,
+          eta: activeBatchEta,
+          etaVisible,
+          count: preorderBooks.length,
+        });
         setBatchBooks(preorderBooks.slice(0, 6));
 
         const { data: seedData } = await supabase
@@ -311,7 +320,7 @@ export default function HomePage() {
             const ordered = seedIds
               .map(id => seedBooks.find((b: Record<string, unknown>) => b.id === id))
               .filter(Boolean) as Record<string, unknown>[];
-            setBestSellers(ordered.map(mapBookRow));
+            setBestSellers(ordered.map(mapBookFromRow));
           }
         } else {
           const topBooks = [...preorderBooks]
@@ -329,7 +338,7 @@ export default function HomePage() {
           .order('goodreads_score', { ascending: false })
           .limit(6);
         if (featuredData && featuredData.length > 0) {
-          setFeaturedBooks(featuredData.map(mapBookRow));
+          setFeaturedBooks(featuredData.map(mapBookFromRow));
         }
 
         const { data: btFavs } = await supabase
@@ -349,7 +358,7 @@ export default function HomePage() {
             const ordered = favIds
               .map(id => favBooks.find((b: Record<string, unknown>) => b.id === id))
               .filter(Boolean) as Record<string, unknown>[];
-            setBooktokFavorites(ordered.map(mapBookRow));
+            setBooktokFavorites(ordered.map(mapBookFromRow));
           }
         }
 
@@ -435,12 +444,22 @@ export default function HomePage() {
                             {batchInfo.name}
                           </h2>
                           <div className="flex flex-wrap items-center gap-4 mt-2">
-                            <div className="flex items-center gap-1.5">
-                              <Icon name="CalendarIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
-                              <span className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
-                                ETA: <strong style={{ color: 'var(--foreground)' }}>{formatEta(batchInfo.eta)}</strong>
-                              </span>
-                            </div>
+                            {batchInfo.etaVisible && batchInfo.eta && (
+                              <div className="flex items-center gap-1.5">
+                                <Icon name="CalendarIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+                                <span className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+                                  ETA: <strong style={{ color: 'var(--foreground)' }}>{formatEta(batchInfo.eta)}</strong>
+                                </span>
+                              </div>
+                            )}
+                            {!batchInfo.etaVisible && (
+                              <div className="flex items-center gap-1.5">
+                                <Icon name="CalendarIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+                                <span className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+                                  ETA: <strong style={{ color: 'var(--foreground)' }}>TBA</strong>
+                                </span>
+                              </div>
+                            )}
                             <div className="flex items-center gap-1.5">
                               <Icon name="BookOpenIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
                               <span className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
@@ -673,38 +692,4 @@ function FAQPreview() {
       ))}
     </div>
   );
-}
-
-// ── Book row mapper ────────────────────────────────────────
-function mapBookRow(row: Record<string, unknown>): Book {
-  const available = Number(row.inventory ?? 0) - Number(row.reserved ?? 0);
-  const arrivalDate = row.arrival_date ? String(row.arrival_date) : null;
-  let status: Book['status'] = 'Sold Out';
-  if (arrivalDate && new Date(arrivalDate) > new Date()) status = 'Pre-order';
-  else if (available > 0) status = 'On Hand';
-
-  return {
-    id: String(row.id ?? ''),
-    sku: String(row.sku ?? ''),
-    title: String(row.title ?? ''),
-    author: String(row.author ?? ''),
-    genre: String(row.genre ?? ''),
-    subgenre: String(row.subgenre ?? ''),
-    series: String(row.series ?? ''),
-    series_order: row.series_order != null ? Number(row.series_order) : null,
-    format: (row.format as Book['format']) ?? 'Paperback',
-    edition: String(row.edition ?? ''),
-    final_srp: Number(row.final_srp ?? 0),
-    batch: String(row.batch ?? ''),
-    arrival_date: arrivalDate,
-    inventory: Number(row.inventory ?? 0),
-    reserved: Number(row.reserved ?? 0),
-    synopsis: String(row.synopsis ?? ''),
-    cover_url: String(row.cover_url ?? ''),
-    created_at: String(row.created_at ?? ''),
-    updated_at: String(row.updated_at ?? ''),
-    available,
-    status,
-    goodreads_score: row.goodreads_score != null ? Number(row.goodreads_score) : undefined,
-  } as Book & { goodreads_score?: number };
 }

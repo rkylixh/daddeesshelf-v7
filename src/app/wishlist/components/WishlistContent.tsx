@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
-import { getBooks } from '@/lib/books';
+import { getBooks, formatBookPrice } from '@/lib/books';
 import { Book } from '@/lib/types';
 
 const WISHLIST_KEY = 'ds-wishlist';
@@ -143,7 +143,7 @@ export default function WishlistContent() {
                     </p>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold tabular-nums" style={{ color: '#8B6A20' }}>
-                        ₱{book.final_srp.toLocaleString()}
+                        {formatBookPrice(book)}
                       </span>
                       <span
                         className="text-xs px-1.5 py-0.5 rounded-full"

@@ -173,7 +173,7 @@ export default function OnHandPage() {
                         <div className="p-3">
                           <p className="text-xs font-bold truncate" style={{ color: 'var(--foreground)' }}>{item.title}</p>
                           <p className="text-xs truncate mt-0.5" style={{ color: 'var(--foreground-muted)' }}>{item.author}</p>
-                          {item.is_price_visible ? (
+                          {item.is_price_visible !== false ? (
                             <p className="text-xs font-bold mt-1" style={{ color: 'var(--primary-bright)' }}>₱{item.final_srp.toLocaleString()}</p>
                           ) : (
                             <p className="text-xs font-medium mt-1" style={{ color: 'var(--foreground-subtle)' }}>Price TBA</p>
