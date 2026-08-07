@@ -798,7 +798,9 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
     setLoading(true);
     try {
       const books = await getBooks({ search: q });
-      setResults(books.slice(0, 8));
+      // Filter out hidden titles — only show visible books
+      const visible = books.filter(b => b.is_visible !== false);
+      setResults(visible.slice(0, 8));
       setOpen(true);
     } catch {
       setResults([]);
@@ -887,7 +889,7 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
                 </div>
               </div>
               <div className="flex-shrink-0 text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>
-                ₱{Number(book.final_srp).toLocaleString()}
+                {book.is_price_visible !== false ? `₱${Number(book.final_srp).toLocaleString()}` : 'Price TBA'}
               </div>
             </button>
           ))}
@@ -927,7 +929,9 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
     setLoading(true);
     try {
       const books = await getBooks({ search: q });
-      setResults(books.slice(0, 6));
+      // Filter out hidden titles
+      const visible = books.filter(b => b.is_visible !== false);
+      setResults(visible.slice(0, 6));
     } catch {
       setResults([]);
     } finally {
@@ -989,7 +993,7 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
                 <p className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>{book.author}</p>
               </div>
               <span className="text-xs font-bold flex-shrink-0" style={{ color: 'var(--primary-bright)' }}>
-                ₱{Number(book.final_srp).toLocaleString()}
+                {book.is_price_visible !== false ? `₱${Number(book.final_srp).toLocaleString()}` : 'Price TBA'}
               </span>
             </button>
           ))}
@@ -1003,6 +1007,7 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
 const NAV_LINKS = [
   { label: 'Home', href: '/' },
   { label: 'Shop', href: '/shop' },
+  { label: 'On Hand', href: '/on-hand' },
   { label: 'Genres', href: '/genres' },
   { label: 'Collections', href: '/collections' },
   { label: 'Wishlist', href: '/wishlist' },
@@ -1244,9 +1249,16 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
     customer_pin: '',
     payment_ref: '',
     notes: '',
+    user_slug: '',
   });
-  const [confirmation, setConfirmation] = useState<{ order_ref: string; tiktok_handle: string } | null>(null);
+  const [confirmation, setConfirmation] = useState<{ order_ref: string; tiktok_handle: string; user_slug: string; is_new_slug: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [slugCopied, setSlugCopied] = useState(false);
+
+  // ── Existing slug check ───────────────────────────────────
+  const [existingSlug, setExistingSlug] = useState<string | null>(null);
+  const [slugChecking, setSlugChecking] = useState(false);
+  const slugCheckRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Store Credit ──────────────────────────────────────────
   const [storeCredit, setStoreCredit] = useState<{ id: string; amount: number } | null>(null);
@@ -1256,6 +1268,29 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
   const rawTotal = items.filter(i => !i.soldOut).reduce((s, i) => s + i.book.final_srp * i.qty, 0);
   const creditApplied = storeCredit ? Math.min(storeCredit.amount, rawTotal) : 0;
   const total = Math.max(0, rawTotal - creditApplied);
+
+  // Check for existing slug when handle changes
+  useEffect(() => {
+    if (slugCheckRef.current) clearTimeout(slugCheckRef.current);
+    const handle = form.tiktok_handle.trim();
+    if (!handle) { setExistingSlug(null); return; }
+    slugCheckRef.current = setTimeout(async () => {
+      setSlugChecking(true);
+      try {
+        const { supabase: sb } = await import('@/lib/supabase');
+        const rawHandle = handle.replace(/^@/, '');
+        const handleWithAt = '@' + rawHandle;
+        const { data } = await sb
+          .from('customer_slugs')
+          .select('user_slug')
+          .or(`tiktok_handle.eq.${rawHandle},tiktok_handle.eq.${handleWithAt}`)
+          .maybeSingle();
+        setExistingSlug(data?.user_slug ?? null);
+      } catch { setExistingSlug(null); }
+      setSlugChecking(false);
+    }, 600);
+    return () => { if (slugCheckRef.current) clearTimeout(slugCheckRef.current); };
+  }, [form.tiktok_handle]);
 
   // Lookup store credit whenever tiktok_handle changes (debounced)
   useEffect(() => {
@@ -1308,6 +1343,15 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
     return `DDS-${date}-${seq}`;
   }
 
+  function generateUserSlug(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let slug = 'DS-';
+    for (let i = 0; i < 8; i++) {
+      slug += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return slug;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.tiktok_handle.trim()) { setError('TikTok Handle is required.'); return; }
@@ -1315,6 +1359,16 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
       setError('PIN must be exactly 4 digits.'); return;
     }
     if (!form.payment_ref.trim()) { setError('GCash Reference Number is required.'); return; }
+
+    // If returning customer (has existing slug), require them to enter it
+    if (existingSlug && !form.user_slug.trim()) {
+      setError('Please enter your User ID. Returning customers must provide their User ID to proceed.');
+      return;
+    }
+    if (existingSlug && form.user_slug.trim().toUpperCase() !== existingSlug.toUpperCase()) {
+      setError('User ID does not match our records. Please check and try again.');
+      return;
+    }
 
     setSubmitting(true);
     setError('');
@@ -1342,7 +1396,6 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
             : Math.max(0, Number(fresh.inventory) - Number(fresh.reserved));
           if (available <= 0) {
             soldOutTitles.push(item.book.title);
-            // Mark as sold out in DB
             await sb.from('books').update({ visibility: 'Reserved' }).eq('id', item.book.id);
           } else if (item.qty > available) {
             setError(`"${item.book.title}" only has ${available} cop${available === 1 ? 'y' : 'ies'} available. Please update your cart.`);
@@ -1394,8 +1447,26 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
           .eq('id', storeCredit.id);
       }
 
+      // ── User Slug: generate if new, use existing if returning ──
+      let finalSlug = existingSlug;
+      let isNewSlug = false;
+      if (!existingSlug) {
+        // Generate unique slug
+        let newSlug = generateUserSlug();
+        let attempts = 0;
+        while (attempts < 5) {
+          const { data: existing } = await sb.from('customer_slugs').select('id').eq('user_slug', newSlug).maybeSingle();
+          if (!existing) break;
+          newSlug = generateUserSlug();
+          attempts++;
+        }
+        await sb.from('customer_slugs').insert({ tiktok_handle: normalizedHandle, user_slug: newSlug });
+        finalSlug = newSlug;
+        isNewSlug = true;
+      }
+
       clearCart();
-      setConfirmation({ order_ref: orderRef, tiktok_handle: normalizedHandle });
+      setConfirmation({ order_ref: orderRef, tiktok_handle: normalizedHandle, user_slug: finalSlug ?? '', is_new_slug: isNewSlug });
     } catch {
       setError('Something went wrong. Please try again or message us on TikTok @daddees.shelf.');
     } finally {
@@ -1418,13 +1489,40 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
               <p className="font-display text-2xl font-bold" style={{ color: '#F0DFC4' }}>{confirmation.order_ref}</p>
             </div>
 
+            {/* User Slug — show prominently for new slugs */}
+            {confirmation.user_slug && (
+              <div className="rounded-xl p-4" style={{ background: confirmation.is_new_slug ? 'rgba(139,92,246,0.15)' : 'rgba(184,134,11,0.08)', border: `1px solid ${confirmation.is_new_slug ? 'rgba(139,92,246,0.5)' : 'rgba(184,134,11,0.3)'}` }}>
+                <p className="text-xs font-bold mb-1 flex items-center gap-1.5" style={{ color: confirmation.is_new_slug ? '#a78bfa' : '#C8A45B' }}>
+                  {confirmation.is_new_slug ? '🆔 Your New User ID' : '🆔 Your User ID'}
+                </p>
+                <p className="font-display text-xl font-bold text-center mb-2" style={{ color: '#F0DFC4', letterSpacing: '0.1em' }}>{confirmation.user_slug}</p>
+                {confirmation.is_new_slug && (
+                  <p className="text-xs leading-relaxed mb-2" style={{ color: '#D4B896' }}>
+                    <strong style={{ color: '#f87171' }}>⚠ Save this User ID!</strong> You will need it for all future orders. Screenshot this screen or copy it now.
+                  </p>
+                )}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(confirmation.user_slug).then(() => {
+                      setSlugCopied(true);
+                      setTimeout(() => setSlugCopied(false), 2000);
+                    });
+                  }}
+                  className="w-full py-2 rounded-lg text-xs font-semibold"
+                  style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.4)' }}
+                >
+                  {slugCopied ? '✓ Copied!' : 'Copy User ID'}
+                </button>
+              </div>
+            )}
+
             {/* TikTok screenshot instruction */}
             <div className="rounded-xl p-4" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)' }}>
               <p className="text-xs font-bold mb-1.5 flex items-center gap-1.5" style={{ color: '#f87171' }}>
                 <span>📸</span> Important Next Step
               </p>
               <p className="text-xs leading-relaxed" style={{ color: '#F0DFC4' }}>
-                <strong>Screenshot this screen</strong> showing your payment reference number, then send it to us on TikTok at{' '}
+                <strong>Screenshot this screen</strong> showing your payment reference number{confirmation.is_new_slug ? ' and User ID' : ''}, then send it to us on TikTok at{' '}
                 <strong style={{ color: '#C8A45B' }}>@daddees.shelf</strong> so we can verify your payment.
               </p>
             </div>
@@ -1509,6 +1607,26 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
             />
             <p className="text-xs mt-1" style={{ color: '#8a7060' }}>You must be a follower of @daddees.shelf to place preorders.</p>
 
+            {/* Slug check indicator */}
+            {form.tiktok_handle.trim() && (
+              <div className="mt-2">
+                {slugChecking ? (
+                  <p className="text-xs flex items-center gap-1.5" style={{ color: '#8a7060' }}>
+                    <span className="inline-block w-3 h-3 rounded-full border border-t-transparent animate-spin" style={{ borderColor: '#8a7060' }} />
+                    Checking account…
+                  </p>
+                ) : existingSlug ? (
+                  <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.35)' }}>
+                    <p className="text-xs font-semibold" style={{ color: '#a78bfa' }}>
+                      ✦ Returning customer detected. Please enter your User ID below.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs" style={{ color: '#10b981' }}>✦ New customer — a User ID will be assigned after your order.</p>
+                )}
+              </div>
+            )}
+
             {/* Store credit status indicator */}
             {form.tiktok_handle.trim() && (
               <div className="mt-2">
@@ -1530,6 +1648,25 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
               </div>
             )}
           </div>
+
+          {/* User Slug — required for returning customers */}
+          {existingSlug && (
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>
+                User ID <span style={{ color: '#f59e0b' }}>*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={form.user_slug}
+                onChange={e => setForm(f => ({ ...f, user_slug: e.target.value.toUpperCase() }))}
+                className="input-field text-sm text-center tracking-widest"
+                placeholder="DS-XXXXXXXX"
+                style={{ fontFamily: 'monospace' }}
+              />
+              <p className="text-xs mt-1" style={{ color: '#8a7060' }}>Enter the User ID you received on your first order.</p>
+            </div>
+          )}
 
           {/* PIN */}
           <div>

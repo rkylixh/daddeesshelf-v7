@@ -30,6 +30,7 @@ interface BookDetailFields {
   goodreads_score: number;
   goodreads_ratings_count: number;
   spice_level: number;
+  gore_level: number;
   why_readers_love: string;
   reader_tags: string[];
   emotional_intensity: number;
@@ -98,7 +99,7 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
 
   // Re-sync form when the book prop is refreshed from the server (e.g. after save)
   useEffect(() => {
-    setForm({ ...book, spice_level: Number(book.spice_level) ?? 0 });
+    setForm({ ...book, spice_level: Number(book.spice_level) ?? 0, gore_level: Number(book.gore_level) ?? 0 });
   }, [book]);
 
   const handleSave = async () => {
@@ -112,6 +113,7 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
         goodreads_score: form.goodreads_score,
         goodreads_ratings_count: form.goodreads_ratings_count,
         spice_level: form.spice_level,
+        gore_level: form.gore_level,
         why_readers_love: form.why_readers_love,
         reader_tags: form.reader_tags,
         emotional_intensity: form.emotional_intensity,
@@ -333,6 +335,32 @@ function BookDetailEditor({ book, onSaved }: { book: BookDetailFields; onSaved: 
           </div>
         </div>
 
+        {/* Gore / Intensity Level */}
+        <div>
+          <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--foreground-subtle)' }}>
+            Intensity / Gore Level (0–5)
+          </label>
+          <div className="flex items-center gap-2 flex-wrap">
+            {[0, 1, 2, 3, 4, 5].map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setForm(f => ({ ...f, gore_level: n }))}
+                className="w-8 h-8 rounded-lg text-xs font-bold transition-all"
+                style={{
+                  background: n <= (form.gore_level ?? 0) && n > 0 ? 'rgba(239,68,68,0.2)' : 'var(--muted)',
+                  color: n <= (form.gore_level ?? 0) && n > 0 ? '#ef4444' : 'var(--foreground-subtle)',
+                  border: `1px solid ${n === form.gore_level ? '#ef4444' : n <= (form.gore_level ?? 0) && n > 0 ? 'rgba(239,68,68,0.5)' : 'var(--border)'}`,
+                  fontWeight: n === form.gore_level ? 700 : 400,
+                }}
+              >
+                {n === 0 ? '—' : '🩸'}
+              </button>
+            ))}
+            <span className="text-xs ml-2" style={{ color: 'var(--foreground-subtle)' }}>{form.gore_level ?? 0}/5</span>
+          </div>
+        </div>
+
         {/* Why Readers Love */}
         <div>
           <label className="block text-xs font-semibold mb-2 uppercase tracking-wider" style={{ color: 'var(--foreground-subtle)' }}>
@@ -495,7 +523,7 @@ function BookDetailManagementContent() {
     setLoading(true);
     const { data } = await supabase
       .from('books')
-      .select('id, title, author, cover_url, synopsis, goodreads_url, goodreads_score, goodreads_ratings_count, spice_level, why_readers_love, reader_tags, emotional_intensity, romance_level, worldbuilding_complexity, pace, humor, darkness, action, quotes, genre, subgenre')
+      .select('id, title, author, cover_url, synopsis, goodreads_url, goodreads_score, goodreads_ratings_count, spice_level, gore_level, why_readers_love, reader_tags, emotional_intensity, romance_level, worldbuilding_complexity, pace, humor, darkness, action, quotes, genre, subgenre')
       .order('title', { ascending: true });
 
     setBooks((data ?? []).map(b => ({
@@ -504,7 +532,8 @@ function BookDetailManagementContent() {
       goodreads_url: b.goodreads_url ?? '',
       goodreads_score: b.goodreads_score ?? 0,
       goodreads_ratings_count: b.goodreads_ratings_count ?? 0,
-      spice_level: Number(b.spice_level) ?? 0,
+            spice_level: Number(b.spice_level) ?? 0,
+      gore_level: Number(b.gore_level) ?? 0,
       why_readers_love: b.why_readers_love ?? '',
       reader_tags: Array.isArray(b.reader_tags) ? b.reader_tags : [],
       emotional_intensity: b.emotional_intensity ?? 0,

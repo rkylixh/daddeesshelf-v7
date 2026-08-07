@@ -17,6 +17,7 @@ interface Props {
 }
 
 const STATUSES = ['Pre-order', 'On Hand', 'Sold Out'];
+const SOURCES = ['Pre-order', 'On Hand', 'Bundle'];
 
 export default function ShopFilters({
   filters,
@@ -48,6 +49,40 @@ export default function ShopFilters({
             Clear all ({activeCount})
           </button>
         )}
+      </div>
+
+      {/* Source */}
+      <div>
+        <label className="block text-xs font-medium mb-2" style={{ color: 'var(--foreground-muted)' }}>
+          Source
+        </label>
+        <div className="space-y-1.5">
+          <button
+            onClick={() => onFilterChange('source', '')}
+            className={`w-full text-left text-sm px-3 py-1.5 rounded-lg transition-all`}
+            style={{
+              background: !filters.source ? 'var(--primary-glow)' : 'transparent',
+              color: !filters.source ? 'var(--primary-bright)' : 'var(--foreground-muted)',
+              border: !filters.source ? '1px solid var(--border-glow)' : '1px solid transparent',
+            }}
+          >
+            All Sources
+          </button>
+          {SOURCES.map(s => (
+            <button
+              key={`filter-source-${s}`}
+              onClick={() => onFilterChange('source', s === filters.source ? '' : s)}
+              className="w-full text-left text-sm px-3 py-1.5 rounded-lg transition-all"
+              style={{
+                background: filters.source === s ? 'var(--primary-glow)' : 'transparent',
+                color: filters.source === s ? 'var(--primary-bright)' : 'var(--foreground-muted)',
+                border: filters.source === s ? '1px solid var(--border-glow)' : '1px solid transparent',
+              }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Genre */}
