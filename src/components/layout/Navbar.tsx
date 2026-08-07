@@ -13,6 +13,7 @@ import { Book } from '@/lib/types';
 export interface CartItem {
   book: Book;
   qty: number;
+  soldOut?: boolean; // true if book became sold out after being added
 }
 
 interface CartContextValue {
@@ -22,6 +23,7 @@ interface CartContextValue {
   updateQty: (bookId: string, qty: number) => void;
   clearCart: () => void;
   total: number;
+  refreshCartStock: () => Promise<void>;
 }
 
 export const CartContext = React.createContext<CartContextValue>({
@@ -31,6 +33,7 @@ export const CartContext = React.createContext<CartContextValue>({
   updateQty: () => {},
   clearCart: () => {},
   total: 0,
+  refreshCartStock: async () => {},
 });
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -39,7 +42,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addItem = useCallback((book: Book) => {
     setItems(prev => {
       const existing = prev.find(i => i.book.id === book.id);
-      if (existing) return prev.map(i => i.book.id === book.id ? { ...i, qty: i.qty + 1 } : i);
+      // Compute available stock: reserved=1 means sold out regardless
+      const isReservedSoldOut = (book.reserved ?? 0) === 1;
+      const available = isReservedSoldOut ? 0 : Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0));
+      if (existing) {
+        // Do not exceed available stock
+        if (existing.qty >= available) return prev; // silently cap
+        return prev.map(i => i.book.id === book.id ? { ...i, qty: i.qty + 1 } : i);
+      }
+      if (available <= 0) return prev; // cannot add sold-out item
       return [...prev, { book, qty: 1 }];
     });
   }, []);
@@ -50,15 +61,64 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const updateQty = useCallback((bookId: string, qty: number) => {
     if (qty <= 0) { removeItem(bookId); return; }
-    setItems(prev => prev.map(i => i.book.id === bookId ? { ...i, qty } : i));
+    setItems(prev => prev.map(i => {
+      if (i.book.id !== bookId) return i;
+      // Enforce stock cap
+      const isReservedSoldOut = (i.book.reserved ?? 0) === 1;
+      const available = isReservedSoldOut ? 0 : Math.max(0, (i.book.inventory ?? 0) - (i.book.reserved ?? 0));
+      const cappedQty = Math.min(qty, available);
+      if (cappedQty <= 0) return i; // don't allow 0 via updateQty (use removeItem)
+      return { ...i, qty: cappedQty };
+    }));
   }, [removeItem]);
 
   const clearCart = useCallback(() => setItems([]), []);
 
-  const total = items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  // Re-fetch book stock for all cart items and mark sold-out ones
+  const refreshCartStock = useCallback(async () => {
+    if (items.length === 0) return;
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const ids = items.map(i => i.book.id);
+      const { data } = await supabase
+        .from('books')
+        .select('id, inventory, reserved, visibility, arrival_date')
+        .in('id', ids);
+      if (!data) return;
+      setItems(prev => prev.map(item => {
+        const fresh = data.find((r: Record<string, unknown>) => r.id === item.book.id);
+        if (!fresh) return item;
+        const isReservedSoldOut = Number(fresh.reserved) === 1;
+        const isVisibilityReserved = fresh.visibility === 'Reserved';
+        const available = (isReservedSoldOut || isVisibilityReserved)
+          ? 0
+          : Math.max(0, Number(fresh.inventory) - Number(fresh.reserved));
+        const soldOut = available <= 0;
+        const cappedQty = soldOut ? item.qty : Math.min(item.qty, available);
+        return {
+          ...item,
+          qty: cappedQty,
+          soldOut,
+          book: {
+            ...item.book,
+            inventory: Number(fresh.inventory),
+            reserved: Number(fresh.reserved),
+            available,
+          },
+        };
+      }));
+    } catch {
+      // ignore
+    }
+  }, [items]);
+
+  const total = items
+    .filter(i => !i.soldOut)
+    .reduce((s, i) => s + i.book.final_srp * i.qty, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQty, clearCart, total }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQty, clearCart, total, refreshCartStock }}>
       {children}
     </CartContext.Provider>
   );
@@ -485,7 +545,50 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
 
 // ── Preorder Cart Drawer ───────────────────────────────────
 function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCheckout: () => void }) {
-  const { items, removeItem, updateQty, total } = useCart();
+  const { items, removeItem, updateQty, total, refreshCartStock } = useCart();
+  const [waitlistHandle, setWaitlistHandle] = useState('');
+  const [waitlistBookId, setWaitlistBookId] = useState<string | null>(null);
+  const [waitlistBookTitle, setWaitlistBookTitle] = useState('');
+  const [waitlistBookSku, setWaitlistBookSku] = useState('');
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistDone, setWaitlistDone] = useState<string[]>([]);
+
+  // Refresh stock when drawer opens
+  useEffect(() => {
+    refreshCartStock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const hasSoldOutItems = items.some(i => i.soldOut);
+
+  const handleJoinWaitlist = async (item: CartItem) => {
+    setWaitlistBookId(item.book.id);
+    setWaitlistBookTitle(item.book.title);
+    setWaitlistBookSku(item.book.sku);
+  };
+
+  const submitWaitlist = async () => {
+    if (!waitlistHandle.trim() || !waitlistBookId) return;
+    setWaitlistLoading(true);
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const handle = waitlistHandle.trim().replace(/^@/, '');
+      await supabase.from('waitlist').insert({
+        tiktok_handle: '@' + handle,
+        book_id: waitlistBookId,
+        book_sku: waitlistBookSku,
+        book_title: waitlistBookTitle,
+      });
+      setWaitlistDone(prev => [...prev, waitlistBookId]);
+      setWaitlistBookId(null);
+      setWaitlistHandle('');
+    } catch {
+      // ignore
+    } finally {
+      setWaitlistLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -509,6 +612,15 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
           </button>
         </div>
 
+        {/* Sold-out warning banner */}
+        {hasSoldOutItems && (
+          <div className="mx-4 mt-3 rounded-xl p-3" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)' }}>
+            <p className="text-xs font-semibold" style={{ color: '#f87171' }}>
+              ⚠ Some items in your cart are now out of stock. Please remove them or join the waitlist before checking out.
+            </p>
+          </div>
+        )}
+
         <div className="flex-1 p-4">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -519,38 +631,85 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
             </div>
           ) : (
             <div className="space-y-3">
-              {items.map(item => (
-                <div
-                  key={item.book.id}
-                  className="flex items-center gap-3 rounded-xl p-3"
-                  style={{ background: 'rgba(184,134,11,0.05)', border: '1px solid var(--border)' }}
-                >
-                  <div className="flex-shrink-0 w-10 h-14 rounded overflow-hidden" style={{ background: 'var(--muted)' }}>
-                    <AppImage src={item.book.cover_url || '/assets/images/no_image.png'} alt={`Cover of ${item.book.title}`} width={40} height={56} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate" style={{ color: 'var(--foreground)' }}>{item.book.title}</p>
-                    <p className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>{item.book.author}</p>
-                    <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--primary-bright)' }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</p>
-                  </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => updateQty(item.book.id, item.qty - 1)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
-                        style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
-                      >−</button>
-                      <span className="text-xs font-bold w-5 text-center" style={{ color: 'var(--foreground)' }}>{item.qty}</span>
-                      <button
-                        onClick={() => updateQty(item.book.id, item.qty + 1)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
-                        style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
-                      >+</button>
+              {items.map(item => {
+                const isReservedSoldOut = (item.book.reserved ?? 0) === 1;
+                const available = isReservedSoldOut ? 0 : Math.max(0, (item.book.inventory ?? 0) - (item.book.reserved ?? 0));
+                const alreadyWaitlisted = waitlistDone.includes(item.book.id);
+                return (
+                  <div
+                    key={item.book.id}
+                    className="flex items-start gap-3 rounded-xl p-3"
+                    style={{
+                      background: item.soldOut ? 'rgba(239,68,68,0.05)' : 'rgba(184,134,11,0.05)',
+                      border: `1px solid ${item.soldOut ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
+                      opacity: item.soldOut ? 0.8 : 1,
+                    }}
+                  >
+                    <div className="flex-shrink-0 w-10 h-14 rounded overflow-hidden relative" style={{ background: 'var(--muted)' }}>
+                      <AppImage src={item.book.cover_url || '/assets/images/no_image.png'} alt={`Cover of ${item.book.title}`} width={40} height={56} className="w-full h-full object-cover" style={{ filter: item.soldOut ? 'grayscale(1)' : 'none' }} />
+                      {item.soldOut && (
+                        <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                          <span className="text-xs font-bold" style={{ color: '#f87171', fontSize: '8px', textAlign: 'center', lineHeight: 1.2 }}>OUT OF STOCK</span>
+                        </div>
+                      )}
                     </div>
-                    <button onClick={() => removeItem(item.book.id)} className="text-xs" style={{ color: '#f87171' }}>Remove</button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate" style={{ color: item.soldOut ? '#f87171' : 'var(--foreground)' }}>{item.book.title}</p>
+                      <p className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>{item.book.author}</p>
+                      {item.soldOut ? (
+                        <div className="mt-1.5 space-y-1">
+                          <p className="text-xs font-semibold" style={{ color: '#f87171' }}>Out of Stock</p>
+                          <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Browse our other titles or join the waitlist.</p>
+                          <div className="flex gap-1.5 mt-1">
+                            {!alreadyWaitlisted ? (
+                              <button
+                                onClick={() => handleJoinWaitlist(item)}
+                                className="text-xs px-2 py-1 rounded-lg font-semibold"
+                                style={{ background: 'rgba(200,164,91,0.15)', color: '#C8A45B', border: '1px solid rgba(200,164,91,0.4)' }}
+                              >
+                                Join Waitlist
+                              </button>
+                            ) : (
+                              <span className="text-xs px-2 py-1 rounded-lg font-semibold" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                                ✓ On Waitlist
+                              </span>
+                            )}
+                            <button onClick={() => removeItem(item.book.id)} className="text-xs px-2 py-1 rounded-lg" style={{ color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}>Remove</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--primary-bright)' }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</p>
+                      )}
+                    </div>
+                    {!item.soldOut && (
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => updateQty(item.book.id, item.qty - 1)}
+                            className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
+                            style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
+                          >−</button>
+                          <span className="text-xs font-bold w-5 text-center" style={{ color: 'var(--foreground)' }}>{item.qty}</span>
+                          <button
+                            onClick={() => updateQty(item.book.id, item.qty + 1)}
+                            disabled={item.qty >= available}
+                            className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
+                            style={{
+                              background: item.qty >= available ? 'rgba(120,100,80,0.1)' : 'var(--muted)',
+                              color: item.qty >= available ? '#9E8E7E' : 'var(--foreground)',
+                              cursor: item.qty >= available ? 'not-allowed' : 'pointer',
+                            }}
+                          >+</button>
+                        </div>
+                        {available > 0 && (
+                          <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>{available} left</span>
+                        )}
+                        <button onClick={() => removeItem(item.book.id)} className="text-xs" style={{ color: '#f87171' }}>Remove</button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -561,15 +720,63 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
               <span className="text-sm font-semibold" style={{ color: 'var(--foreground-muted)' }}>Order Total</span>
               <span className="text-lg font-bold" style={{ color: 'var(--primary-bright)' }}>₱{total.toLocaleString()}</span>
             </div>
-            <button onClick={onCheckout} className="btn-primary w-full py-3 text-sm">
-              Proceed to Checkout ✦
-            </button>
+            {hasSoldOutItems ? (
+              <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                <p className="text-xs font-semibold" style={{ color: '#f87171' }}>Remove out-of-stock items to proceed to checkout.</p>
+              </div>
+            ) : (
+              <button onClick={onCheckout} className="btn-primary w-full py-3 text-sm">
+                Proceed to Checkout ✦
+              </button>
+            )}
             <p className="text-xs text-center mt-2" style={{ color: 'var(--foreground-subtle)' }}>
               GCash payment · Shipping details collected after books arrive in the Philippines
             </p>
           </div>
         )}
       </div>
+
+      {/* Waitlist modal */}
+      {waitlistBookId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(44,26,14,0.97)' }}>
+          <div className="w-full max-w-sm rounded-2xl" style={{ background: '#3A2214', border: '1px solid rgba(200,164,91,0.4)' }}>
+            <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(200,164,91,0.25)' }}>
+              <span className="font-display text-sm font-bold" style={{ color: '#F0DFC4' }}>Join Waitlist</span>
+              <button onClick={() => setWaitlistBookId(null)} className="btn-ghost p-1 rounded-lg" style={{ color: '#C8A45B' }}>
+                <Icon name="XMarkIcon" size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm" style={{ color: '#D4B896' }}>
+                We&apos;ll notify you when <strong style={{ color: '#F0DFC4' }}>{waitlistBookTitle}</strong> is back in stock.
+              </p>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>Your TikTok Handle</label>
+                <input
+                  type="text"
+                  value={waitlistHandle}
+                  onChange={e => setWaitlistHandle(e.target.value)}
+                  className="input-field text-sm"
+                  placeholder="@yourtiktok"
+                  autoFocus
+                  style={{ background: '#2C1A0E', borderColor: 'rgba(200,164,91,0.4)', color: '#F0DFC4' }}
+                />
+              </div>
+              <button
+                onClick={submitWaitlist}
+                disabled={waitlistLoading || !waitlistHandle.trim()}
+                className="btn-primary w-full py-2.5 text-sm"
+                style={{ opacity: waitlistLoading || !waitlistHandle.trim() ? 0.7 : 1 }}
+              >
+                {waitlistLoading ? 'Joining...' : 'Join Waitlist ✦'}
+              </button>
+              <button onClick={() => setWaitlistBookId(null)} className="w-full text-xs text-center" style={{ color: '#A08070', background: 'none', border: 'none', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -813,6 +1020,39 @@ export default function Navbar() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const { items } = useCart();
   const cartCount = items.reduce((s, i) => s + i.qty, 0);
+  const [announcements, setAnnouncements] = useState<{ id: string; title: string; message: string; type: string }[]>([]);
+  const [dismissedBanners, setDismissedBanners] = useState<string[]>([]);
+
+  // Load active announcements
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const now = new Date().toISOString();
+        const { data } = await supabase
+          .from('announcements')
+          .select('id, title, message, type')
+          .eq('is_active', true)
+          .or(`starts_at.is.null,starts_at.lte.${now}`)
+          .or(`ends_at.is.null,ends_at.gte.${now}`)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        if (data) setAnnouncements(data);
+      } catch { /* ignore */ }
+    };
+    fetchAnnouncements();
+  }, []);
+
+  const visibleBanners = announcements.filter(a => !dismissedBanners.includes(a.id));
+
+  const BANNER_COLORS: Record<string, { bg: string; border: string; color: string }> = {
+    info: { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.35)', color: '#93c5fd' },
+    warning: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', color: '#fcd34d' },
+    success: { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.35)', color: '#6ee7b7' },
+    promo: { bg: 'rgba(200,164,91,0.12)', border: 'rgba(200,164,91,0.35)', color: '#C8A45B' },
+    urgent: { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)', color: '#fca5a5' },
+  };
 
   const handleAdminTrigger = useCallback(() => {
     setMobileOpen(false);
@@ -826,13 +1066,37 @@ export default function Navbar() {
 
   return (
     <>
+      {/* Announcement Banners */}
+      {visibleBanners.map(banner => {
+        const style = BANNER_COLORS[banner.type] ?? BANNER_COLORS.info;
+        return (
+          <div
+            key={banner.id}
+            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 text-xs"
+            style={{ background: style.bg, borderBottom: `1px solid ${style.border}`, color: style.color }}
+          >
+            <div className="flex-1 text-center">
+              <strong>{banner.title}:</strong> {banner.message}
+            </div>
+            <button
+              onClick={() => setDismissedBanners(prev => [...prev, banner.id])}
+              className="ml-3 flex-shrink-0 opacity-70 hover:opacity-100"
+              style={{ color: style.color }}
+            >
+              ✕
+            </button>
+          </div>
+        );
+      })}
       <nav
-        className="fixed top-0 left-0 right-0 z-40"
+        className="fixed left-0 right-0 z-40"
         style={{
+          top: visibleBanners.length > 0 ? `${visibleBanners.length * 36}px` : '0px',
           background: 'linear-gradient(180deg, rgba(20,12,4,0.98) 0%, rgba(20,12,4,0.94) 100%)',
           backdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--border)',
           boxShadow: '0 2px 20px rgba(0,0,0,0.4)',
+          transition: 'top 0.2s',
         }}
       >
         <div className="content-wrapper">
@@ -989,7 +1253,7 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
   const [creditLoading, setCreditLoading] = useState(false);
   const creditLookupRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const rawTotal = items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  const rawTotal = items.filter(i => !i.soldOut).reduce((s, i) => s + i.book.final_srp * i.qty, 0);
   const creditApplied = storeCredit ? Math.min(storeCredit.amount, rawTotal) : 0;
   const total = Math.max(0, rawTotal - creditApplied);
 
@@ -1007,7 +1271,6 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
         const { supabase: sb } = await import('@/lib/supabase');
         const rawHandle = handle.replace(/^@/, '');
         const handleWithAt = '@' + rawHandle;
-        // Try both with and without @ prefix
         const { data } = await sb
           .from('store_credits')
           .select('id, amount, tiktok_handle')
@@ -1058,12 +1321,47 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
 
     try {
       const { supabase: sb } = await import('@/lib/supabase');
+
+      // ── Stock validation at checkout time ──────────────────
+      const checkableItems = items.filter(i => !i.soldOut);
+      const bookIds = checkableItems.map(i => i.book.id);
+      const { data: freshBooks } = await sb
+        .from('books')
+        .select('id, inventory, reserved, visibility')
+        .in('id', bookIds);
+
+      if (freshBooks) {
+        const soldOutTitles: string[] = [];
+        for (const item of checkableItems) {
+          const fresh = freshBooks.find((b: Record<string, unknown>) => b.id === item.book.id);
+          if (!fresh) continue;
+          const isReservedSoldOut = Number(fresh.reserved) === 1;
+          const isVisibilityReserved = fresh.visibility === 'Reserved';
+          const available = (isReservedSoldOut || isVisibilityReserved)
+            ? 0
+            : Math.max(0, Number(fresh.inventory) - Number(fresh.reserved));
+          if (available <= 0) {
+            soldOutTitles.push(item.book.title);
+            // Mark as sold out in DB
+            await sb.from('books').update({ visibility: 'Reserved' }).eq('id', item.book.id);
+          } else if (item.qty > available) {
+            setError(`"${item.book.title}" only has ${available} cop${available === 1 ? 'y' : 'ies'} available. Please update your cart.`);
+            setSubmitting(false);
+            return;
+          }
+        }
+        if (soldOutTitles.length > 0) {
+          setError(`The following title(s) are now sold out: ${soldOutTitles.join(', ')}. Please remove them from your cart.`);
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const orderRef = generateOrderRef();
       const hashedPin = await hashPin(form.customer_pin);
-      // Normalize handle: always store WITH @ prefix so My Orders lookup matches
       const rawHandle = form.tiktok_handle.trim().replace(/^@/, '');
       const normalizedHandle = '@' + rawHandle;
-      const orderItems = items.map(i => ({
+      const orderItems = checkableItems.map(i => ({
         sku: i.book.sku,
         title: i.book.title,
         qty: i.qty,
@@ -1175,8 +1473,8 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
 
         {/* Cart summary */}
         <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(184,134,11,0.2)', background: 'rgba(184,134,11,0.04)' }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: '#C8A45B' }}>Your Cart ({items.length} {items.length === 1 ? 'title' : 'titles'})</p>
-          {items.map((item, i) => (
+          <p className="text-xs font-semibold mb-2" style={{ color: '#C8A45B' }}>Your Cart ({items.filter(i => !i.soldOut).length} {items.filter(i => !i.soldOut).length === 1 ? 'title' : 'titles'})</p>
+          {items.filter(i => !i.soldOut).map((item, i) => (
             <div key={i} className="flex justify-between text-xs mb-1">
               <span style={{ color: '#D4B896' }}>{item.book.title} × {item.qty}</span>
               <span style={{ color: '#F0DFC4', fontWeight: 600 }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</span>

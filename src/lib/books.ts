@@ -11,6 +11,8 @@ function getClient() {
 function computeStatus(book: Partial<Book> & { visibility?: string }): Book['status'] {
   // If visibility is explicitly 'Reserved', treat as Sold Out
   if (book.visibility === 'Reserved') return 'Sold Out';
+  // If reserved column equals 1, treat as out of stock regardless of inventory
+  if ((book.reserved ?? 0) === 1) return 'Sold Out';
   const available = (book.inventory ?? 0) - (book.reserved ?? 0);
   if (book.arrival_date && new Date(book.arrival_date) > new Date()) return 'Pre-order';
   if (available > 0) return 'On Hand';

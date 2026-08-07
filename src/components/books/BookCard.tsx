@@ -71,6 +71,10 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // Check if book is sold out (reserved=1 means sold out regardless of inventory)
+    const isReservedSoldOut = (book.reserved ?? 0) === 1;
+    const available = isReservedSoldOut ? 0 : Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0));
+    if (available <= 0 || book.status === 'Sold Out') return;
     addItem(book);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 1800);
