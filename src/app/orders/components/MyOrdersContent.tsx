@@ -137,6 +137,13 @@ function OrderCard({ order }: { order: Order }) {
           <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
             {formatDate(order.created_at)} · {order.items?.length ?? 0} title{(order.items?.length ?? 0) !== 1 ? 's' : ''} · ₱{Number(order.total_price).toLocaleString()}
           </p>
+          {order.waybill_number && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                🚚 Tracking: {order.waybill_number}
+              </span>
+            </div>
+          )}
         </div>
         <Icon name={expanded ? 'ChevronUpIcon' : 'ChevronDownIcon'} size={16} style={{ color: 'var(--foreground-subtle)', flexShrink: 0 } as React.CSSProperties} />
       </button>

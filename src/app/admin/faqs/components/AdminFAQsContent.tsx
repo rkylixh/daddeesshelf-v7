@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import Icon from '@/components/ui/AppIcon';
 import { supabase } from '@/lib/supabase';
+import { logAudit } from '@/lib/auditLog';
 
 interface FAQ {
   id: string;
@@ -78,29 +79,65 @@ export default function AdminFAQsContent() {
   // ── FAQ CRUD ──
   const handleSaveEdit = async (id: string) => {
     setSaving(true);
+    const faq = faqs.find(f => f.id === id);
     const { error } = await supabase.from('faqs').update(editForm).eq('id', id);
     setSaving(false);
     if (error) { showError('Update failed: ' + error.message); return; }
     showSuccess('FAQ updated');
     setEditingId(null);
+    await logAudit({
+      action: 'FAQ_UPDATED',
+      module: 'FAQs',
+      target_ref: editForm.question ?? faq?.question ?? id,
+      prev_value: faq?.question ?? '',
+      new_value: editForm.question ?? '',
+      explanation: `Admin updated FAQ "${editForm.question ?? faq?.question}" in category "${editForm.category ?? faq?.category}"`,
+    });
     loadFaqs();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this FAQ?')) return;
+    const faq = faqs.find(f => f.id === id);
     const { error } = await supabase.from('faqs').delete().eq('id', id);
     if (error) { showError('Delete failed'); return; }
     showSuccess('FAQ deleted');
+    await logAudit({
+      action: 'FAQ_DELETED',
+      module: 'FAQs',
+      target_ref: faq?.question ?? id,
+      prev_value: faq?.question ?? '',
+      new_value: 'DELETED',
+      explanation: `Admin deleted FAQ "${faq?.question}" from category "${faq?.category}"`,
+    });
     loadFaqs();
   };
 
   const handleToggleVisible = async (faq: FAQ) => {
-    await supabase.from('faqs').update({ is_visible: !faq.is_visible }).eq('id', faq.id);
+    const newVal = !faq.is_visible;
+    await supabase.from('faqs').update({ is_visible: newVal }).eq('id', faq.id);
+    await logAudit({
+      action: 'FAQ_VISIBILITY_TOGGLED',
+      module: 'FAQs',
+      target_ref: faq.question,
+      prev_value: faq.is_visible ? 'visible' : 'hidden',
+      new_value: newVal ? 'visible' : 'hidden',
+      explanation: `Admin ${newVal ? 'published' : 'hid'} FAQ "${faq.question}"`,
+    });
     loadFaqs();
   };
 
   const handleToggleFeatured = async (faq: FAQ) => {
-    await supabase.from('faqs').update({ is_featured: !faq.is_featured }).eq('id', faq.id);
+    const newVal = !faq.is_featured;
+    await supabase.from('faqs').update({ is_featured: newVal }).eq('id', faq.id);
+    await logAudit({
+      action: 'FAQ_FEATURED_TOGGLED',
+      module: 'FAQs',
+      target_ref: faq.question,
+      prev_value: faq.is_featured ? 'featured' : 'not featured',
+      new_value: newVal ? 'featured' : 'not featured',
+      explanation: `Admin ${newVal ? 'featured' : 'unfeatured'} FAQ "${faq.question}"`,
+    });
     loadFaqs();
   };
 
@@ -124,6 +161,14 @@ export default function AdminFAQsContent() {
     setSaving(false);
     if (error) { showError('Add failed: ' + error.message); return; }
     showSuccess('FAQ added');
+    await logAudit({
+      action: 'FAQ_ADDED',
+      module: 'FAQs',
+      target_ref: newFaq.question,
+      prev_value: '',
+      new_value: `Category: ${newFaq.category}`,
+      explanation: `Admin added new FAQ "${newFaq.question}" to category "${newFaq.category}"`,
+    });
     setShowAdd(false);
     setNewFaq({ category: '', question: '', answer: '', is_featured: false });
     loadFaqs();
@@ -133,21 +178,46 @@ export default function AdminFAQsContent() {
   const handleApprove = async (q: ReaderQuestion) => {
     await supabase.from('reader_comments').update({ is_published: true, status: 'Approved' }).eq('id', q.id);
     showSuccess('Question approved and published');
+    await logAudit({
+      action: 'READER_QUESTION_APPROVED',
+      module: 'FAQs',
+      target_ref: q.tiktok_handle,
+      prev_value: 'Pending',
+      new_value: 'Approved',
+      explanation: `Admin approved and published reader question from @${q.tiktok_handle}: "${q.comment.slice(0, 80)}"`,
+    });
     loadQuestions();
   };
 
   const handleReject = async (q: ReaderQuestion) => {
     await supabase.from('reader_comments').update({ is_published: false, status: 'Rejected' }).eq('id', q.id);
     showSuccess('Question rejected');
+    await logAudit({
+      action: 'READER_QUESTION_REJECTED',
+      module: 'FAQs',
+      target_ref: q.tiktok_handle,
+      prev_value: q.is_published ? 'Approved' : 'Pending',
+      new_value: 'Rejected',
+      explanation: `Admin rejected reader question from @${q.tiktok_handle}: "${q.comment.slice(0, 80)}"`,
+    });
     loadQuestions();
   };
 
   const handleSaveReply = async (id: string) => {
     setSaving(true);
+    const q = questions.find(item => item.id === id);
     const { error } = await supabase.from('reader_comments').update({ admin_reply: replyText }).eq('id', id);
     setSaving(false);
     if (error) { showError('Reply failed'); return; }
     showSuccess('Reply saved');
+    await logAudit({
+      action: 'READER_QUESTION_REPLIED',
+      module: 'FAQs',
+      target_ref: q?.tiktok_handle ?? id,
+      prev_value: q?.admin_reply ?? '',
+      new_value: replyText,
+      explanation: `Admin saved reply to reader question from @${q?.tiktok_handle ?? id}`,
+    });
     setReplyingId(null);
     setReplyText('');
     loadQuestions();

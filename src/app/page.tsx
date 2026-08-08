@@ -8,7 +8,7 @@ import StarField from '@/components/layout/StarField';
 import HomeHero from './components/HomeHero';
 import BookGrid from '@/components/books/BookGrid';
 import BookCard from '@/components/books/BookCard';
-import { getBooks } from '@/lib/books';
+import { getBooks, mapBookFromRow, isEtaVisible, formatBookPrice } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import Icon from '@/components/ui/AppIcon';
@@ -17,6 +17,7 @@ import AppImage from '@/components/ui/AppImage';
 interface BatchInfo {
   name: string;
   eta: string | null;
+  etaVisible: boolean;
   count: number;
 }
 
@@ -177,7 +178,9 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
                 <div className="p-3">
                   <p className="text-xs font-bold truncate" style={{ color: 'var(--foreground)' }}>{book.title}</p>
                   <p className="text-xs truncate mt-0.5" style={{ color: 'var(--foreground-muted)' }}>{book.author}</p>
-                  <p className="text-xs font-bold mt-1" style={{ color: 'var(--primary-bright)' }}>₱{book.final_srp.toLocaleString()}</p>
+                  <p className="text-xs font-bold mt-1" style={{ color: 'var(--primary-bright)' }}>
+                    {formatBookPrice(book)}
+                  </p>
                 </div>
               </div>
             </Link>
@@ -217,8 +220,19 @@ export default function HomePage() {
   const [batchBooks, setBatchBooks] = useState<Book[]>([]);
   const [bestSellers, setBestSellers] = useState<Book[]>([]);
   const [booktokFavorites, setBooktokFavorites] = useState<Book[]>([]);
+  const [featuredBooks, setFeaturedBooks] = useState<Book[]>([]);
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [howItWorksSteps, setHowItWorksSteps] = useState<{ step: string; icon: string; title: string; desc: string }[]>([
+    { step: '1', icon: 'BookOpenIcon', title: 'Browse & Select', desc: 'Choose titles from the current import batch' },
+    { step: '2', icon: 'ShoppingCartIcon', title: 'Add to Cart', desc: 'Add multiple books to your preorder cart' },
+    { step: '3', icon: 'QrCodeIcon', title: 'Pay via GCash', desc: 'Scan the QR code and send payment' },
+    { step: '4', icon: 'CheckCircleIcon', title: 'Track Your Order', desc: 'Use your PIN to check status anytime' },
+  ]);
+  const [sectionVisibility, setSectionVisibility] = useState({
+    best_sellers: true, current_batch: true, booktok_favorites: true,
+    featured_books: true, how_it_works: true, faqs: true,
+  });
 
   useEffect(() => {
     async function load() {
@@ -238,6 +252,19 @@ export default function HomePage() {
           lowestPrice: prices.length > 0 ? Math.min(...prices) : 0,
           wishlistCount: wishlistRes.count ?? 0,
         });
+
+        // Load homepage settings
+        const { data: settingsData } = await supabase.from('homepage_settings').select('*');
+        if (settingsData) {
+          for (const row of settingsData) {
+            if (row.key === 'how_it_works' && Array.isArray(row.value)) {
+              setHowItWorksSteps(row.value);
+            }
+            if (row.key === 'section_visibility' && row.value) {
+              setSectionVisibility(prev => ({ ...prev, ...row.value }));
+            }
+          }
+        }
 
         const { data: batchRows } = await supabase
           .from('books')
@@ -266,8 +293,14 @@ export default function HomePage() {
 
         const books = await getBooks({ batch: activeBatchName });
         const preorderBooks = books.filter(b => b.status === 'Pre-order');
+        const etaVisible = preorderBooks.some(b => isEtaVisible(b));
 
-        setBatchInfo({ name: activeBatchName, eta: activeBatchEta, count: preorderBooks.length });
+        setBatchInfo({
+          name: activeBatchName,
+          eta: activeBatchEta,
+          etaVisible,
+          count: preorderBooks.length,
+        });
         setBatchBooks(preorderBooks.slice(0, 6));
 
         const { data: seedData } = await supabase
@@ -287,13 +320,25 @@ export default function HomePage() {
             const ordered = seedIds
               .map(id => seedBooks.find((b: Record<string, unknown>) => b.id === id))
               .filter(Boolean) as Record<string, unknown>[];
-            setBestSellers(ordered.map(mapBookRow));
+            setBestSellers(ordered.map(mapBookFromRow));
           }
         } else {
           const topBooks = [...preorderBooks]
             .sort((a, b) => (b.goodreads_score ?? 0) - (a.goodreads_score ?? 0))
             .slice(0, 9);
           setBestSellers(topBooks);
+        }
+
+        // Featured Books — top rated
+        const { data: featuredData } = await supabase
+          .from('books')
+          .select('*')
+          .eq('is_visible', true)
+          .not('goodreads_score', 'is', null)
+          .order('goodreads_score', { ascending: false })
+          .limit(6);
+        if (featuredData && featuredData.length > 0) {
+          setFeaturedBooks(featuredData.map(mapBookFromRow));
         }
 
         const { data: btFavs } = await supabase
@@ -313,7 +358,7 @@ export default function HomePage() {
             const ordered = favIds
               .map(id => favBooks.find((b: Record<string, unknown>) => b.id === id))
               .filter(Boolean) as Record<string, unknown>[];
-            setBooktokFavorites(ordered.map(mapBookRow));
+            setBooktokFavorites(ordered.map(mapBookFromRow));
           }
         }
 
@@ -350,7 +395,7 @@ export default function HomePage() {
           ) : (
             <>
               {/* ── 2. Best Sellers — the front table ── */}
-              {bestSellers.length > 0 && (
+              {sectionVisibility.best_sellers && bestSellers.length > 0 && (
                 <>
                   <BookstoreDivider label="✦ Best-Selling Titles ✦" />
                   <BookstoreSection>
@@ -375,7 +420,7 @@ export default function HomePage() {
               )}
 
               {/* ── 3. Current Import Batch — the new arrivals shelf ── */}
-              {batchInfo && (
+              {sectionVisibility.current_batch && batchInfo && (
                 <>
                   <BookstoreDivider label="✦ Current Import Batch ✦" />
                   <BookstoreSection>
@@ -399,12 +444,22 @@ export default function HomePage() {
                             {batchInfo.name}
                           </h2>
                           <div className="flex flex-wrap items-center gap-4 mt-2">
-                            <div className="flex items-center gap-1.5">
-                              <Icon name="CalendarIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
-                              <span className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
-                                ETA: <strong style={{ color: 'var(--foreground)' }}>{formatEta(batchInfo.eta)}</strong>
-                              </span>
-                            </div>
+                            {batchInfo.etaVisible && batchInfo.eta && (
+                              <div className="flex items-center gap-1.5">
+                                <Icon name="CalendarIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+                                <span className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+                                  ETA: <strong style={{ color: 'var(--foreground)' }}>{formatEta(batchInfo.eta)}</strong>
+                                </span>
+                              </div>
+                            )}
+                            {!batchInfo.etaVisible && (
+                              <div className="flex items-center gap-1.5">
+                                <Icon name="CalendarIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+                                <span className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+                                  ETA: <strong style={{ color: 'var(--foreground)' }}>TBA</strong>
+                                </span>
+                              </div>
+                            )}
                             <div className="flex items-center gap-1.5">
                               <Icon name="BookOpenIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
                               <span className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
@@ -438,7 +493,7 @@ export default function HomePage() {
               )}
 
               {/* ── 4. BookTok Favorites — the curated display shelf ── */}
-              {booktokFavorites.length > 0 && (
+              {sectionVisibility.booktok_favorites && booktokFavorites.length > 0 && (
                 <>
                   <BookstoreDivider label="✦ BookTok Favorites ✦" />
                   <BookstoreSection>
@@ -458,46 +513,66 @@ export default function HomePage() {
                 </>
               )}
 
-              {/* ── 5. How Preordering Works — the notice board ── */}
-              <BookstoreDivider label="✦ How It Works ✦" />
-              <BookstoreSection>
-                <div className="text-center mb-8">
-                  <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>How Preordering Works</h2>
-                  <p className="text-sm max-w-md mx-auto font-serif italic" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
-                    Simple, secure, and hassle-free
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-4xl mx-auto">
-                  {[
-                    { step: '1', icon: 'BookOpenIcon', title: 'Browse & Select', desc: 'Choose titles from the current import batch' },
-                    { step: '2', icon: 'ShoppingCartIcon', title: 'Add to Cart', desc: 'Add multiple books to your preorder cart' },
-                    { step: '3', icon: 'QrCodeIcon', title: 'Pay via GCash', desc: 'Scan the QR code and send payment' },
-                    { step: '4', icon: 'CheckCircleIcon', title: 'Track Your Order', desc: 'Use your PIN to check status anytime' },
-                  ].map(item => (
-                    <div
-                      key={item.step}
-                      className="rounded-xl p-5 text-center"
-                      style={{
-                        background: 'rgba(251,245,236,0.22)',
-                        border: '1px solid rgba(200,164,91,0.45)',
-                        boxShadow: '0 6px 24px rgba(75,53,42,0.14), 0 2px 8px rgba(75,53,42,0.08), inset 0 1px 0 rgba(255,255,255,0.5)',
-                        backdropFilter: 'blur(8px)',
-                        WebkitBackdropFilter: 'blur(8px)',
-                      }}
-                    >
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3"
-                        style={{ background: 'rgba(200,164,91,0.25)', border: '1.5px solid rgba(200,164,91,0.5)' }}
-                      >
-                        <span className="font-display text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>{item.step}</span>
+              {/* ── 4b. Featured Books — top rated ── */}
+              {sectionVisibility.featured_books && featuredBooks.length > 0 && (
+                <>
+                  <BookstoreDivider label="✦ Featured Books ✦" />
+                  <BookstoreSection>
+                    <div className="flex items-end justify-between mb-6">
+                      <div>
+                        <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Featured Books</h2>
+                        <p className="text-sm mt-1 font-serif italic" style={{ color: 'var(--foreground-muted)' }}>
+                          Top-rated titles our readers love
+                        </p>
                       </div>
-                      <Icon name={item.icon as 'BookOpenIcon'} size={20} className="mx-auto mb-2" style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
-                      <h3 className="font-display text-sm font-bold mb-1" style={{ color: 'var(--foreground)' }}>{item.title}</h3>
-                      <p className="text-xs leading-relaxed" style={{ color: 'var(--foreground-muted)' }}>{item.desc}</p>
+                      <Link href="/shop" className="text-sm font-medium flex items-center gap-1" style={{ color: 'var(--primary-bright)' }}>
+                        View all →
+                      </Link>
                     </div>
-                  ))}
-                </div>
-              </BookstoreSection>
+                    <BookGrid books={featuredBooks} />
+                  </BookstoreSection>
+                </>
+              )}
+
+              {/* ── 5. How Preordering Works — the notice board ── */}
+              {sectionVisibility.how_it_works && (
+                <>
+                  <BookstoreDivider label="✦ How It Works ✦" />
+                  <BookstoreSection>
+                    <div className="text-center mb-8">
+                      <h2 className="font-display text-2xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>How Preordering Works</h2>
+                      <p className="text-sm max-w-md mx-auto font-serif italic" style={{ color: 'var(--foreground-muted)', lineHeight: '1.7' }}>
+                        Simple, secure, and hassle-free
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-4xl mx-auto">
+                      {howItWorksSteps.map(item => (
+                        <div
+                          key={item.step}
+                          className="rounded-xl p-5 text-center"
+                          style={{
+                            background: 'rgba(251,245,236,0.22)',
+                            border: '1px solid rgba(200,164,91,0.45)',
+                            boxShadow: '0 6px 24px rgba(75,53,42,0.14), 0 2px 8px rgba(75,53,42,0.08), inset 0 1px 0 rgba(255,255,255,0.5)',
+                            backdropFilter: 'blur(8px)',
+                            WebkitBackdropFilter: 'blur(8px)',
+                          }}
+                        >
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3"
+                            style={{ background: 'rgba(200,164,91,0.25)', border: '1.5px solid rgba(200,164,91,0.5)' }}
+                          >
+                            <span className="font-display text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>{item.step}</span>
+                          </div>
+                          <Icon name={item.icon as 'BookOpenIcon'} size={20} className="mx-auto mb-2" style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+                          <h3 className="font-display text-sm font-bold mb-1" style={{ color: 'var(--foreground)' }}>{item.title}</h3>
+                          <p className="text-xs leading-relaxed" style={{ color: 'var(--foreground-muted)' }}>{item.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </BookstoreSection>
+                </>
+              )}
 
               {/* ── 6. FAQ Preview — the reading corner ── */}
               <BookstoreDivider label="✦ FAQs ✦" />
@@ -617,38 +692,4 @@ function FAQPreview() {
       ))}
     </div>
   );
-}
-
-// ── Book row mapper ────────────────────────────────────────
-function mapBookRow(row: Record<string, unknown>): Book {
-  const available = Number(row.inventory ?? 0) - Number(row.reserved ?? 0);
-  const arrivalDate = row.arrival_date ? String(row.arrival_date) : null;
-  let status: Book['status'] = 'Sold Out';
-  if (arrivalDate && new Date(arrivalDate) > new Date()) status = 'Pre-order';
-  else if (available > 0) status = 'On Hand';
-
-  return {
-    id: String(row.id ?? ''),
-    sku: String(row.sku ?? ''),
-    title: String(row.title ?? ''),
-    author: String(row.author ?? ''),
-    genre: String(row.genre ?? ''),
-    subgenre: String(row.subgenre ?? ''),
-    series: String(row.series ?? ''),
-    series_order: row.series_order != null ? Number(row.series_order) : null,
-    format: (row.format as Book['format']) ?? 'Paperback',
-    edition: String(row.edition ?? ''),
-    final_srp: Number(row.final_srp ?? 0),
-    batch: String(row.batch ?? ''),
-    arrival_date: arrivalDate,
-    inventory: Number(row.inventory ?? 0),
-    reserved: Number(row.reserved ?? 0),
-    synopsis: String(row.synopsis ?? ''),
-    cover_url: String(row.cover_url ?? ''),
-    created_at: String(row.created_at ?? ''),
-    updated_at: String(row.updated_at ?? ''),
-    available,
-    status,
-    goodreads_score: row.goodreads_score != null ? Number(row.goodreads_score) : undefined,
-  } as Book & { goodreads_score?: number };
 }

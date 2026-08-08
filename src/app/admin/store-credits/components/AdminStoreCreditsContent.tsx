@@ -56,10 +56,48 @@ function IssueCreditModal({
     reason: CREDIT_REASONS[0],
     custom_reason: '',
     order_ref: '',
+    note: '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+
+  // Customer selector state
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerResults, setCustomerResults] = useState<{ id: string; tiktok_handle: string }[]>([]);
+  const [customerSearching, setCustomerSearching] = useState(false);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+
+  const searchCustomers = useCallback(async (q: string) => {
+    if (!q.trim()) { setCustomerResults([]); setShowCustomerDropdown(false); return; }
+    setCustomerSearching(true);
+    try {
+      const supabase = createClient();
+      const normalized = q.trim().replace(/^@/, '');
+      const { data } = await supabase
+        .from('customers')
+        .select('id, tiktok_handle')
+        .ilike('tiktok_handle', `%${normalized}%`)
+        .limit(8);
+      setCustomerResults(data ?? []);
+      setShowCustomerDropdown(true);
+    } catch {
+      setCustomerResults([]);
+    } finally {
+      setCustomerSearching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => searchCustomers(customerSearch), 300);
+    return () => clearTimeout(t);
+  }, [customerSearch, searchCustomers]);
+
+  const selectCustomer = (handle: string) => {
+    setForm(f => ({ ...f, tiktok_handle: handle.replace(/^@/, '') }));
+    setCustomerSearch(handle);
+    setShowCustomerDropdown(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,7 +132,7 @@ function IssueCreditModal({
         prev_value: '0',
         new_value: String(amount),
         explanation: `Issued ₱${amount} store credit to @${handle}. Reason: ${finalReason}. Pending activation.`,
-        notes: '',
+        notes: form.note.trim(),
       });
 
       setDone(true);
@@ -134,11 +172,62 @@ function IssueCreditModal({
                 <strong>⚠ Activation Required:</strong> After issuing, you must toggle the credit to Active in the list before the customer can use it.
               </div>
 
+              {/* Customer Selector */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  Customer TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
+                  Select Customer <span style={{ color: 'var(--primary)' }}>*</span>
                 </label>
-                <input type="text" required value={form.tiktok_handle} onChange={e => setForm(f => ({ ...f, tiktok_handle: e.target.value }))} className="input-field text-sm" placeholder="@yourtiktok" />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={e => {
+                      setCustomerSearch(e.target.value);
+                      setForm(f => ({ ...f, tiktok_handle: e.target.value.replace(/^@/, '') }));
+                    }}
+                    className="input-field text-sm"
+                    placeholder="Search customer by TikTok handle..."
+                    autoComplete="off"
+                  />
+                  {customerSearching && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-3.5 h-3.5 rounded-full border-2 animate-spin" style={{ borderColor: 'var(--primary)', borderTopColor: 'transparent' }} />
+                    </div>
+                  )}
+                  {showCustomerDropdown && customerResults.length > 0 && (
+                    <div
+                      className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden shadow-xl z-10"
+                      style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+                    >
+                      {customerResults.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => selectCustomer(c.tiktok_handle)}
+                          className="w-full text-left px-4 py-2.5 text-sm transition-all hover:bg-opacity-10"
+                          style={{ color: 'var(--foreground)', borderBottom: '1px solid var(--border)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(139,92,246,0.1)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          {c.tiktok_handle}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {showCustomerDropdown && customerResults.length === 0 && !customerSearching && customerSearch.trim() && (
+                    <div
+                      className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden shadow-xl z-10 px-4 py-3 text-xs"
+                      style={{ background: 'var(--background-card)', border: '1px solid var(--border)', color: 'var(--foreground-subtle)' }}
+                    >
+                      No customers found. You can still type the handle manually.
+                    </div>
+                  )}
+                </div>
+                {form.tiktok_handle && (
+                  <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+                    Selected: <strong style={{ color: 'var(--primary-bright)' }}>@{form.tiktok_handle}</strong>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -148,9 +237,10 @@ function IssueCreditModal({
                 <input type="number" required min="1" step="0.01" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} className="input-field text-sm" placeholder="e.g. 350" />
               </div>
 
+              {/* Store Credit Reason Selector */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  Reason for Store Credit <span style={{ color: 'var(--primary)' }}>*</span>
+                  Store Credit Reason <span style={{ color: 'var(--primary)' }}>*</span>
                 </label>
                 <select value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} className="select-field text-sm">
                   {CREDIT_REASONS.map(r => <option key={r}>{r}</option>)}
@@ -169,6 +259,19 @@ function IssueCreditModal({
                   Linked Order Ref <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
                 </label>
                 <input type="text" value={form.order_ref} onChange={e => setForm(f => ({ ...f, order_ref: e.target.value }))} className="input-field text-sm font-mono" placeholder="DDS-20260804-XXXX" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                  Admin Note <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+                </label>
+                <textarea
+                  value={form.note}
+                  onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+                  className="input-field text-sm resize-none"
+                  rows={2}
+                  placeholder="Add a transparency note for this action (visible in audit log)..."
+                />
               </div>
 
               {error && <p className="text-xs" style={{ color: '#f87171' }}>{error}</p>}
@@ -197,6 +300,7 @@ function CancelCreditModal({
   onSuccess: () => void;
 }) {
   const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState('');
 
   const handleCancel = async () => {
     setSaving(true);
@@ -212,7 +316,7 @@ function CancelCreditModal({
         prev_value: 'Active',
         new_value: 'Cancelled',
         explanation: `Cancelled ₱${credit.amount} store credit for @${credit.tiktok_handle}`,
-        notes: '',
+        notes: note.trim(),
       });
       onSuccess();
       onClose();
@@ -232,6 +336,19 @@ function CancelCreditModal({
           <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
             This will cancel the <strong style={{ color: 'var(--primary-bright)' }}>₱{credit.amount.toLocaleString()}</strong> credit for <strong>@{credit.tiktok_handle}</strong>. This action cannot be undone.
           </p>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+              Admin Note <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              className="input-field text-sm resize-none w-full"
+              rows={2}
+              placeholder="Reason for cancellation (visible in audit log)..."
+              autoFocus
+            />
+          </div>
           <div className="flex gap-3 justify-end">
             <button onClick={onClose} className="btn-ghost text-sm px-5 py-2.5 rounded-xl">Keep</button>
             <button onClick={handleCancel} disabled={saving} className="text-sm px-6 py-2.5 rounded-xl font-semibold transition-all" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', opacity: saving ? 0.7 : 1 }}>
@@ -256,6 +373,7 @@ function EditReasonModal({
 }) {
   const [reason, setReason] = useState(credit.reason);
   const [customReason, setCustomReason] = useState('');
+  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -273,7 +391,7 @@ function EditReasonModal({
         prev_value: credit.reason,
         new_value: finalReason,
         explanation: `Reason updated for ₱${credit.amount} store credit of @${credit.tiktok_handle}`,
-        notes: '',
+        notes: note.trim(),
       });
       onSuccess();
       onClose();
@@ -303,10 +421,113 @@ function EditReasonModal({
               <input type="text" value={customReason} onChange={e => setCustomReason(e.target.value)} className="input-field text-sm" placeholder="Describe the reason..." />
             </div>
           )}
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+              Admin Note <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              className="input-field text-sm resize-none w-full"
+              rows={2}
+              placeholder="Add a transparency note for this change (visible in audit log)..."
+            />
+          </div>
           <div className="flex gap-3 justify-end">
             <button onClick={onClose} className="btn-ghost text-sm px-5 py-2.5 rounded-xl">Cancel</button>
             <button onClick={handleSave} disabled={saving} className="btn-primary text-sm px-6 py-2.5" style={{ opacity: saving ? 0.7 : 1 }}>
               {saving ? 'Saving...' : 'Save Reason'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Toggle Active Modal ────────────────────────────────────────────────────
+function ToggleActiveModal({
+  credit,
+  onClose,
+  onSuccess,
+}: {
+  credit: StoreCredit;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const newActive = !credit.is_active;
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleToggle = async () => {
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const session = JSON.parse(sessionStorage.getItem('admin_session') ?? '{}');
+      await supabase.from('store_credits').update({ is_active: newActive, updated_at: new Date().toISOString() }).eq('id', credit.id);
+      await supabase.from('audit_logs').insert({
+        admin_handle: session.tiktok_handle ?? 'unknown',
+        action: newActive ? 'STORE_CREDIT_ACTIVATED' : 'STORE_CREDIT_DEACTIVATED',
+        module: 'Store Credits',
+        target_ref: credit.tiktok_handle,
+        prev_value: credit.is_active ? 'Active' : 'Inactive',
+        new_value: newActive ? 'Active' : 'Inactive',
+        explanation: `Store credit of ₱${credit.amount} for @${credit.tiktok_handle} ${newActive ? 'activated' : 'deactivated'}`,
+        notes: note.trim(),
+      });
+      onSuccess();
+      onClose();
+    } catch {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.92)' }}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl overflow-hidden"
+        style={{
+          background: 'var(--background-card)',
+          border: `1px solid ${newActive ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+        }}
+      >
+        <div className="px-6 py-5 space-y-4">
+          <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>
+            {newActive ? 'Activate' : 'Deactivate'} Store Credit?
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+            <strong style={{ color: 'var(--primary-bright)' }}>₱{credit.amount.toLocaleString()}</strong> credit for <strong>@{credit.tiktok_handle}</strong> will be {newActive ? 'activated and usable by the customer' : 'deactivated and temporarily unusable'}.
+          </p>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+              Admin Note <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              className="input-field text-sm resize-none w-full"
+              rows={2}
+              placeholder={`Reason for ${newActive ? 'activating' : 'deactivating'} this credit (visible in audit log)...`}
+              autoFocus
+            />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <button onClick={onClose} className="btn-ghost text-sm px-5 py-2.5 rounded-xl">Cancel</button>
+            <button
+              onClick={handleToggle}
+              disabled={saving}
+              className="text-sm px-6 py-2.5 rounded-xl font-semibold transition-all"
+              style={{
+                background: newActive ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                color: newActive ? '#10b981' : '#f59e0b',
+                border: `1px solid ${newActive ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                opacity: saving ? 0.7 : 1,
+              }}
+            >
+              {saving ? 'Saving...' : (newActive ? 'Activate Credit' : 'Deactivate Credit')}
             </button>
           </div>
         </div>
@@ -323,6 +544,7 @@ export default function AdminStoreCreditsContent() {
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<StoreCredit | null>(null);
   const [editReasonTarget, setEditReasonTarget] = useState<StoreCredit | null>(null);
+  const [toggleTarget, setToggleTarget] = useState<StoreCredit | null>(null);
   const [isOwnerRole, setIsOwnerRole] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -343,7 +565,7 @@ export default function AdminStoreCreditsContent() {
     loadCredits();
     try {
       const session = JSON.parse(sessionStorage.getItem('admin_session') ?? '{}');
-      setIsOwnerRole(session.role === 'Owner');
+      setIsOwnerRole(session.role === 'Owner' || session.role === 'Developer');
     } catch {
       setIsOwnerRole(false);
     }
@@ -411,7 +633,7 @@ export default function AdminStoreCreditsContent() {
       {!isOwnerRole && (
         <div className="rounded-xl p-3 mb-5 text-xs flex items-center gap-2" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
           <span>🔒</span>
-          <span><strong>View Only:</strong> Only the Owner can issue, activate, or cancel store credits.</span>
+          <span><strong>View Only:</strong> Only the Owner or Developer can issue, activate, or cancel store credits.</span>
         </div>
       )}
 
@@ -521,7 +743,7 @@ export default function AdminStoreCreditsContent() {
                     <td className="px-4 py-3">
                       {credit.status === 'Active' ? (
                         <button
-                          onClick={() => isOwnerRole && handleToggleActive(credit)}
+                          onClick={() => isOwnerRole && setToggleTarget(credit)}
                           disabled={togglingId === credit.id || !isOwnerRole}
                           className="relative inline-flex items-center h-6 w-11 rounded-full transition-colors duration-200 focus:outline-none"
                           style={{
@@ -575,6 +797,10 @@ export default function AdminStoreCreditsContent() {
 
       {editReasonTarget && isOwnerRole && (
         <EditReasonModal credit={editReasonTarget} onClose={() => setEditReasonTarget(null)} onSuccess={loadCredits} />
+      )}
+
+      {toggleTarget && isOwnerRole && (
+        <ToggleActiveModal credit={toggleTarget} onClose={() => setToggleTarget(null)} onSuccess={() => { setToggleTarget(null); loadCredits(); }} />
       )}
     </AdminLayout>
   );

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import { supabase } from '@/lib/supabase';
+import { logAudit } from '@/lib/auditLog';
 
 // ── Role definitions ───────────────────────────────────────
 const ROLES = ['Owner', 'Developer', 'Administrator'] as const;
@@ -114,6 +115,7 @@ export default function AdminUsersContent() {
   };
 
   const updateRole = async (handle: string, role: Role) => {
+    const user = users.find(u => u.tiktok_handle === handle);
     setSaving(handle);
     try {
       const { error } = await supabase
@@ -123,6 +125,14 @@ export default function AdminUsersContent() {
       if (error) throw error;
       setUsers(prev => prev.map(u => u.tiktok_handle === handle ? { ...u, role } : u));
       showToast('Role updated');
+      await logAudit({
+        action: 'ADMIN_ROLE_UPDATED',
+        module: 'Admin Users',
+        target_ref: handle,
+        prev_value: user?.role ?? '',
+        new_value: role,
+        explanation: `Admin role for ${handle} changed from "${user?.role ?? 'unknown'}" to "${role}"`,
+      });
     } catch {
       showToast('Update failed — table may not exist yet');
     } finally {
@@ -140,6 +150,14 @@ export default function AdminUsersContent() {
         .eq('tiktok_handle', handle);
       if (error) throw error;
       showToast('PIN updated');
+      await logAudit({
+        action: 'ADMIN_PIN_UPDATED',
+        module: 'Admin Users',
+        target_ref: handle,
+        prev_value: '(hidden)',
+        new_value: '(hidden)',
+        explanation: `Admin PIN updated for ${handle}`,
+      });
       setEditingPin(null);
       setNewPin('');
     } catch {

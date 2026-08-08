@@ -8,6 +8,7 @@ import Icon from '@/components/ui/AppIcon';
 import { Book } from '@/lib/types';
 import { CartContext } from '@/components/layout/Navbar';
 import { WishlistAccountPrompt, WISHLIST_KEY, WISHLIST_ACCOUNT_KEY } from '@/components/layout/Navbar';
+import { isPriceVisible, canPurchase } from '@/lib/books';
 
 interface BookCardProps {
   book: Book;
@@ -71,12 +72,13 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!canPurchase(book)) return;
     addItem(book);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 1800);
   };
 
-  const priceVisible = book.is_price_visible !== false;
+  const priceVisible = isPriceVisible(book);
 
   return (
     <>
@@ -148,7 +150,7 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
               {book.author}
             </p>
             <div className="flex items-center justify-between">
-              {book.is_price_visible !== false ? (
+              {priceVisible ? (
                 <span className="text-sm font-bold tabular-nums" style={{ color: '#8B6A20' }}>
                   ₱{book.final_srp.toLocaleString()}
                 </span>

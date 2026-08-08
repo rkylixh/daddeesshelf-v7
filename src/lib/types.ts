@@ -23,6 +23,7 @@ export interface Book {
   goodreads_score?: number;
   goodreads_ratings_count?: number;
   spice_level?: number;
+  gore_level?: number;
   is_visible?: boolean;
   is_price_visible?: boolean;
   is_eta_visible?: boolean;
@@ -67,6 +68,7 @@ export interface BookFilters {
   series: string;
   author?: string;
   batch?: string;
+  source?: string;
 }
 
 export interface AdminFilters extends BookFilters {
@@ -81,6 +83,32 @@ export interface SupportTicket {
   message: string;
   status: 'New' | 'Open' | 'Waiting for Customer' | 'Resolved' | 'Closed';
   admin_notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OnHandItem {
+  id: string;
+  sku: string;
+  title: string;
+  author: string;
+  genre: string;
+  subgenre: string;
+  series: string;
+  series_order: number | null;
+  format: BookFormat;
+  edition: string;
+  final_srp: number;
+  inventory: number;
+  synopsis: string;
+  cover_url: string;
+  goodreads_url?: string;
+  goodreads_score?: number;
+  spice_level?: number;
+  gore_level?: number;
+  is_visible: boolean;
+  is_price_visible: boolean;
+  notes: string;
   created_at: string;
   updated_at: string;
 }

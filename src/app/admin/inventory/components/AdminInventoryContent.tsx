@@ -12,6 +12,7 @@ import BulkActionsBar from '@/app/inventory-control/components/BulkActionsBar';
 import InventoryTable from '@/app/inventory-control/components/InventoryTable';
 import { supabase } from '@/lib/supabase';
 import AppImage from '@/components/ui/AppImage';
+import { logAudit } from '@/lib/auditLog';
 
 export type ModalMode = 'add' | 'edit' | 'duplicate' | null;
 
@@ -82,6 +83,14 @@ function GenreEditsTab() {
         );
       if (error) throw error;
       toast.success(`Image saved for ${subgenre ?? genre}`);
+      await logAudit({
+        action: 'GENRE_IMAGE_UPDATED',
+        module: 'Inventory',
+        target_ref: subgenre ? `${genre} > ${subgenre}` : genre,
+        prev_value: genreImages.find(r => r.genre === genre && r.subgenre === (subgenre ?? null))?.image_url ?? '',
+        new_value: url,
+        explanation: `Admin updated genre image for "${subgenre ?? genre}"`,
+      });
       await loadGenreImages();
     } catch {
       toast.error('Failed to save image URL');
@@ -319,6 +328,14 @@ export default function AdminInventoryContent() {
       if (updated) {
         setBooks(prev => prev.map(b => b.id === editingBook.id ? updated : b));
         toast.success(`"${data.title}" updated`);
+        await logAudit({
+          action: 'BOOK_UPDATED',
+          module: 'Inventory',
+          target_ref: data.title,
+          prev_value: editingBook.title,
+          new_value: data.title,
+          explanation: `Admin updated book "${data.title}" (SKU: ${data.sku}) in inventory`,
+        });
       } else {
         toast.error('Update failed');
       }
@@ -327,6 +344,14 @@ export default function AdminInventoryContent() {
       if (created) {
         setBooks(prev => [created, ...prev]);
         toast.success(`"${data.title}" added to inventory`);
+        await logAudit({
+          action: 'BOOK_ADDED',
+          module: 'Inventory',
+          target_ref: data.title,
+          prev_value: '',
+          new_value: `SKU: ${data.sku}, Genre: ${data.genre}, Status: ${data.status}`,
+          explanation: `Admin added new book "${data.title}" by ${data.author} (SKU: ${data.sku}) to inventory`,
+        });
       } else {
         toast.error('Create failed');
       }
@@ -341,6 +366,14 @@ export default function AdminInventoryContent() {
     setBooks(prev => prev.filter(b => b.id !== deleteTarget.id));
     setSelectedIds(prev => { const next = new Set(prev); next.delete(deleteTarget.id); return next; });
     toast.success(`"${deleteTarget.title}" deleted`);
+    await logAudit({
+      action: 'BOOK_DELETED',
+      module: 'Inventory',
+      target_ref: deleteTarget.title,
+      prev_value: `SKU: ${deleteTarget.sku}, Status: ${deleteTarget.status}`,
+      new_value: 'DELETED',
+      explanation: `Admin deleted book "${deleteTarget.title}" (SKU: ${deleteTarget.sku}) from inventory`,
+    });
     setDeleteTarget(null);
   }, [deleteTarget]);
 
@@ -352,6 +385,14 @@ export default function AdminInventoryContent() {
     await bulkUpdateBooks(ids, updateData);
     await loadBooks();
     toast.success(`Updated ${ids.length} books`);
+    await logAudit({
+      action: 'BULK_BOOKS_UPDATED',
+      module: 'Inventory',
+      target_ref: `${ids.length} books`,
+      prev_value: '',
+      new_value: `${action}: ${value}`,
+      explanation: `Admin bulk-updated ${ids.length} book(s) — set ${action} to "${value}"`,
+    });
     setSelectedIds(new Set());
   }, [selectedIds]);
 

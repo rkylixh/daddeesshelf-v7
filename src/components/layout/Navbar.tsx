@@ -6,13 +6,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
-import { getBooks } from '@/lib/books';
+import { getBooks, isPriceVisible } from '@/lib/books';
 import { Book } from '@/lib/types';
 
 // ── Preorder Cart Context ──────────────────────────────────
 export interface CartItem {
   book: Book;
   qty: number;
+  soldOut?: boolean; // true if book became sold out after being added
 }
 
 interface CartContextValue {
@@ -22,6 +23,7 @@ interface CartContextValue {
   updateQty: (bookId: string, qty: number) => void;
   clearCart: () => void;
   total: number;
+  refreshCartStock: () => Promise<void>;
 }
 
 export const CartContext = React.createContext<CartContextValue>({
@@ -31,15 +33,26 @@ export const CartContext = React.createContext<CartContextValue>({
   updateQty: () => {},
   clearCart: () => {},
   total: 0,
+  refreshCartStock: async () => {},
 });
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
   const addItem = useCallback((book: Book) => {
+    // Never allow cart add when admin has hidden the price
+    if (!isPriceVisible(book)) return;
     setItems(prev => {
       const existing = prev.find(i => i.book.id === book.id);
-      if (existing) return prev.map(i => i.book.id === book.id ? { ...i, qty: i.qty + 1 } : i);
+      // Compute available stock: reserved=1 means sold out regardless
+      const isReservedSoldOut = (book.reserved ?? 0) === 1;
+      const available = isReservedSoldOut ? 0 : Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0));
+      if (existing) {
+        // Do not exceed available stock
+        if (existing.qty >= available) return prev; // silently cap
+        return prev.map(i => i.book.id === book.id ? { ...i, qty: i.qty + 1 } : i);
+      }
+      if (available <= 0) return prev; // cannot add sold-out item
       return [...prev, { book, qty: 1 }];
     });
   }, []);
@@ -50,15 +63,71 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const updateQty = useCallback((bookId: string, qty: number) => {
     if (qty <= 0) { removeItem(bookId); return; }
-    setItems(prev => prev.map(i => i.book.id === bookId ? { ...i, qty } : i));
+    setItems(prev => prev.map(i => {
+      if (i.book.id !== bookId) return i;
+      // Enforce stock cap
+      const isReservedSoldOut = (i.book.reserved ?? 0) === 1;
+      const available = isReservedSoldOut ? 0 : Math.max(0, (i.book.inventory ?? 0) - (i.book.reserved ?? 0));
+      const cappedQty = Math.min(qty, available);
+      if (cappedQty <= 0) return i; // don't allow 0 via updateQty (use removeItem)
+      return { ...i, qty: cappedQty };
+    }));
   }, [removeItem]);
 
   const clearCart = useCallback(() => setItems([]), []);
 
-  const total = items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  // Re-fetch book stock for all cart items and mark sold-out ones
+  const refreshCartStock = useCallback(async () => {
+    if (items.length === 0) return;
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const ids = items.map(i => i.book.id);
+      const { data } = await supabase
+        .from('books')
+        .select('id, inventory, reserved, visibility, arrival_date, is_price_visible')
+        .in('id', ids);
+      if (!data) return;
+      setItems(prev => prev
+        .map(item => {
+          const fresh = data.find((r: Record<string, unknown>) => r.id === item.book.id);
+          if (!fresh) return item;
+          const priceVisible = fresh.is_price_visible !== false;
+          // Drop titles whose price was hidden after they were added
+          if (!priceVisible) return null;
+          const isReservedSoldOut = Number(fresh.reserved) === 1;
+          const isVisibilityReserved = fresh.visibility === 'Reserved';
+          const available = (isReservedSoldOut || isVisibilityReserved)
+            ? 0
+            : Math.max(0, Number(fresh.inventory) - Number(fresh.reserved));
+          const soldOut = available <= 0;
+          const cappedQty = soldOut ? item.qty : Math.min(item.qty, available);
+          return {
+            ...item,
+            qty: cappedQty,
+            soldOut,
+            book: {
+              ...item.book,
+              inventory: Number(fresh.inventory),
+              reserved: Number(fresh.reserved),
+              available,
+              is_price_visible: priceVisible,
+            },
+          };
+        })
+        .filter((item): item is CartItem => item !== null)
+      );
+    } catch {
+      // ignore
+    }
+  }, [items]);
+
+  const total = items
+    .filter(i => !i.soldOut && isPriceVisible(i.book))
+    .reduce((s, i) => s + i.book.final_srp * i.qty, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQty, clearCart, total }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQty, clearCart, total, refreshCartStock }}>
       {children}
     </CartContext.Provider>
   );
@@ -485,7 +554,50 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
 
 // ── Preorder Cart Drawer ───────────────────────────────────
 function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCheckout: () => void }) {
-  const { items, removeItem, updateQty, total } = useCart();
+  const { items, removeItem, updateQty, total, refreshCartStock } = useCart();
+  const [waitlistHandle, setWaitlistHandle] = useState('');
+  const [waitlistBookId, setWaitlistBookId] = useState<string | null>(null);
+  const [waitlistBookTitle, setWaitlistBookTitle] = useState('');
+  const [waitlistBookSku, setWaitlistBookSku] = useState('');
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistDone, setWaitlistDone] = useState<string[]>([]);
+
+  // Refresh stock when drawer opens
+  useEffect(() => {
+    refreshCartStock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const hasSoldOutItems = items.some(i => i.soldOut);
+
+  const handleJoinWaitlist = async (item: CartItem) => {
+    setWaitlistBookId(item.book.id);
+    setWaitlistBookTitle(item.book.title);
+    setWaitlistBookSku(item.book.sku);
+  };
+
+  const submitWaitlist = async () => {
+    if (!waitlistHandle.trim() || !waitlistBookId) return;
+    setWaitlistLoading(true);
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const handle = waitlistHandle.trim().replace(/^@/, '');
+      await supabase.from('waitlist').insert({
+        tiktok_handle: '@' + handle,
+        book_id: waitlistBookId,
+        book_sku: waitlistBookSku,
+        book_title: waitlistBookTitle,
+      });
+      setWaitlistDone(prev => [...prev, waitlistBookId]);
+      setWaitlistBookId(null);
+      setWaitlistHandle('');
+    } catch {
+      // ignore
+    } finally {
+      setWaitlistLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -509,6 +621,15 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
           </button>
         </div>
 
+        {/* Sold-out warning banner */}
+        {hasSoldOutItems && (
+          <div className="mx-4 mt-3 rounded-xl p-3" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)' }}>
+            <p className="text-xs font-semibold" style={{ color: '#f87171' }}>
+              ⚠ Some items in your cart are now out of stock. Please remove them or join the waitlist before checking out.
+            </p>
+          </div>
+        )}
+
         <div className="flex-1 p-4">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -519,38 +640,89 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
             </div>
           ) : (
             <div className="space-y-3">
-              {items.map(item => (
-                <div
-                  key={item.book.id}
-                  className="flex items-center gap-3 rounded-xl p-3"
-                  style={{ background: 'rgba(184,134,11,0.05)', border: '1px solid var(--border)' }}
-                >
-                  <div className="flex-shrink-0 w-10 h-14 rounded overflow-hidden" style={{ background: 'var(--muted)' }}>
-                    <AppImage src={item.book.cover_url || '/assets/images/no_image.png'} alt={`Cover of ${item.book.title}`} width={40} height={56} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate" style={{ color: 'var(--foreground)' }}>{item.book.title}</p>
-                    <p className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>{item.book.author}</p>
-                    <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--primary-bright)' }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</p>
-                  </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => updateQty(item.book.id, item.qty - 1)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
-                        style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
-                      >−</button>
-                      <span className="text-xs font-bold w-5 text-center" style={{ color: 'var(--foreground)' }}>{item.qty}</span>
-                      <button
-                        onClick={() => updateQty(item.book.id, item.qty + 1)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
-                        style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
-                      >+</button>
+              {items.map(item => {
+                const isReservedSoldOut = (item.book.reserved ?? 0) === 1;
+                const available = isReservedSoldOut ? 0 : Math.max(0, (item.book.inventory ?? 0) - (item.book.reserved ?? 0));
+                const alreadyWaitlisted = waitlistDone.includes(item.book.id);
+                return (
+                  <div
+                    key={item.book.id}
+                    className="flex items-start gap-3 rounded-xl p-3"
+                    style={{
+                      background: item.soldOut ? 'rgba(239,68,68,0.05)' : 'rgba(184,134,11,0.05)',
+                      border: `1px solid ${item.soldOut ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
+                      opacity: item.soldOut ? 0.8 : 1,
+                    }}
+                  >
+                    <div className="flex-shrink-0 w-10 h-14 rounded overflow-hidden relative" style={{ background: 'var(--muted)' }}>
+                      <AppImage src={item.book.cover_url || '/assets/images/no_image.png'} alt={`Cover of ${item.book.title}`} width={40} height={56} className="w-full h-full object-cover" style={{ filter: item.soldOut ? 'grayscale(1)' : 'none' }} />
+                      {item.soldOut && (
+                        <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                          <span className="text-xs font-bold" style={{ color: '#f87171', fontSize: '8px', textAlign: 'center', lineHeight: 1.2 }}>OUT OF STOCK</span>
+                        </div>
+                      )}
                     </div>
-                    <button onClick={() => removeItem(item.book.id)} className="text-xs" style={{ color: '#f87171' }}>Remove</button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate" style={{ color: item.soldOut ? '#f87171' : 'var(--foreground)' }}>{item.book.title}</p>
+                      <p className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>{item.book.author}</p>
+                      {item.soldOut ? (
+                        <div className="mt-1.5 space-y-1">
+                          <p className="text-xs font-semibold" style={{ color: '#f87171' }}>Out of Stock</p>
+                          <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Browse our other titles or join the waitlist.</p>
+                          <div className="flex gap-1.5 mt-1">
+                            {!alreadyWaitlisted ? (
+                              <button
+                                onClick={() => handleJoinWaitlist(item)}
+                                className="text-xs px-2 py-1 rounded-lg font-semibold"
+                                style={{ background: 'rgba(200,164,91,0.15)', color: '#C8A45B', border: '1px solid rgba(200,164,91,0.4)' }}
+                              >
+                                Join Waitlist
+                              </button>
+                            ) : (
+                              <span className="text-xs px-2 py-1 rounded-lg font-semibold" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                                ✓ On Waitlist
+                              </span>
+                            )}
+                            <button onClick={() => removeItem(item.book.id)} className="text-xs px-2 py-1 rounded-lg" style={{ color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}>Remove</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--primary-bright)' }}>
+                          {isPriceVisible(item.book)
+                            ? `₱${(item.book.final_srp * item.qty).toLocaleString()}`
+                            : 'Price TBA'}
+                        </p>
+                      )}
+                    </div>
+                    {!item.soldOut && (
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => updateQty(item.book.id, item.qty - 1)}
+                            className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
+                            style={{ background: 'var(--muted)', color: 'var(--foreground)' }}
+                          >−</button>
+                          <span className="text-xs font-bold w-5 text-center" style={{ color: 'var(--foreground)' }}>{item.qty}</span>
+                          <button
+                            onClick={() => updateQty(item.book.id, item.qty + 1)}
+                            disabled={item.qty >= available}
+                            className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
+                            style={{
+                              background: item.qty >= available ? 'rgba(120,100,80,0.1)' : 'var(--muted)',
+                              color: item.qty >= available ? '#9E8E7E' : 'var(--foreground)',
+                              cursor: item.qty >= available ? 'not-allowed' : 'pointer',
+                            }}
+                          >+</button>
+                        </div>
+                        {available > 0 && (
+                          <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>{available} left</span>
+                        )}
+                        <button onClick={() => removeItem(item.book.id)} className="text-xs" style={{ color: '#f87171' }}>Remove</button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -561,15 +733,63 @@ function PreorderCartDrawer({ onClose, onCheckout }: { onClose: () => void; onCh
               <span className="text-sm font-semibold" style={{ color: 'var(--foreground-muted)' }}>Order Total</span>
               <span className="text-lg font-bold" style={{ color: 'var(--primary-bright)' }}>₱{total.toLocaleString()}</span>
             </div>
-            <button onClick={onCheckout} className="btn-primary w-full py-3 text-sm">
-              Proceed to Checkout ✦
-            </button>
+            {hasSoldOutItems ? (
+              <div className="rounded-xl p-3 text-center" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                <p className="text-xs font-semibold" style={{ color: '#f87171' }}>Remove out-of-stock items to proceed to checkout.</p>
+              </div>
+            ) : (
+              <button onClick={onCheckout} className="btn-primary w-full py-3 text-sm">
+                Proceed to Checkout ✦
+              </button>
+            )}
             <p className="text-xs text-center mt-2" style={{ color: 'var(--foreground-subtle)' }}>
               GCash payment · Shipping details collected after books arrive in the Philippines
             </p>
           </div>
         )}
       </div>
+
+      {/* Waitlist modal */}
+      {waitlistBookId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(44,26,14,0.97)' }}>
+          <div className="w-full max-w-sm rounded-2xl" style={{ background: '#3A2214', border: '1px solid rgba(200,164,91,0.4)' }}>
+            <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(200,164,91,0.25)' }}>
+              <span className="font-display text-sm font-bold" style={{ color: '#F0DFC4' }}>Join Waitlist</span>
+              <button onClick={() => setWaitlistBookId(null)} className="btn-ghost p-1 rounded-lg" style={{ color: '#C8A45B' }}>
+                <Icon name="XMarkIcon" size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm" style={{ color: '#D4B896' }}>
+                We&apos;ll notify you when <strong style={{ color: '#F0DFC4' }}>{waitlistBookTitle}</strong> is back in stock.
+              </p>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>Your TikTok Handle</label>
+                <input
+                  type="text"
+                  value={waitlistHandle}
+                  onChange={e => setWaitlistHandle(e.target.value)}
+                  className="input-field text-sm"
+                  placeholder="@yourtiktok"
+                  autoFocus
+                  style={{ background: '#2C1A0E', borderColor: 'rgba(200,164,91,0.4)', color: '#F0DFC4' }}
+                />
+              </div>
+              <button
+                onClick={submitWaitlist}
+                disabled={waitlistLoading || !waitlistHandle.trim()}
+                className="btn-primary w-full py-2.5 text-sm"
+                style={{ opacity: waitlistLoading || !waitlistHandle.trim() ? 0.7 : 1 }}
+              >
+                {waitlistLoading ? 'Joining...' : 'Join Waitlist ✦'}
+              </button>
+              <button onClick={() => setWaitlistBookId(null)} className="w-full text-xs text-center" style={{ color: '#A08070', background: 'none', border: 'none', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -591,7 +811,9 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
     setLoading(true);
     try {
       const books = await getBooks({ search: q });
-      setResults(books.slice(0, 8));
+      // Filter out hidden titles — only show visible books
+      const visible = books.filter(b => b.is_visible !== false);
+      setResults(visible.slice(0, 8));
       setOpen(true);
     } catch {
       setResults([]);
@@ -680,7 +902,7 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
                 </div>
               </div>
               <div className="flex-shrink-0 text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>
-                ₱{Number(book.final_srp).toLocaleString()}
+                {isPriceVisible(book) ? `₱${Number(book.final_srp).toLocaleString()}` : 'Price TBA'}
               </div>
             </button>
           ))}
@@ -720,7 +942,9 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
     setLoading(true);
     try {
       const books = await getBooks({ search: q });
-      setResults(books.slice(0, 6));
+      // Filter out hidden titles
+      const visible = books.filter(b => b.is_visible !== false);
+      setResults(visible.slice(0, 6));
     } catch {
       setResults([]);
     } finally {
@@ -782,7 +1006,7 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
                 <p className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>{book.author}</p>
               </div>
               <span className="text-xs font-bold flex-shrink-0" style={{ color: 'var(--primary-bright)' }}>
-                ₱{Number(book.final_srp).toLocaleString()}
+                {isPriceVisible(book) ? `₱${Number(book.final_srp).toLocaleString()}` : 'Price TBA'}
               </span>
             </button>
           ))}
@@ -796,6 +1020,7 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
 const NAV_LINKS = [
   { label: 'Home', href: '/' },
   { label: 'Shop', href: '/shop' },
+  { label: 'On Hand', href: '/on-hand' },
   { label: 'Genres', href: '/genres' },
   { label: 'Collections', href: '/collections' },
   { label: 'Wishlist', href: '/wishlist' },
@@ -813,6 +1038,39 @@ export default function Navbar() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const { items } = useCart();
   const cartCount = items.reduce((s, i) => s + i.qty, 0);
+  const [announcements, setAnnouncements] = useState<{ id: string; title: string; message: string; type: string }[]>([]);
+  const [dismissedBanners, setDismissedBanners] = useState<string[]>([]);
+
+  // Load active announcements
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const now = new Date().toISOString();
+        const { data } = await supabase
+          .from('announcements')
+          .select('id, title, message, type')
+          .eq('is_active', true)
+          .or(`starts_at.is.null,starts_at.lte.${now}`)
+          .or(`ends_at.is.null,ends_at.gte.${now}`)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        if (data) setAnnouncements(data);
+      } catch { /* ignore */ }
+    };
+    fetchAnnouncements();
+  }, []);
+
+  const visibleBanners = announcements.filter(a => !dismissedBanners.includes(a.id));
+
+  const BANNER_COLORS: Record<string, { bg: string; border: string; color: string }> = {
+    info: { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.35)', color: '#93c5fd' },
+    warning: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', color: '#fcd34d' },
+    success: { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.35)', color: '#6ee7b7' },
+    promo: { bg: 'rgba(200,164,91,0.12)', border: 'rgba(200,164,91,0.35)', color: '#C8A45B' },
+    urgent: { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)', color: '#fca5a5' },
+  };
 
   const handleAdminTrigger = useCallback(() => {
     setMobileOpen(false);
@@ -826,13 +1084,37 @@ export default function Navbar() {
 
   return (
     <>
+      {/* Announcement Banners */}
+      {visibleBanners.map(banner => {
+        const style = BANNER_COLORS[banner.type] ?? BANNER_COLORS.info;
+        return (
+          <div
+            key={banner.id}
+            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 text-xs"
+            style={{ background: style.bg, borderBottom: `1px solid ${style.border}`, color: style.color }}
+          >
+            <div className="flex-1 text-center">
+              <strong>{banner.title}:</strong> {banner.message}
+            </div>
+            <button
+              onClick={() => setDismissedBanners(prev => [...prev, banner.id])}
+              className="ml-3 flex-shrink-0 opacity-70 hover:opacity-100"
+              style={{ color: style.color }}
+            >
+              ✕
+            </button>
+          </div>
+        );
+      })}
       <nav
-        className="fixed top-0 left-0 right-0 z-40"
+        className="fixed left-0 right-0 z-40"
         style={{
+          top: visibleBanners.length > 0 ? `${visibleBanners.length * 36}px` : '0px',
           background: 'linear-gradient(180deg, rgba(20,12,4,0.98) 0%, rgba(20,12,4,0.94) 100%)',
           backdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--border)',
           boxShadow: '0 2px 20px rgba(0,0,0,0.4)',
+          transition: 'top 0.2s',
         }}
       >
         <div className="content-wrapper">
@@ -980,11 +1262,86 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
     customer_pin: '',
     payment_ref: '',
     notes: '',
+    user_slug: '',
   });
-  const [confirmation, setConfirmation] = useState<{ order_ref: string; tiktok_handle: string } | null>(null);
+  const [confirmation, setConfirmation] = useState<{ order_ref: string; tiktok_handle: string; user_slug: string; is_new_slug: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [slugCopied, setSlugCopied] = useState(false);
 
-  const total = items.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  // ── Existing slug check ───────────────────────────────────
+  const [existingSlug, setExistingSlug] = useState<string | null>(null);
+  const [slugChecking, setSlugChecking] = useState(false);
+  const slugCheckRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Store Credit ──────────────────────────────────────────
+  const [storeCredit, setStoreCredit] = useState<{ id: string; amount: number } | null>(null);
+  const [creditLoading, setCreditLoading] = useState(false);
+  const creditLookupRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const rawTotal = items
+    .filter(i => !i.soldOut && isPriceVisible(i.book))
+    .reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  const creditApplied = storeCredit ? Math.min(storeCredit.amount, rawTotal) : 0;
+  const total = Math.max(0, rawTotal - creditApplied);
+
+  // Check for existing slug when handle changes
+  useEffect(() => {
+    if (slugCheckRef.current) clearTimeout(slugCheckRef.current);
+    const handle = form.tiktok_handle.trim();
+    if (!handle) { setExistingSlug(null); return; }
+    slugCheckRef.current = setTimeout(async () => {
+      setSlugChecking(true);
+      try {
+        const { supabase: sb } = await import('@/lib/supabase');
+        const rawHandle = handle.replace(/^@/, '');
+        const handleWithAt = '@' + rawHandle;
+        const { data } = await sb
+          .from('customer_slugs')
+          .select('user_slug')
+          .or(`tiktok_handle.eq.${rawHandle},tiktok_handle.eq.${handleWithAt}`)
+          .maybeSingle();
+        setExistingSlug(data?.user_slug ?? null);
+      } catch { setExistingSlug(null); }
+      setSlugChecking(false);
+    }, 600);
+    return () => { if (slugCheckRef.current) clearTimeout(slugCheckRef.current); };
+  }, [form.tiktok_handle]);
+
+  // Lookup store credit whenever tiktok_handle changes (debounced)
+  useEffect(() => {
+    if (creditLookupRef.current) clearTimeout(creditLookupRef.current);
+    const handle = form.tiktok_handle.trim();
+    if (!handle) {
+      setStoreCredit(null);
+      return;
+    }
+    creditLookupRef.current = setTimeout(async () => {
+      setCreditLoading(true);
+      try {
+        const { supabase: sb } = await import('@/lib/supabase');
+        const rawHandle = handle.replace(/^@/, '');
+        const handleWithAt = '@' + rawHandle;
+        const { data } = await sb
+          .from('store_credits')
+          .select('id, amount, tiktok_handle')
+          .eq('is_active', true)
+          .eq('status', 'Active')
+          .is('used_on_order_ref', null)
+          .or(`tiktok_handle.eq.${rawHandle},tiktok_handle.eq.${handleWithAt}`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        setStoreCredit(data ? { id: data.id, amount: Number(data.amount) } : null);
+      } catch {
+        setStoreCredit(null);
+      } finally {
+        setCreditLoading(false);
+      }
+    }, 600);
+    return () => {
+      if (creditLookupRef.current) clearTimeout(creditLookupRef.current);
+    };
+  }, [form.tiktok_handle]);
 
   async function hashPin(pin: string): Promise<string> {
     const encoder = new TextEncoder();
@@ -1001,6 +1358,15 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
     return `DDS-${date}-${seq}`;
   }
 
+  function generateUserSlug(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let slug = 'DS-';
+    for (let i = 0; i < 8; i++) {
+      slug += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return slug;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.tiktok_handle.trim()) { setError('TikTok Handle is required.'); return; }
@@ -1009,17 +1375,76 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
     }
     if (!form.payment_ref.trim()) { setError('GCash Reference Number is required.'); return; }
 
+    // If returning customer (has existing slug), require them to enter it
+    if (existingSlug && !form.user_slug.trim()) {
+      setError('Please enter your User ID. Returning customers must provide their User ID to proceed.');
+      return;
+    }
+    if (existingSlug && form.user_slug.trim().toUpperCase() !== existingSlug.toUpperCase()) {
+      setError('User ID does not match our records. Please check and try again.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
 
     try {
       const { supabase: sb } = await import('@/lib/supabase');
+
+      // ── Stock validation at checkout time ──────────────────
+      const checkableItems = items.filter(i => !i.soldOut && isPriceVisible(i.book));
+      if (checkableItems.length === 0) {
+        setError('Your cart has no purchasable titles. Titles with Price TBA cannot be ordered.');
+        setSubmitting(false);
+        return;
+      }
+      const bookIds = checkableItems.map(i => i.book.id);
+      const { data: freshBooks } = await sb
+        .from('books')
+        .select('id, inventory, reserved, visibility, is_price_visible')
+        .in('id', bookIds);
+
+      if (freshBooks) {
+        const soldOutTitles: string[] = [];
+        const priceHiddenTitles: string[] = [];
+        for (const item of checkableItems) {
+          const fresh = freshBooks.find((b: Record<string, unknown>) => b.id === item.book.id);
+          if (!fresh) continue;
+          if (fresh.is_price_visible === false) {
+            priceHiddenTitles.push(item.book.title);
+            continue;
+          }
+          const isReservedSoldOut = Number(fresh.reserved) === 1;
+          const isVisibilityReserved = fresh.visibility === 'Reserved';
+          const available = (isReservedSoldOut || isVisibilityReserved)
+            ? 0
+            : Math.max(0, Number(fresh.inventory) - Number(fresh.reserved));
+          if (available <= 0) {
+            soldOutTitles.push(item.book.title);
+            await sb.from('books').update({ visibility: 'Reserved' }).eq('id', item.book.id);
+          } else if (item.qty > available) {
+            setError(`"${item.book.title}" only has ${available} cop${available === 1 ? 'y' : 'ies'} available. Please update your cart.`);
+            setSubmitting(false);
+            return;
+          }
+        }
+        if (priceHiddenTitles.length > 0) {
+          setError(`The following title(s) no longer have a listed price: ${priceHiddenTitles.join(', ')}. Please remove them from your cart.`);
+          setSubmitting(false);
+          return;
+        }
+        if (soldOutTitles.length > 0) {
+          setError(`The following title(s) are now sold out: ${soldOutTitles.join(', ')}. Please remove them from your cart.`);
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const orderRef = generateOrderRef();
       const hashedPin = await hashPin(form.customer_pin);
-      // Normalize handle: always store WITH @ prefix so My Orders lookup matches
       const rawHandle = form.tiktok_handle.trim().replace(/^@/, '');
       const normalizedHandle = '@' + rawHandle;
-      const orderItems = items.map(i => ({
+      const orderItems = checkableItems.map(i => ({
         sku: i.book.sku,
         title: i.book.title,
         qty: i.qty,
@@ -1039,11 +1464,39 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
         notes: form.notes,
         status: 'Pending Payment Verification',
         is_preorder: true,
+        store_credit_applied: creditApplied > 0 ? creditApplied : 0,
+        store_credit_id: creditApplied > 0 && storeCredit ? storeCredit.id : null,
       });
       if (err) throw err;
 
+      // Mark store credit as used
+      if (creditApplied > 0 && storeCredit) {
+        await sb
+          .from('store_credits')
+          .update({ used_on_order_ref: orderRef, status: 'Used', is_active: false })
+          .eq('id', storeCredit.id);
+      }
+
+      // ── User Slug: generate if new, use existing if returning ──
+      let finalSlug = existingSlug;
+      let isNewSlug = false;
+      if (!existingSlug) {
+        // Generate unique slug
+        let newSlug = generateUserSlug();
+        let attempts = 0;
+        while (attempts < 5) {
+          const { data: existing } = await sb.from('customer_slugs').select('id').eq('user_slug', newSlug).maybeSingle();
+          if (!existing) break;
+          newSlug = generateUserSlug();
+          attempts++;
+        }
+        await sb.from('customer_slugs').insert({ tiktok_handle: normalizedHandle, user_slug: newSlug });
+        finalSlug = newSlug;
+        isNewSlug = true;
+      }
+
       clearCart();
-      setConfirmation({ order_ref: orderRef, tiktok_handle: normalizedHandle });
+      setConfirmation({ order_ref: orderRef, tiktok_handle: normalizedHandle, user_slug: finalSlug ?? '', is_new_slug: isNewSlug });
     } catch {
       setError('Something went wrong. Please try again or message us on TikTok @daddees.shelf.');
     } finally {
@@ -1066,13 +1519,40 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
               <p className="font-display text-2xl font-bold" style={{ color: '#F0DFC4' }}>{confirmation.order_ref}</p>
             </div>
 
+            {/* User Slug — show prominently for new slugs */}
+            {confirmation.user_slug && (
+              <div className="rounded-xl p-4" style={{ background: confirmation.is_new_slug ? 'rgba(139,92,246,0.15)' : 'rgba(184,134,11,0.08)', border: `1px solid ${confirmation.is_new_slug ? 'rgba(139,92,246,0.5)' : 'rgba(184,134,11,0.3)'}` }}>
+                <p className="text-xs font-bold mb-1 flex items-center gap-1.5" style={{ color: confirmation.is_new_slug ? '#a78bfa' : '#C8A45B' }}>
+                  {confirmation.is_new_slug ? '🆔 Your New User ID' : '🆔 Your User ID'}
+                </p>
+                <p className="font-display text-xl font-bold text-center mb-2" style={{ color: '#F0DFC4', letterSpacing: '0.1em' }}>{confirmation.user_slug}</p>
+                {confirmation.is_new_slug && (
+                  <p className="text-xs leading-relaxed mb-2" style={{ color: '#D4B896' }}>
+                    <strong style={{ color: '#f87171' }}>⚠ Save this User ID!</strong> You will need it for all future orders. Screenshot this screen or copy it now.
+                  </p>
+                )}
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(confirmation.user_slug).then(() => {
+                      setSlugCopied(true);
+                      setTimeout(() => setSlugCopied(false), 2000);
+                    });
+                  }}
+                  className="w-full py-2 rounded-lg text-xs font-semibold"
+                  style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.4)' }}
+                >
+                  {slugCopied ? '✓ Copied!' : 'Copy User ID'}
+                </button>
+              </div>
+            )}
+
             {/* TikTok screenshot instruction */}
             <div className="rounded-xl p-4" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)' }}>
               <p className="text-xs font-bold mb-1.5 flex items-center gap-1.5" style={{ color: '#f87171' }}>
                 <span>📸</span> Important Next Step
               </p>
               <p className="text-xs leading-relaxed" style={{ color: '#F0DFC4' }}>
-                <strong>Screenshot this screen</strong> showing your payment reference number, then send it to us on TikTok at{' '}
+                <strong>Screenshot this screen</strong> showing your payment reference number{confirmation.is_new_slug ? ' and User ID' : ''}, then send it to us on TikTok at{' '}
                 <strong style={{ color: '#C8A45B' }}>@daddees.shelf</strong> so we can verify your payment.
               </p>
             </div>
@@ -1121,13 +1601,20 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
 
         {/* Cart summary */}
         <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(184,134,11,0.2)', background: 'rgba(184,134,11,0.04)' }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: '#C8A45B' }}>Your Cart ({items.length} {items.length === 1 ? 'title' : 'titles'})</p>
-          {items.map((item, i) => (
+          <p className="text-xs font-semibold mb-2" style={{ color: '#C8A45B' }}>Your Cart ({items.filter(i => !i.soldOut && isPriceVisible(i.book)).length} {items.filter(i => !i.soldOut && isPriceVisible(i.book)).length === 1 ? 'title' : 'titles'})</p>
+          {items.filter(i => !i.soldOut && isPriceVisible(i.book)).map((item, i) => (
             <div key={i} className="flex justify-between text-xs mb-1">
               <span style={{ color: '#D4B896' }}>{item.book.title} × {item.qty}</span>
               <span style={{ color: '#F0DFC4', fontWeight: 600 }}>₱{(item.book.final_srp * item.qty).toLocaleString()}</span>
             </div>
           ))}
+          {/* Store credit deduction row */}
+          {creditApplied > 0 && (
+            <div className="flex justify-between text-xs mt-1">
+              <span style={{ color: '#10b981' }}>Store Credit Applied</span>
+              <span style={{ color: '#10b981', fontWeight: 600 }}>−₱{creditApplied.toLocaleString()}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm font-bold mt-2 pt-2" style={{ borderTop: '1px solid rgba(184,134,11,0.2)' }}>
             <span style={{ color: '#F0DFC4' }}>Total</span>
             <span style={{ color: '#C8A45B' }}>₱{total.toLocaleString()}</span>
@@ -1149,7 +1636,67 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
               placeholder="@yourtiktok"
             />
             <p className="text-xs mt-1" style={{ color: '#8a7060' }}>You must be a follower of @daddees.shelf to place preorders.</p>
+
+            {/* Slug check indicator */}
+            {form.tiktok_handle.trim() && (
+              <div className="mt-2">
+                {slugChecking ? (
+                  <p className="text-xs flex items-center gap-1.5" style={{ color: '#8a7060' }}>
+                    <span className="inline-block w-3 h-3 rounded-full border border-t-transparent animate-spin" style={{ borderColor: '#8a7060' }} />
+                    Checking account…
+                  </p>
+                ) : existingSlug ? (
+                  <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.35)' }}>
+                    <p className="text-xs font-semibold" style={{ color: '#a78bfa' }}>
+                      ✦ Returning customer detected. Please enter your User ID below.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs" style={{ color: '#10b981' }}>✦ New customer — a User ID will be assigned after your order.</p>
+                )}
+              </div>
+            )}
+
+            {/* Store credit status indicator */}
+            {form.tiktok_handle.trim() && (
+              <div className="mt-2">
+                {creditLoading ? (
+                  <p className="text-xs flex items-center gap-1.5" style={{ color: '#8a7060' }}>
+                    <span className="inline-block w-3 h-3 rounded-full border border-t-transparent animate-spin" style={{ borderColor: '#8a7060' }} />
+                    Checking for store credit…
+                  </p>
+                ) : storeCredit ? (
+                  <div className="rounded-lg px-3 py-2 flex items-center gap-2" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.35)' }}>
+                    <span style={{ color: '#10b981' }}>✦</span>
+                    <p className="text-xs font-semibold" style={{ color: '#10b981' }}>
+                      Store credit found: <span className="font-bold">₱{storeCredit.amount.toLocaleString()}</span> will be deducted from your total.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs" style={{ color: '#8a7060' }}>No active store credit found for this handle.</p>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* User Slug — required for returning customers */}
+          {existingSlug && (
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>
+                User ID <span style={{ color: '#f59e0b' }}>*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={form.user_slug}
+                onChange={e => setForm(f => ({ ...f, user_slug: e.target.value.toUpperCase() }))}
+                className="input-field text-sm text-center tracking-widest"
+                placeholder="DS-XXXXXXXX"
+                style={{ fontFamily: 'monospace' }}
+              />
+              <p className="text-xs mt-1" style={{ color: '#8a7060' }}>Enter the User ID you received on your first order.</p>
+            </div>
+          )}
 
           {/* PIN */}
           <div>

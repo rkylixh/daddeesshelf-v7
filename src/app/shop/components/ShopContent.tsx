@@ -28,6 +28,7 @@ export default function ShopContent() {
     format: '',
     status: '',
     series: '',
+    source: '',
   });
   const [authorFilter, setAuthorFilter] = useState('');
   const [priceMin, setPriceMin] = useState('');
@@ -69,6 +70,10 @@ export default function ShopContent() {
     if (filters.subgenre) books = books.filter(b => b.subgenre === filters.subgenre);
     if (filters.format) books = books.filter(b => b.format === filters.format);
     if (filters.status) books = books.filter(b => b.status === filters.status);
+    // Source filter: Pre-order = arrival_date in future, On Hand = available now, Bundle = format Bundle
+    if (filters.source === 'Pre-order') books = books.filter(b => b.status === 'Pre-order');
+    else if (filters.source === 'On Hand') books = books.filter(b => b.status === 'On Hand');
+    else if (filters.source === 'Bundle') books = books.filter(b => b.format === 'Bundle');
     // Author filter
     if (authorFilter) books = books.filter(b => b.author === authorFilter);
     // Price range filter
@@ -104,7 +109,7 @@ export default function ShopContent() {
   };
 
   const clearFilters = () => {
-    setFilters({ search: '', genre: '', subgenre: '', format: '', status: '', series: '' });
+    setFilters({ search: '', genre: '', subgenre: '', format: '', status: '', series: '', source: '' });
     setAuthorFilter('');
     setPriceMin('');
     setPriceMax('');

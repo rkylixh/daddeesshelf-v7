@@ -492,6 +492,7 @@ function DeleteOrderModal({
   onDeleted: () => void;
 }) {
   const [pin, setPin] = useState('');
+  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'warn' | 'pin'>('warn');
 
@@ -513,9 +514,9 @@ function DeleteOrderModal({
       return;
     }
 
-    // Hash the entered PIN
+    // Hash the entered PIN (same method as admin login — no salt)
     const encoder = new TextEncoder();
-    const data = encoder.encode(pin + 'daddees-shelf-salt');
+    const data = encoder.encode(pin);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const enteredHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
@@ -565,6 +566,7 @@ function DeleteOrderModal({
       prev_value: order.status,
       new_value: 'DELETED',
       explanation: `Order ${order.ref_number} (${order.tiktok_handle}) deleted by admin. Stock restored for ${order.items?.length ?? 0} item(s).`,
+      notes,
     });
 
     toast.success(`Order ${order.ref_number} deleted. Stock restored.`);
@@ -643,10 +645,21 @@ function DeleteOrderModal({
               value={pin}
               onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="Enter your PIN..."
-              className="input-field text-sm w-full mb-4 text-center tracking-widest font-mono"
+              className="input-field text-sm w-full mb-3 text-center tracking-widest font-mono"
               inputMode="numeric"
               autoFocus
               onKeyDown={e => { if (e.key === 'Enter') handleDelete(); }}
+            />
+
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--foreground-muted)' }}>
+              Admin Note <span className="font-normal" style={{ color: 'var(--foreground-subtle)' }}>(optional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Reason for deleting this order (visible in audit log)..."
+              rows={2}
+              className="input-field text-sm w-full mb-4 resize-none"
             />
 
             <div className="flex gap-2 justify-end">
@@ -1039,17 +1052,15 @@ export default function AdminOrdersContent() {
                     </button>
                   )}
 
-                  {/* Delete order — owner only */}
-                  {ownerAccess && (
-                    <button
-                      onClick={() => setDeleteOrder(order)}
-                      className="text-xs px-3 py-1.5 rounded-lg font-semibold"
-                      style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
-                      title="Delete order and restore stock"
-                    >
-                      🗑 Delete
-                    </button>
-                  )}
+                  {/* Delete order — PIN protected */}
+                  <button
+                    onClick={() => setDeleteOrder(order)}
+                    className="text-xs px-3 py-1.5 rounded-lg font-semibold"
+                    style={{ background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                    title="Delete order and restore stock"
+                  >
+                    🗑 Delete
+                  </button>
 
                   {/* Notes toggle */}
                   <button

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { logAudit } from '@/lib/auditLog';
 
 interface TitleRequest {
   id: string;
@@ -34,7 +35,7 @@ function getAdminSession() {
 
 function isOwner() {
   const session = getAdminSession();
-  return session?.role === 'Owner';
+  return session?.role === 'Owner' || session?.role === 'Developer';
 }
 
 export default function AdminRequestsContent() {
@@ -54,19 +55,46 @@ export default function AdminRequestsContent() {
   };
 
   const updateStatus = async (id: string, status: string) => {
+    const req = requests.find(r => r.id === id);
     await supabase.from('title_requests').update({ status, is_reviewed: true }).eq('id', id);
     loadRequests();
     toast.success('Status updated');
+    await logAudit({
+      action: 'REQUEST_STATUS_UPDATED',
+      module: 'Title Requests',
+      target_ref: req?.requested_title ?? id,
+      prev_value: req?.status ?? '',
+      new_value: status,
+      explanation: `Admin updated status of title request "${req?.requested_title ?? id}" (${req?.tiktok_handle ?? ''}) to "${status}"`,
+    });
   };
 
   const updateNotes = async (id: string, notes: string) => {
+    const req = requests.find(r => r.id === id);
     await supabase.from('title_requests').update({ admin_notes: notes }).eq('id', id);
     toast.success('Notes saved');
+    await logAudit({
+      action: 'REQUEST_NOTES_UPDATED',
+      module: 'Title Requests',
+      target_ref: req?.requested_title ?? id,
+      prev_value: req?.admin_notes ?? '',
+      new_value: notes,
+      explanation: `Admin updated notes for title request "${req?.requested_title ?? id}"`,
+    });
   };
 
   const updateOwnerNotes = async (id: string, notes: string) => {
+    const req = requests.find(r => r.id === id);
     await supabase.from('title_requests').update({ owner_notes: notes }).eq('id', id);
     toast.success('Owner notes saved');
+    await logAudit({
+      action: 'REQUEST_OWNER_NOTES_UPDATED',
+      module: 'Title Requests',
+      target_ref: req?.requested_title ?? id,
+      prev_value: req?.owner_notes ?? '',
+      new_value: notes,
+      explanation: `Owner updated owner notes for title request "${req?.requested_title ?? id}"`,
+    });
   };
 
   const toggleNotes = (id: string) => {

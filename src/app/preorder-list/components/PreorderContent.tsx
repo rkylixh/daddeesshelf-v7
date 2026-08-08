@@ -4,11 +4,10 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
 import StatusBadge from '@/components/books/StatusBadge';
-import { getPreorderBooks } from '@/lib/books';
+import { getPreorderBooks, isPriceVisible, isEtaVisible, canPurchase, formatBookPrice } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useCart } from '@/components/layout/Navbar';
-
 
 // ── Types ──────────────────────────────────────────────────
 interface PreorderItem {
@@ -474,6 +473,7 @@ export default function PreorderContent() {
   };
 
   const addToList = (book: Book) => {
+    if (!canPurchase(book)) return;
     setPreorderList(prev => {
       const existing = prev.find(i => i.book.id === book.id);
       if (existing) return prev.map(i => i.book.id === book.id ? { ...i, qty: i.qty + 1 } : i);
@@ -492,7 +492,9 @@ export default function PreorderContent() {
   };
 
   const isInList = (bookId: string) => preorderList.some(i => i.book.id === bookId);
-  const totalPrice = preorderList.reduce((s, i) => s + i.book.final_srp * i.qty, 0);
+  const totalPrice = preorderList
+    .filter(i => isPriceVisible(i.book))
+    .reduce((s, i) => s + i.book.final_srp * i.qty, 0);
 
   const handleSuccess = (data: ConfirmationData) => {
     setShowForm(false);
@@ -604,7 +606,7 @@ export default function PreorderContent() {
                       )}
                     </div>
                     <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
-                      {books.some(b => b.is_eta_visible !== false) ? (
+                      {books.some(b => isEtaVisible(b)) ? (
                         <>
                           ETA: <strong style={{ color: 'var(--foreground)' }}>{formatDate(batchEta)}</strong>
                           {daysUntil !== null && daysUntil > 0 && (
@@ -627,7 +629,6 @@ export default function PreorderContent() {
                     {books.map(book => {
                       const inList = isInList(book.id);
                       const listItem = preorderList.find(i => i.book.id === book.id);
-                      const available = book.inventory - book.reserved;
 
                       return (
                         <div key={book.id} className="flex flex-col">
@@ -649,8 +650,8 @@ export default function PreorderContent() {
                                 <p className="text-xs font-medium mb-0.5 truncate" style={{ color: 'var(--foreground-subtle)' }}>{book.genre}</p>
                                 <h3 className="font-display text-xs font-semibold leading-snug mb-0.5 line-clamp-2" style={{ color: 'var(--foreground)' }}>{book.title}</h3>
                                 <p className="text-xs mb-1.5 truncate" style={{ color: 'var(--foreground-muted)' }}>{book.author}</p>
-                                {book.is_price_visible !== false ? (
-                                  <p className="text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>₱{book.final_srp.toLocaleString()}</p>
+                                {isPriceVisible(book) ? (
+                                  <p className="text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>{formatBookPrice(book)}</p>
                                 ) : (
                                   <p className="text-xs font-medium" style={{ color: 'var(--foreground-subtle)' }}>Price TBA</p>
                                 )}
@@ -658,7 +659,7 @@ export default function PreorderContent() {
                             </div>
                           </Link>
 
-                          {available > 0 ? (
+                          {canPurchase(book) ? (
                             inList ? (
                               <div className="flex items-center gap-1">
                                 <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) - 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>−</button>
@@ -674,6 +675,10 @@ export default function PreorderContent() {
                                 + Preorder
                               </button>
                             )
+                          ) : !isPriceVisible(book) ? (
+                            <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'rgba(120,100,80,0.10)', color: '#9E8E7E', border: '1px solid rgba(120,100,80,0.25)', cursor: 'not-allowed', opacity: 0.7 }}>
+                              Price TBA
+                            </button>
                           ) : (
                             <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)', cursor: 'not-allowed' }}>
                               Sold Out
@@ -693,7 +698,10 @@ export default function PreorderContent() {
                       This batch will open for preorder once the current batch has substantially sold.
                     </p>
                     <p className="text-xs mt-2" style={{ color: 'var(--foreground-subtle)' }}>
-                      Estimated Arrival: <strong style={{ color: 'var(--foreground)' }}>{formatDate(batchEta)}</strong>
+                      Estimated Arrival:{' '}
+                      <strong style={{ color: 'var(--foreground)' }}>
+                        {books.some(b => isEtaVisible(b)) ? formatDate(batchEta) : 'TBA'}
+                      </strong>
                     </p>
                   </div>
                 )}

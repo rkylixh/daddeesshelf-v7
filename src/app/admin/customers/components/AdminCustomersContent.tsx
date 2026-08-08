@@ -5,6 +5,7 @@ import AdminLayout from '../../components/AdminLayout';
 import Icon from '@/components/ui/AppIcon';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { logAudit } from '@/lib/auditLog';
 
 interface Customer {
   id: string;
@@ -193,6 +194,14 @@ function CustomerDetailPanel({
     setSavingNotes(true);
     const supabase = createClient();
     await supabase.from('customers').update({ notes, updated_at: new Date().toISOString() }).eq('tiktok_handle', customer.tiktok_handle);
+    await logAudit({
+      action: 'CUSTOMER_NOTES_UPDATED',
+      module: 'Customer Management',
+      target_ref: customer.tiktok_handle,
+      prev_value: customer.notes ?? '',
+      new_value: notes,
+      explanation: `Admin updated notes for customer @${customer.tiktok_handle}`,
+    });
     setSavingNotes(false);
   };
 

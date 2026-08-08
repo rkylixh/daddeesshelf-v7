@@ -11,10 +11,47 @@ function getClient() {
 function computeStatus(book: Partial<Book> & { visibility?: string }): Book['status'] {
   // If visibility is explicitly 'Reserved', treat as Sold Out
   if (book.visibility === 'Reserved') return 'Sold Out';
+  // If reserved column equals 1, treat as out of stock regardless of inventory
+  if ((book.reserved ?? 0) === 1) return 'Sold Out';
   const available = (book.inventory ?? 0) - (book.reserved ?? 0);
   if (book.arrival_date && new Date(book.arrival_date) > new Date()) return 'Pre-order';
   if (available > 0) return 'On Hand';
   return 'Sold Out';
+}
+
+/** Admin Price toggle — default true when flag is missing. */
+export function isPriceVisible(book: { is_price_visible?: boolean }): boolean {
+  return book.is_price_visible !== false;
+}
+
+/** Admin ETA toggle — default true when flag is missing. */
+export function isEtaVisible(book: { is_eta_visible?: boolean }): boolean {
+  return book.is_eta_visible !== false;
+}
+
+/** Format storefront price or "Price TBA" when hidden. */
+export function formatBookPrice(book: { is_price_visible?: boolean; final_srp?: number }): string {
+  if (!isPriceVisible(book)) return 'Price TBA';
+  return `₱${Number(book.final_srp ?? 0).toLocaleString()}`;
+}
+
+/**
+ * Whether a title can be added to cart / preordered.
+ * Price must be visible; sold-out / zero stock cannot be purchased.
+ */
+export function canPurchase(book: Book): boolean {
+  if (!isPriceVisible(book)) return false;
+  if (book.status === 'Sold Out') return false;
+  const isReservedSoldOut = (book.reserved ?? 0) === 1;
+  const available = isReservedSoldOut
+    ? 0
+    : Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0));
+  return available > 0;
+}
+
+/** Re-export mapper for homepage / local selects so flags never drift. */
+export function mapBookFromRow(row: Record<string, unknown>): Book {
+  return mapRow(row);
 }
 
 function mapRow(row: Record<string, unknown>): Book {
@@ -40,6 +77,7 @@ function mapRow(row: Record<string, unknown>): Book {
     goodreads_url: row.goodreads_url ? String(row.goodreads_url) : (row.goodreads_link ? String(row.goodreads_link) : undefined),
     goodreads_score: row.goodreads_score != null ? Number(row.goodreads_score) : undefined,
     spice_level: row.spice_level != null ? Number(row.spice_level) : (row.spice_rating != null ? Number(row.spice_rating) : undefined),
+    gore_level: row.gore_level != null ? Number(row.gore_level) : 0,
     is_visible: row.is_visible !== false,
     is_price_visible: row.is_price_visible !== false,
     is_eta_visible: row.is_eta_visible !== false,
