@@ -75,19 +75,33 @@ function GenreEditsTab() {
     const url = urlInputs[key] ?? '';
     setSaving(key);
     try {
-      const { error } = await supabase
-        .from('genre_images')
-        .upsert(
-          { genre, subgenre: subgenre ?? null, image_url: url, updated_at: new Date().toISOString() },
-          { onConflict: 'genre,subgenre' }
-        );
+      const existing = genreImages.find(
+        r => r.genre === genre && (r.subgenre ?? null) === (subgenre ?? null)
+      );
+      const payload = {
+        genre,
+        subgenre: subgenre ?? null,
+        image_url: url,
+        updated_at: new Date().toISOString(),
+      };
+
+      let error;
+      if (existing?.id) {
+        ({ error } = await supabase.from('genre_images').update(payload).eq('id', existing.id));
+      } else if (!url.trim()) {
+        // Nothing to clear
+        setSaving(null);
+        return;
+      } else {
+        ({ error } = await supabase.from('genre_images').insert(payload));
+      }
       if (error) throw error;
       toast.success(`Image saved for ${subgenre ?? genre}`);
       await logAudit({
         action: 'GENRE_IMAGE_UPDATED',
         module: 'Inventory',
         target_ref: subgenre ? `${genre} > ${subgenre}` : genre,
-        prev_value: genreImages.find(r => r.genre === genre && r.subgenre === (subgenre ?? null))?.image_url ?? '',
+        prev_value: existing?.image_url ?? '',
         new_value: url,
         explanation: `Admin updated genre image for "${subgenre ?? genre}"`,
       });

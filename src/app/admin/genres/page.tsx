@@ -133,7 +133,6 @@ function ImageRow({ label, icon, imageMap, rowKey, genre, subgenre, onSaved, onC
         onCleared(rowKey);
         setStatus('saved');
       } else {
-        // Upsert
         const payload = {
           genre,
           subgenre: subgenre ?? null,
@@ -161,7 +160,8 @@ function ImageRow({ label, icon, imageMap, rowKey, genre, subgenre, onSaved, onC
         }
         setStatus('saved');
       }
-    } catch {
+    } catch (err) {
+      console.error('genre_images save failed:', err);
       setStatus('error');
     } finally {
       setSaving(false);

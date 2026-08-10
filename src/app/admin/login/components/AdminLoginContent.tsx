@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import StarField from '@/components/layout/StarField';
 import { createClient } from '@/lib/supabase/client';
-
-const ADMIN_ACCESS_CODE = 'DADSHELF';
+import { ADMIN_ACCESS_CODE, saveAdminSession } from '@/lib/admin-auth';
 
 type LoginStep = 'code' | 'auth' | 'enter-pin' | 'set-pin';
 
@@ -128,7 +127,7 @@ export default function AdminLoginContent() {
 
       const { data: adminUser, error: dbError } = await supabase
         .from('admin_users')
-        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
+        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active, display_name')
         .eq('id', pendingAdminId)
         .single();
 
@@ -142,12 +141,7 @@ export default function AdminLoginContent() {
         throw new Error('Incorrect PIN. Please try again.');
       }
 
-      sessionStorage.setItem('admin_session', JSON.stringify({
-        id: adminUser.id,
-        tiktok_handle: adminUser.tiktok_handle,
-        role: adminUser.role,
-        authenticated_at: Date.now(),
-      }));
+      saveAdminSession(adminUser);
 
       router.push('/admin/inventory');
     } catch (err: unknown) {
@@ -190,17 +184,12 @@ export default function AdminLoginContent() {
 
       const { data: adminUser } = await supabase
         .from('admin_users')
-        .select('id, tiktok_handle, role')
+        .select('id, tiktok_handle, role, display_name')
         .eq('id', pendingAdminId)
         .single();
 
       if (adminUser) {
-        sessionStorage.setItem('admin_session', JSON.stringify({
-          id: adminUser.id,
-          tiktok_handle: adminUser.tiktok_handle,
-          role: adminUser.role,
-          authenticated_at: Date.now(),
-        }));
+        saveAdminSession(adminUser);
         router.push('/admin/inventory');
       }
     } catch (err: unknown) {

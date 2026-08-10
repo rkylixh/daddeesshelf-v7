@@ -7,6 +7,7 @@ import AppLogo from '@/components/ui/AppLogo';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
 import { getBooks, isPriceVisible } from '@/lib/books';
+import { ADMIN_ACCESS_CODE, saveAdminSession } from '@/lib/admin-auth';
 import { Book } from '@/lib/types';
 
 // ── Preorder Cart Context ──────────────────────────────────
@@ -249,8 +250,6 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const ADMIN_ACCESS_CODE = 'DADSHELF';
-
   async function hashPin(pin: string): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(pin);
@@ -341,18 +340,13 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
       const supabase = createClient();
       const { data: adminUser, error: dbError } = await supabase
         .from('admin_users')
-        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
+        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active, display_name')
         .eq('id', pendingAdminId)
         .single();
       if (dbError || !adminUser) throw new Error('Admin account not found.');
       const pinHash = await hashPin(adminPin);
       if (pinHash !== adminUser.pin_hash) throw new Error('Incorrect PIN. Please try again.');
-      sessionStorage.setItem('admin_session', JSON.stringify({
-        id: adminUser.id,
-        tiktok_handle: adminUser.tiktok_handle,
-        role: adminUser.role,
-        authenticated_at: Date.now(),
-      }));
+      saveAdminSession(adminUser);
       onClose();
       router.push('/admin/inventory');
     } catch (err: unknown) {
@@ -385,16 +379,11 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
       if (updateError) throw updateError;
       const { data: adminUser } = await supabase
         .from('admin_users')
-        .select('id, tiktok_handle, role')
+        .select('id, tiktok_handle, role, display_name')
         .eq('id', pendingAdminId)
         .single();
       if (adminUser) {
-        sessionStorage.setItem('admin_session', JSON.stringify({
-          id: adminUser.id,
-          tiktok_handle: adminUser.tiktok_handle,
-          role: adminUser.role,
-          authenticated_at: Date.now(),
-        }));
+        saveAdminSession(adminUser);
         onClose();
         router.push('/admin/inventory');
       }
@@ -1041,35 +1030,75 @@ export default function Navbar() {
   const [announcements, setAnnouncements] = useState<{ id: string; title: string; message: string; type: string }[]>([]);
   const [dismissedBanners, setDismissedBanners] = useState<string[]>([]);
 
-  // Load active announcements
+  // Load active announcements (client-side date filter — ISO timestamps break PostgREST .or() filters)
   useEffect(() => {
+    let cancelled = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let channel: any = null;
+
     const fetchAnnouncements = async () => {
       try {
         const { createClient } = await import('@/lib/supabase/client');
         const supabase = createClient();
-        const now = new Date().toISOString();
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('announcements')
-          .select('id, title, message, type')
+          .select('id, title, message, type, starts_at, ends_at')
           .eq('is_active', true)
-          .or(`starts_at.is.null,starts_at.lte.${now}`)
-          .or(`ends_at.is.null,ends_at.gte.${now}`)
           .order('created_at', { ascending: false })
-          .limit(3);
-        if (data) setAnnouncements(data);
+          .limit(20);
+        if (error || cancelled) return;
+        const now = Date.now();
+        const active = (data ?? [])
+          .filter(a => {
+            if (a.starts_at && new Date(a.starts_at).getTime() > now) return false;
+            if (a.ends_at && new Date(a.ends_at).getTime() < now) return false;
+            return true;
+          })
+          .slice(0, 3)
+          .map(({ id, title, message, type }) => ({ id, title, message, type }));
+        setAnnouncements(active);
       } catch { /* ignore */ }
     };
-    fetchAnnouncements();
+
+    const setup = async () => {
+      await fetchAnnouncements();
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        channel = supabase
+          .channel('announcements_sync')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => {
+            fetchAnnouncements();
+          })
+          .subscribe();
+      } catch { /* ignore */ }
+    };
+    setup();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchAnnouncements();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      if (channel) {
+        import('@/lib/supabase/client').then(({ createClient }) => {
+          createClient().removeChannel(channel);
+        });
+      }
+    };
   }, []);
 
   const visibleBanners = announcements.filter(a => !dismissedBanners.includes(a.id));
 
-  const BANNER_COLORS: Record<string, { bg: string; border: string; color: string }> = {
-    info: { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.35)', color: '#93c5fd' },
-    warning: { bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', color: '#fcd34d' },
-    success: { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.35)', color: '#6ee7b7' },
-    promo: { bg: 'rgba(200,164,91,0.12)', border: 'rgba(200,164,91,0.35)', color: '#C8A45B' },
-    urgent: { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)', color: '#fca5a5' },
+  const BANNER_COLORS: Record<string, { bg: string; border: string; color: string; title: string }> = {
+    info: { bg: '#1a3352', border: '#60a5fa', color: '#dbeafe', title: '#ffffff' },
+    warning: { bg: '#713f12', border: '#fbbf24', color: '#fef9c3', title: '#ffffff' },
+    success: { bg: '#14532d', border: '#34d399', color: '#d1fae5', title: '#ffffff' },
+    promo: { bg: '#3d2e1f', border: '#C8A45B', color: '#f5ebe0', title: '#FFF8F0' },
+    urgent: { bg: '#7f1d1d', border: '#f87171', color: '#fecaca', title: '#ffffff' },
   };
 
   const handleAdminTrigger = useCallback(() => {
@@ -1084,22 +1113,30 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Announcement Banners */}
-      {visibleBanners.map(banner => {
+      {/* Announcement Banners — stacked with per-banner offset */}
+      {visibleBanners.map((banner, idx) => {
         const style = BANNER_COLORS[banner.type] ?? BANNER_COLORS.info;
         return (
           <div
             key={banner.id}
-            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-2 text-xs"
-            style={{ background: style.bg, borderBottom: `1px solid ${style.border}`, color: style.color }}
+            className="fixed left-0 right-0 z-50 flex items-center justify-between px-4 py-2.5 text-sm font-medium"
+            style={{
+              top: `${idx * 40}px`,
+              background: style.bg,
+              borderBottom: `1px solid ${style.border}`,
+              color: style.color,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            }}
           >
-            <div className="flex-1 text-center">
-              <strong>{banner.title}:</strong> {banner.message}
+            <div className="flex-1 text-center leading-snug">
+              <strong style={{ color: style.title }}>{banner.title}:</strong>{' '}
+              {banner.message}
             </div>
             <button
               onClick={() => setDismissedBanners(prev => [...prev, banner.id])}
-              className="ml-3 flex-shrink-0 opacity-70 hover:opacity-100"
-              style={{ color: style.color }}
+              className="ml-3 flex-shrink-0 opacity-80 hover:opacity-100"
+              style={{ color: style.title }}
+              aria-label="Dismiss announcement"
             >
               ✕
             </button>
@@ -1109,7 +1146,7 @@ export default function Navbar() {
       <nav
         className="fixed left-0 right-0 z-40"
         style={{
-          top: visibleBanners.length > 0 ? `${visibleBanners.length * 36}px` : '0px',
+          top: visibleBanners.length > 0 ? `${visibleBanners.length * 40}px` : '0px',
           background: 'linear-gradient(180deg, rgba(20,12,4,0.98) 0%, rgba(20,12,4,0.94) 100%)',
           backdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--border)',
@@ -1264,6 +1301,7 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
     notes: '',
     user_slug: '',
   });
+  const [pileShipping, setPileShipping] = useState(false);
   const [confirmation, setConfirmation] = useState<{ order_ref: string; tiktok_handle: string; user_slug: string; is_new_slug: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
   const [slugCopied, setSlugCopied] = useState(false);
@@ -1464,6 +1502,7 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
         notes: form.notes,
         status: 'Pending Payment Verification',
         is_preorder: true,
+        is_pile_shipping: pileShipping,
         store_credit_applied: creditApplied > 0 ? creditApplied : 0,
         store_credit_id: creditApplied > 0 && storeCredit ? storeCredit.id : null,
       });
@@ -1751,6 +1790,26 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
             />
             <p className="text-xs mt-1" style={{ color: '#8a7060' }}>Copy the reference number from your GCash transaction receipt.</p>
           </div>
+
+          {/* Pile / Bundle Shipping */}
+          <label
+            className="flex items-start gap-3 rounded-xl p-3 cursor-pointer"
+            style={{ background: pileShipping ? 'rgba(200,164,91,0.12)' : 'rgba(184,134,11,0.04)', border: `1px solid ${pileShipping ? 'rgba(200,164,91,0.45)' : 'rgba(184,134,11,0.2)'}` }}
+          >
+            <input
+              type="checkbox"
+              checked={pileShipping}
+              onChange={e => setPileShipping(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded flex-shrink-0"
+              style={{ accentColor: '#C8A45B' }}
+            />
+            <span>
+              <span className="block text-sm font-semibold" style={{ color: '#F0DFC4' }}>Pile with existing orders.</span>
+              <span className="block text-xs mt-1" style={{ color: '#8a7060', lineHeight: 1.5 }}>
+                Hold this order and combine it with your other active unshipped orders so they ship together as one parcel.
+              </span>
+            </span>
+          </label>
 
           {/* Notes */}
           <div>

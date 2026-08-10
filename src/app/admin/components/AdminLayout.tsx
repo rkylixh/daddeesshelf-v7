@@ -6,6 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 
 import Icon from '@/components/ui/AppIcon';
 import { createClient } from '@/lib/supabase/client';
+import { adminHandlesMatch, normalizeAdminHandle, resolveAdminDisplayName } from '@/lib/admin-auth';
+import { toast } from 'sonner';
 
 const ADMIN_NAV = [
   { label: 'Inventory Control', href: '/admin/inventory', icon: 'ArchiveBoxIcon' },
@@ -28,6 +30,22 @@ const ADMIN_NAV = [
   { label: 'Audit Log', href: '/admin/audit', icon: 'ClipboardDocumentListIcon' },
 ];
 
+type ChatMessage = {
+  id: string;
+  sender_handle: string;
+  sender_display_name: string;
+  message: string;
+  created_at: string;
+};
+
+function mergeChatMessages(existing: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  const byId = new Map(existing.map(m => [m.id, m]));
+  for (const msg of incoming) byId.set(msg.id, msg);
+  return Array.from(byId.values()).sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+}
+
 interface AdminLayoutProps {
   children: React.ReactNode;
   title: string;
@@ -41,58 +59,88 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const adminMenuRef = useRef<HTMLDivElement>(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{ id: string; sender_handle: string; sender_display_name: string; message: string; created_at: string }[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<string | null>(null);
+  const nameByHandleRef = useRef<Map<string, string>>(new Map());
 
   // Get current admin session
   const getAdminSession = () => {
     try {
       const raw = sessionStorage.getItem('admin_session');
       if (!raw) return null;
-      return JSON.parse(raw) as { id: string; tiktok_handle: string; role: string };
+      return JSON.parse(raw) as { id: string; tiktok_handle: string; role: string; display_name?: string };
     } catch { return null; }
   };
 
-  // Heartbeat: upsert admin session every 30s
+  // Heartbeat + online count (run together so count reflects current session)
   useEffect(() => {
     const session = getAdminSession();
     if (!session) return;
 
     const supabase = createClient();
 
-    const upsertSession = async () => {
+    const refreshPresence = async () => {
       try {
-        // Check if session row exists for this admin
-        const { data: existing } = await supabase
+        const now = new Date().toISOString();
+        const { data: existingRows } = await supabase
           .from('admin_sessions')
           .select('id')
           .eq('admin_id', session.id)
-          .maybeSingle();
+          .order('last_seen_at', { ascending: false })
+          .limit(1);
+
+        const existing = existingRows?.[0];
 
         if (existing) {
           await supabase
             .from('admin_sessions')
-            .update({ last_seen_at: new Date().toISOString(), tiktok_handle: session.tiktok_handle })
-            .eq('admin_id', session.id);
+            .update({ last_seen_at: now, tiktok_handle: session.tiktok_handle })
+            .eq('id', existing.id);
           sessionRef.current = existing.id;
-        } else {
-          const { data: inserted } = await supabase
+          await supabase
             .from('admin_sessions')
-            .insert({ admin_id: session.id, tiktok_handle: session.tiktok_handle })
+            .delete()
+            .eq('admin_id', session.id)
+            .neq('id', existing.id);
+        } else {
+          const { data: inserted, error: insertError } = await supabase
+            .from('admin_sessions')
+            .insert({ admin_id: session.id, tiktok_handle: session.tiktok_handle, last_seen_at: now })
             .select('id')
             .single();
-          if (inserted) sessionRef.current = inserted.id;
+          if (inserted) {
+            sessionRef.current = inserted.id;
+          } else if (insertError) {
+            // Row may already exist (unique index) — update by admin_id instead
+            await supabase
+              .from('admin_sessions')
+              .update({ last_seen_at: now, tiktok_handle: session.tiktok_handle })
+              .eq('admin_id', session.id);
+          }
         }
+
+        const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+        const { data: sessions } = await supabase
+          .from('admin_sessions')
+          .select('admin_id')
+          .gte('last_seen_at', twoMinAgo)
+          .not('admin_id', 'is', null);
+
+        const unique = new Set(
+          (sessions ?? []).map(s => s.admin_id).filter(Boolean),
+        );
+        // If heartbeat succeeded but query hasn't caught up, count yourself as online
+        setOnlineCount(Math.max(unique.size, sessionRef.current ? 1 : 0));
       } catch { /* ignore */ }
     };
 
-    upsertSession();
-    const interval = setInterval(upsertSession, 30000);
+    refreshPresence();
+    const interval = setInterval(refreshPresence, 30000);
 
-    // Cleanup: remove session on unmount
     return () => {
       clearInterval(interval);
       if (sessionRef.current) {
@@ -101,45 +149,71 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     };
   }, []);
 
-  // Poll online count (admins seen in last 2 minutes)
-  useEffect(() => {
-    const supabase = createClient();
-    const fetchOnline = async () => {
-      try {
-        const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-        const { count } = await supabase
-          .from('admin_sessions')
-          .select('*', { count: 'exact', head: true })
-          .gte('last_seen_at', twoMinAgo);
-        setOnlineCount(count ?? 0);
-      } catch { /* ignore */ }
-    };
-    fetchOnline();
-    const interval = setInterval(fetchOnline, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Load chat messages
+  // Load chat messages (fetch + poll + realtime)
   useEffect(() => {
     if (!chatOpen) return;
     const supabase = createClient();
-    const fetchMessages = async () => {
-      const { data } = await supabase
-        .from('admin_messages')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(100);
-      if (data) setChatMessages(data);
+
+    const fetchMessages = async (showLoading = false) => {
+      if (showLoading) setChatLoading(true);
+      try {
+        const [{ data: messages, error: msgError }, { data: admins, error: adminError }] = await Promise.all([
+          supabase
+            .from('admin_messages')
+            .select('id, sender_handle, sender_display_name, message, created_at')
+            .order('created_at', { ascending: true })
+            .limit(100),
+          supabase
+            .from('admin_users')
+            .select('tiktok_handle, display_name'),
+        ]);
+
+        if (msgError) {
+          toast.error(`Could not load chat: ${msgError.message}`);
+          return;
+        }
+        if (adminError) {
+          toast.error(`Could not load admin names: ${adminError.message}`);
+        }
+
+        const nameByHandle = new Map(
+          (admins ?? []).map(a => [
+            normalizeAdminHandle(a.tiktok_handle),
+            a.display_name?.trim() || a.tiktok_handle,
+          ]),
+        );
+        nameByHandleRef.current = nameByHandle;
+
+        const resolved = (messages ?? []).map(m => ({
+          ...m,
+          sender_display_name: resolveAdminDisplayName(m, nameByHandle),
+        }));
+        setChatMessages(prev => mergeChatMessages(prev, resolved));
+      } catch {
+        toast.error('Could not load chat messages.');
+      } finally {
+        if (showLoading) setChatLoading(false);
+      }
     };
-    fetchMessages();
-    // Realtime subscription
+
+    fetchMessages(true);
+    const pollInterval = setInterval(() => fetchMessages(false), 5000);
+
     const channel = supabase
       .channel('admin_chat')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_messages' }, payload => {
-        setChatMessages(prev => [...prev, payload.new as typeof chatMessages[0]]);
+        const incoming = payload.new as ChatMessage;
+        setChatMessages(prev => mergeChatMessages(prev, [{
+          ...incoming,
+          sender_display_name: resolveAdminDisplayName(incoming, nameByHandleRef.current),
+        }]));
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
   }, [chatOpen]);
 
   // Scroll chat to bottom
@@ -151,28 +225,60 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     const msg = chatInput.trim();
     if (!msg || chatSending) return;
     const session = getAdminSession();
-    if (!session) return;
+    if (!session) {
+      toast.error('Admin session expired. Please sign in again.');
+      return;
+    }
     setChatSending(true);
     try {
       const supabase = createClient();
-      await supabase.from('admin_messages').insert({
-        sender_handle: session.tiktok_handle,
-        sender_display_name: session.tiktok_handle,
-        message: msg,
-      });
+      let displayName = session.display_name?.trim() || '';
+      if (!displayName) {
+        const { data: adminUser } = await supabase
+          .from('admin_users')
+          .select('display_name')
+          .eq('id', session.id)
+          .maybeSingle();
+        displayName = adminUser?.display_name?.trim() || session.tiktok_handle;
+      }
+
+      const { data: inserted, error } = await supabase
+        .from('admin_messages')
+        .insert({
+          sender_handle: session.tiktok_handle,
+          sender_display_name: displayName,
+          message: msg,
+        })
+        .select('id, sender_handle, sender_display_name, message, created_at')
+        .single();
+
+      if (error) {
+        toast.error(`Failed to send message: ${error.message}`);
+        return;
+      }
+
       setChatInput('');
-    } catch { /* ignore */ } finally {
+      setChatMessages(prev => mergeChatMessages(prev, [{
+        ...inserted,
+        sender_display_name: resolveAdminDisplayName(inserted, nameByHandleRef.current),
+      }]));
+    } catch {
+      toast.error('Failed to send message. Please try again.');
+    } finally {
       setChatSending(false);
     }
   };
 
   const handleSignOut = async () => {
-    // Remove session on sign out
-    if (sessionRef.current) {
-      const supabase = createClient();
+    const session = getAdminSession();
+    const supabase = createClient();
+    // Remove all session rows for this admin
+    if (session?.id) {
+      await supabase.from('admin_sessions').delete().eq('admin_id', session.id);
+    } else if (sessionRef.current) {
       await supabase.from('admin_sessions').delete().eq('id', sessionRef.current);
     }
-    const supabase = createClient();
+    sessionStorage.removeItem('admin_session');
     await supabase.auth.signOut();
     router.push('/admin/login');
   };
@@ -193,10 +299,10 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const currentAdmin = getAdminSession();
 
   return (
-    <div className="flex min-h-screen" style={{ background: 'var(--background)' }}>
-      {/* Sidebar */}
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--background)' }}>
+      {/* Sidebar — always fixed so page scroll never moves it */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:flex`}
+        className={`fixed inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
         style={{ background: '#2C1A0E', borderRight: '1px solid rgba(200,164,91,0.2)', backdropFilter: 'blur(12px)' }}
       >
         {/* Sidebar header */}
@@ -259,11 +365,11 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         />
       )}
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main content — offset for fixed sidebar; only this column scrolls */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden lg:ml-64">
         {/* Top bar */}
         <header
-          className="flex items-center justify-between px-5 h-14 flex-shrink-0 sticky top-0 z-20"
+          className="flex items-center justify-between px-5 h-14 flex-shrink-0 z-20"
           style={{ background: 'rgba(44,26,14,0.97)', borderBottom: '1px solid rgba(200,164,91,0.15)', backdropFilter: 'blur(12px)' }}
         >
           <div className="flex items-center gap-3">
@@ -335,8 +441,8 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-auto p-5">
+        {/* Page content — sole scroll region */}
+        <main className="flex-1 min-h-0 overflow-y-auto p-5">
           {children}
         </main>
       </div>
@@ -364,14 +470,19 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
-              {chatMessages.length === 0 ? (
+              {chatLoading ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin mb-2" style={{ borderColor: 'var(--primary)' }} />
+                  <p className="text-xs" style={{ color: 'rgba(245,230,200,0.4)' }}>Loading messages...</p>
+                </div>
+              ) : chatMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <Icon name="ChatBubbleLeftRightIcon" size={32} style={{ color: 'rgba(200,164,91,0.3)' } as React.CSSProperties} />
                   <p className="text-xs mt-2" style={{ color: 'rgba(245,230,200,0.4)' }}>No messages yet. Say hello!</p>
                 </div>
               ) : (
                 chatMessages.map(msg => {
-                  const isMe = currentAdmin?.tiktok_handle === msg.sender_handle;
+                  const isMe = adminHandlesMatch(currentAdmin?.tiktok_handle ?? '', msg.sender_handle);
                   return (
                     <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                       <div
@@ -381,10 +492,10 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                           border: `1px solid ${isMe ? 'rgba(200,164,91,0.4)' : 'rgba(245,230,200,0.12)'}`,
                         }}
                       >
-                        {!isMe && (
-                          <p className="text-xs font-semibold mb-0.5" style={{ color: '#C8A45B' }}>{msg.sender_handle}</p>
-                        )}
-                        <p className="text-xs" style={{ color: '#F0DFC4', wordBreak: 'break-word' }}>{msg.message}</p>
+                        <p className="text-xs font-semibold mb-0.5" style={{ color: isMe ? '#E8D5A8' : '#C8A45B' }}>
+                          {isMe ? 'You' : (msg.sender_display_name || msg.sender_handle || 'Admin')}
+                        </p>
+                        <p className="text-sm" style={{ color: '#FFF8F0', wordBreak: 'break-word' }}>{msg.message}</p>
                         <p className="text-xs mt-0.5 text-right" style={{ color: 'rgba(245,230,200,0.35)', fontSize: '10px' }}>
                           {new Date(msg.created_at).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
                         </p>
