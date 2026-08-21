@@ -10,7 +10,7 @@ interface Order {
   ref_number: string;
   customer_name: string;
   tiktok_handle: string;
-  items: Array<{ title: string; sku: string; qty: number; price: number }>;
+  items: Array<{ title: string; sku: string; qty: number; price: number; batch?: string }>;
   total_price: number;
   payment_method: string;
   payment_ref: string;
@@ -27,7 +27,89 @@ interface Order {
   is_reviewed: boolean;
   is_test: boolean;
   is_preorder: boolean;
+  is_pile_shipping: boolean;
+  notes: string;
   created_at: string;
+}
+
+const TERMINAL_ORDER_STATUSES = new Set([
+  'Shipped',
+  'Completed',
+  'Cancelled',
+  'Refunded',
+  'Abandoned',
+  'Delivered',
+  'Buyers Remorse',
+]);
+
+/** Merge active unshipped orders for a pile-shipping customer into one combined order. */
+async function mergePileOrders(confirmedOrder: Order): Promise<string | null> {
+  if (!confirmedOrder.is_pile_shipping) return null;
+
+  const handle = confirmedOrder.tiktok_handle?.trim();
+  if (!handle) return null;
+
+  const rawHandle = handle.replace(/^@/, '');
+  const handleWithAt = '@' + rawHandle;
+
+  const { data: siblings } = await supabase
+    .from('orders')
+    .select('id, ref_number, items, total_price, status, is_pile_shipping, notes, admin_notes')
+    .or(`tiktok_handle.eq.${rawHandle},tiktok_handle.eq.${handleWithAt}`)
+    .neq('id', confirmedOrder.id);
+
+  const activeUnshipped = (siblings ?? []).filter(
+    (o: { status: string }) => !TERMINAL_ORDER_STATUSES.has(o.status)
+  );
+  if (activeUnshipped.length === 0) return null;
+
+  type ItemRow = { title: string; sku: string; qty: number; price: number; batch?: string };
+  const mergedItems: ItemRow[] = [...(confirmedOrder.items ?? [])];
+  let mergedTotal = Number(confirmedOrder.total_price) || 0;
+  const mergedRefs: string[] = [];
+
+  for (const sib of activeUnshipped) {
+    const sibItems = (sib.items ?? []) as ItemRow[];
+    for (const item of sibItems) {
+      const existing = mergedItems.find(m => m.sku && item.sku && m.sku === item.sku);
+      if (existing) {
+        existing.qty += item.qty;
+      } else {
+        mergedItems.push({ ...item });
+      }
+    }
+    mergedTotal += Number(sib.total_price) || 0;
+    mergedRefs.push(sib.ref_number);
+  }
+
+  const pileNote = `Pile merged from: ${[confirmedOrder.ref_number, ...mergedRefs].join(', ')}`;
+  const existingNotes = (confirmedOrder.notes || confirmedOrder.admin_notes || '').trim();
+  const combinedNotes = existingNotes ? `${existingNotes}\n${pileNote}` : pileNote;
+
+  const { error: updateError } = await supabase
+    .from('orders')
+    .update({
+      items: mergedItems,
+      total_price: mergedTotal,
+      is_pile_shipping: true,
+      notes: combinedNotes,
+      admin_notes: pileNote,
+    })
+    .eq('id', confirmedOrder.id);
+
+  if (updateError) throw updateError;
+
+  const siblingIds = activeUnshipped.map((o: { id: string }) => o.id);
+  await supabase
+    .from('orders')
+    .update({
+      status: 'Cancelled',
+      admin_notes: `Merged into piled order ${confirmedOrder.ref_number}`,
+      is_reviewed: true,
+    })
+    .in('id', siblingIds);
+
+  return pileNote;
 }
 
 // Payment / order lifecycle statuses ONLY — no shipment statuses here
@@ -177,17 +259,28 @@ function ConfirmPaymentModal({
       return;
     }
 
+    let pileNote: string | null = null;
+    try {
+      pileNote = await mergePileOrders({ ...order, status: newStatus });
+    } catch {
+      toast.error('Payment confirmed, but pile merge failed. Please merge manually.');
+    }
+
     await logAudit({
       action: 'PAYMENT_CONFIRMED',
       module: 'Orders',
       target_ref: order.ref_number,
       prev_value: order.status,
       new_value: newStatus,
-      explanation: `Payment confirmed for order ${order.ref_number} (${order.tiktok_handle}). Ref: ${input.trim()}`,
+      explanation: `Payment confirmed for order ${order.ref_number} (${order.tiktok_handle}). Ref: ${input.trim()}${pileNote ? `. ${pileNote}` : ''}`,
       notes,
     });
 
-    toast.success(`Payment confirmed — order marked as ${newStatus}`);
+    toast.success(
+      pileNote
+        ? `Payment confirmed — orders piled into ${order.ref_number}`
+        : `Payment confirmed — order marked as ${newStatus}`
+    );
     onConfirmed();
     onClose();
   };
@@ -865,6 +958,11 @@ export default function AdminOrdersContent() {
                       {order.is_preorder && (
                         <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)', border: '1px solid rgba(139,92,246,0.3)' }}>
                           Preorder
+                        </span>
+                      )}
+                      {order.is_pile_shipping && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(200,164,91,0.15)', color: '#C8A45B', border: '1px solid rgba(200,164,91,0.35)' }}>
+                          Pile
                         </span>
                       )}
                       {order.is_test && (

@@ -185,6 +185,7 @@ function PreorderFormModal({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [pileShipping, setPileShipping] = useState(false);
   const [storeCredit, setStoreCredit] = useState<{ id: string; amount: number } | null>(null);
   const [checkingCredit, setCheckingCredit] = useState(false);
 
@@ -251,6 +252,7 @@ function PreorderFormModal({
         payment_ref: form.payment_ref,
         notes: form.notes,
         status: 'Pending Payment Verification',
+        is_pile_shipping: pileShipping,
         store_credit_applied: creditApplied,
         store_credit_id: storeCredit?.id ?? null,
       });
@@ -383,6 +385,29 @@ function PreorderFormModal({
               Copy the reference number from your GCash transaction receipt.
             </p>
           </div>
+
+          {/* Pile / Bundle Shipping */}
+          <label
+            className="flex items-start gap-3 rounded-xl p-3 cursor-pointer"
+            style={{
+              background: pileShipping ? 'rgba(200,164,91,0.12)' : 'rgba(184,134,11,0.04)',
+              border: `1px solid ${pileShipping ? 'rgba(200,164,91,0.45)' : 'rgba(184,134,11,0.2)'}`,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={pileShipping}
+              onChange={e => setPileShipping(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded flex-shrink-0"
+              style={{ accentColor: '#C8A45B' }}
+            />
+            <span>
+              <span className="block text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Pile with existing orders.</span>
+              <span className="block text-xs mt-1" style={{ color: 'var(--foreground-subtle)', lineHeight: 1.5 }}>
+                Hold this order and combine it with your other active unshipped orders so they ship together as one parcel.
+              </span>
+            </span>
+          </label>
 
           {/* Notes */}
           <div>

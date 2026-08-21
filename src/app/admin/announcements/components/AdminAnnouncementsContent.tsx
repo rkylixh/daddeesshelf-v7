@@ -39,6 +39,23 @@ function getAdminHandle(): string {
 
 const EMPTY_FORM = { title: '', message: '', type: 'info', is_active: true, starts_at: '', ends_at: '' };
 
+/** datetime-local has no timezone — convert browser-local time to UTC for Postgres */
+function datetimeLocalToISO(value: string): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
+
+/** Show stored UTC timestamps in the admin's local timezone */
+function isoToDatetimeLocal(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function AdminAnnouncementsContent() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,8 +95,8 @@ export default function AdminAnnouncementsContent() {
       message: a.message,
       type: a.type,
       is_active: a.is_active,
-      starts_at: a.starts_at ? a.starts_at.slice(0, 16) : '',
-      ends_at: a.ends_at ? a.ends_at.slice(0, 16) : '',
+      starts_at: isoToDatetimeLocal(a.starts_at),
+      ends_at: isoToDatetimeLocal(a.ends_at),
     });
     setError('');
     setShowForm(true);
@@ -96,15 +113,17 @@ export default function AdminAnnouncementsContent() {
         message: form.message.trim(),
         type: form.type,
         is_active: form.is_active,
-        starts_at: form.starts_at || null,
-        ends_at: form.ends_at || null,
+        starts_at: datetimeLocalToISO(form.starts_at),
+        ends_at: datetimeLocalToISO(form.ends_at),
         created_by: getAdminHandle(),
         updated_at: new Date().toISOString(),
       };
       if (editId) {
-        await supabase.from('announcements').update(payload).eq('id', editId);
+        const { error: updateError } = await supabase.from('announcements').update(payload).eq('id', editId);
+        if (updateError) throw updateError;
       } else {
-        await supabase.from('announcements').insert(payload);
+        const { error: insertError } = await supabase.from('announcements').insert(payload);
+        if (insertError) throw insertError;
       }
       setShowForm(false);
       fetchAnnouncements();
@@ -181,8 +200,8 @@ export default function AdminAnnouncementsContent() {
                   </div>
                   <p className="text-xs mb-2" style={{ color: 'var(--foreground-muted)', lineHeight: '1.6' }}>{a.message}</p>
                   <div className="flex flex-wrap gap-3 text-xs" style={{ color: 'var(--foreground-subtle)' }}>
-                    {a.starts_at && <span>Starts: {new Date(a.starts_at).toLocaleDateString('en-PH')}</span>}
-                    {a.ends_at && <span>Ends: {new Date(a.ends_at).toLocaleDateString('en-PH')}</span>}
+                    {a.starts_at && <span>Starts: {new Date(a.starts_at).toLocaleString('en-PH')}</span>}
+                    {a.ends_at && <span>Ends: {new Date(a.ends_at).toLocaleString('en-PH')}</span>}
                     <span>By: {a.created_by}</span>
                     <span>{new Date(a.created_at).toLocaleDateString('en-PH')}</span>
                   </div>
