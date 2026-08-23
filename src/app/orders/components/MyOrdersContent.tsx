@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import { createClient } from '@/lib/supabase/client';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 
 // ── Types ──────────────────────────────────────────────────
 interface OrderItem {
@@ -206,6 +207,7 @@ function OrderCard({ order }: { order: Order }) {
 
 // ── Main Component ─────────────────────────────────────────
 export default function MyOrdersContent() {
+  const { customer, isLoggedIn } = useCustomerAuth();
   const [step, setStep] = useState<AuthStep>('handle');
   const [handle, setHandle] = useState('');
   const [pin, setPin] = useState('');
@@ -220,6 +222,30 @@ export default function MyOrdersContent() {
   const handleInputRef = useRef<HTMLInputElement>(null);
   const pinInputRef = useRef<HTMLInputElement>(null);
   const newPinInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-load orders when customer is logged in via CustomerAuthContext
+  useEffect(() => {
+    if (!isLoggedIn || !customer) return;
+    const autoLoad = async () => {
+      setLoading(true);
+      try {
+        const supabase = createClient();
+        const { data: orderData } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('tiktok_handle', customer.tiktokHandle)
+          .order('created_at', { ascending: false });
+        setOrders((orderData ?? []) as Order[]);
+        setHandle(customer.tiktokHandle);
+        setStep('orders');
+      } catch {
+        // ignore — fall through to manual login
+      } finally {
+        setLoading(false);
+      }
+    };
+    autoLoad();
+  }, [isLoggedIn, customer]);
 
   useEffect(() => {
     if (step === 'handle') handleInputRef.current?.focus();

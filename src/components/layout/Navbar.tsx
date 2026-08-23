@@ -9,6 +9,7 @@ import Icon from '@/components/ui/AppIcon';
 import { getBooks, isPriceVisible } from '@/lib/books';
 import { ADMIN_ACCESS_CODE, saveAdminSession } from '@/lib/admin-auth';
 import { Book } from '@/lib/types';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 
 // ── Preorder Cart Context ──────────────────────────────────
 export interface CartItem {
@@ -1019,6 +1020,184 @@ const NAV_LINKS = [
   { label: 'Contact', href: '/contact' },
 ];
 
+// ── Notification Bell ──────────────────────────────────────
+interface CustomerNotification {
+  id: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  book_title?: string;
+  order_ref?: string;
+}
+
+function NotificationBell() {
+  const { customer } = useCustomerAuth();
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState<CustomerNotification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const fetchNotifications = useCallback(async () => {
+    if (!customer) return;
+    setLoading(true);
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('customer_notifications')
+        .select('id, title, message, is_read, created_at, book_title, order_ref')
+        .eq('customer_id', customer.customerCode)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      setNotifications((data ?? []) as CustomerNotification[]);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, [customer]);
+
+  useEffect(() => {
+    if (customer) fetchNotifications();
+  }, [customer, fetchNotifications]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleOpen = async () => {
+    setOpen(o => !o);
+    if (!open && unreadCount > 0 && customer) {
+      // Mark all as read
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        await supabase
+          .from('customer_notifications')
+          .update({ is_read: true })
+          .eq('customer_id', customer.customerCode)
+          .eq('is_read', false);
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
+  if (!customer) return null;
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        onClick={handleOpen}
+        className="btn-ghost p-2 rounded-lg relative"
+        aria-label="Notifications"
+        suppressHydrationWarning
+      >
+        <Icon name="BellIcon" size={18} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+        {unreadCount > 0 && (
+          <span
+            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{ background: '#ef4444', color: '#fff', fontSize: '10px' }}
+          >
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 mt-2 w-80 rounded-xl overflow-hidden z-50 shadow-2xl"
+          style={{ background: 'var(--background-card)', border: '1px solid var(--border)', top: '100%' }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2">
+              <Icon name="BellIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+              <span className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>Notifications</span>
+            </div>
+            {unreadCount === 0 && (
+              <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>All caught up ✓</span>
+            )}
+          </div>
+
+          {/* List */}
+          <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="py-10 text-center px-4">
+                <Icon name="BellIcon" size={28} className="mx-auto mb-3" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
+                <p className="text-sm font-semibold" style={{ color: 'var(--foreground-muted)' }}>No notifications yet</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+                  You&apos;ll be notified when your ordered titles are on hand.
+                </p>
+              </div>
+            ) : (
+              notifications.map(n => (
+                <div
+                  key={n.id}
+                  className="px-4 py-3"
+                  style={{
+                    borderBottom: '1px solid var(--border)',
+                    background: n.is_read ? 'transparent' : 'rgba(139,92,246,0.06)',
+                  }}
+                >
+                  <div className="flex items-start gap-2">
+                    {!n.is_read && (
+                      <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#a78bfa' }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>{n.title}</p>
+                      <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--foreground-muted)' }}>{n.message}</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>{formatTime(n.created_at)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Footer */}
+          {notifications.length > 0 && (
+            <div className="px-4 py-2.5 text-center" style={{ borderTop: '1px solid var(--border)' }}>
+              <Link
+                href="/orders"
+                onClick={() => setOpen(false)}
+                className="text-xs font-semibold"
+                style={{ color: 'var(--primary-bright)' }}
+              >
+                View My Orders →
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -1029,6 +1208,7 @@ export default function Navbar() {
   const cartCount = items.reduce((s, i) => s + i.qty, 0);
   const [announcements, setAnnouncements] = useState<{ id: string; title: string; message: string; type: string }[]>([]);
   const [dismissedBanners, setDismissedBanners] = useState<string[]>([]);
+  const { customer, logout: customerLogout } = useCustomerAuth();
 
   // Load active announcements (client-side date filter — ISO timestamps break PostgREST .or() filters)
   useEffect(() => {
@@ -1181,6 +1361,40 @@ export default function Navbar() {
 
             {/* Preorder Cart + Mobile Toggle */}
             <div className="flex items-center gap-2">
+              {/* Notification Bell — logged-in customers only */}
+              <NotificationBell />
+
+              {/* Customer account button */}
+              {customer ? (
+                <div className="hidden sm:flex items-center gap-1">
+                  <Link
+                    href="/orders"
+                    className="btn-ghost px-3 py-1.5 rounded-lg text-xs font-semibold hidden md:flex items-center gap-1.5"
+                    style={{ color: 'var(--primary-bright)' }}
+                  >
+                    <Icon name="UserCircleIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+                    {customer.username}
+                  </Link>
+                  <button
+                    onClick={customerLogout}
+                    className="btn-ghost px-2 py-1.5 rounded-lg text-xs hidden md:flex"
+                    style={{ color: 'var(--foreground-subtle)' }}
+                    title="Log out"
+                  >
+                    <Icon name="ArrowRightOnRectangleIcon" size={14} />
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="btn-ghost px-3 py-1.5 rounded-lg text-xs font-semibold hidden md:flex items-center gap-1.5"
+                  style={{ color: 'var(--foreground-muted)' }}
+                >
+                  <Icon name="UserCircleIcon" size={14} style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
+                  Log In
+                </Link>
+              )}
+
               <button
                 onClick={() => setCartOpen(true)}
                 className="btn-ghost p-2 rounded-lg hidden sm:flex relative"
@@ -1262,6 +1476,43 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
+
+              {/* Customer auth links in mobile */}
+              <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(200,164,91,0.2)' }}>
+                {customer ? (
+                  <>
+                    <div className="px-3 py-2 text-xs" style={{ color: '#C8A45B' }}>
+                      Logged in as <strong style={{ color: '#F0DFC4' }}>{customer.username}</strong>
+                    </div>
+                    <button
+                      onClick={() => { customerLogout(); setMobileOpen(false); }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm w-full text-left"
+                      style={{ color: '#D4B896' }}
+                    >
+                      Log Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm"
+                      style={{ color: '#D4B896' }}
+                    >
+                      Log In
+                    </Link>
+                    <Link
+                      href="/signup"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm"
+                      style={{ color: '#C8A45B', fontWeight: 600 }}
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>

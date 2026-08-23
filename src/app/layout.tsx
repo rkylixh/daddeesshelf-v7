@@ -5,6 +5,7 @@ import '../styles/tailwind.css';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/components/layout/Navbar';
+import { CustomerAuthProvider } from '@/contexts/CustomerAuthContext';
 import AmbientDust from '@/components/layout/AmbientDust';
 
 const dmSans = DM_Sans({
@@ -37,10 +38,12 @@ export default function RootLayout({
     <html lang="en" className={dmSans.variable}>
       <body className={dmSans.className}>
         <AuthProvider>
-          <CartProvider>
-            <AmbientDust />
-            {children}
-          </CartProvider>
+          <CustomerAuthProvider>
+            <CartProvider>
+              <AmbientDust />
+              {children}
+            </CartProvider>
+          </CustomerAuthProvider>
         </AuthProvider>
         <Toaster
           position="bottom-right"
