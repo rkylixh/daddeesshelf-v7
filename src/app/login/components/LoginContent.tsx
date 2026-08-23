@@ -160,6 +160,12 @@ export default function LoginContent() {
                   </Link>
                 </p>
                 <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>
+                  Ordered before but no login yet?{' '}
+                  <Link href="/claim-account" className="font-semibold" style={{ color: 'var(--primary-bright)' }}>
+                    Claim existing account
+                  </Link>
+                </p>
+                <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>
                   Have orders but no account?{' '}
                   <Link href="/orders" className="font-semibold" style={{ color: 'var(--primary-bright)' }}>
                     Track via TikTok handle
