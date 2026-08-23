@@ -491,6 +491,7 @@ export default function MyOrdersContent() {
                 disabled={loading}
                 className="btn-primary w-full py-3 text-sm"
                 style={{ opacity: loading ? 0.7 : 1 }}
+                suppressHydrationWarning
               >
                 {loading ? 'Checking...' : 'Continue →'}
               </button>
@@ -535,6 +536,7 @@ export default function MyOrdersContent() {
                 disabled={loading}
                 className="btn-primary w-full py-3 text-sm"
                 style={{ opacity: loading ? 0.7 : 1 }}
+                suppressHydrationWarning
               >
                 {loading ? 'Verifying...' : 'View My Orders ✦'}
               </button>
@@ -610,6 +612,7 @@ export default function MyOrdersContent() {
                 disabled={loading}
                 className="btn-primary w-full py-3 text-sm"
                 style={{ opacity: loading ? 0.7 : 1 }}
+                suppressHydrationWarning
               >
                 {loading ? 'Saving...' : 'Create PIN & View Orders ✦'}
               </button>
