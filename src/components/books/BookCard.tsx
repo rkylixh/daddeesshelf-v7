@@ -22,6 +22,7 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
   const [showWishlistPrompt, setShowWishlistPrompt] = useState(false);
   const { addItem } = useContext(CartContext);
   const detailHref = href ?? `/book-detail?id=${book.id}`;
+  const isSoldOut = book.status === 'Sold Out';
 
   // Load wishlist state from localStorage on mount
   useEffect(() => {
@@ -51,7 +52,6 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
     try {
       const account = localStorage.getItem(WISHLIST_ACCOUNT_KEY);
       if (account) {
-        // Account exists — save directly
         const stored = JSON.parse(localStorage.getItem(WISHLIST_KEY) || '[]') as string[];
         if (!stored.includes(book.id)) {
           localStorage.setItem(WISHLIST_KEY, JSON.stringify([...stored, book.id]));
@@ -87,7 +87,7 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
           className="card-glow rounded-xl overflow-hidden"
           style={{
             background: 'rgba(251,245,236,0.18)',
-            border: '1px solid rgba(216,196,168,0.4)',
+            border: isSoldOut ? '1px solid rgba(220,38,38,0.35)' : '1px solid rgba(216,196,168,0.4)',
             backdropFilter: 'blur(6px)',
             WebkitBackdropFilter: 'blur(6px)',
           }}
@@ -99,9 +99,20 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
               alt={`Cover of ${book.title} by ${book.author}`}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              className={`object-cover transition-transform duration-500 group-hover:scale-105 ${isSoldOut ? 'opacity-60 grayscale-[30%]' : ''}`}
             />
-            {/* Wishlist button — always visible, not just on hover */}
+
+            {/* Sold-out diagonal overlay */}
+            {isSoldOut && (
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(220,38,38,0.08) 0%, rgba(220,38,38,0.18) 100%)',
+                }}
+              />
+            )}
+
+            {/* Wishlist button — always visible */}
             <button
               onClick={handleWishlist}
               aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
@@ -121,9 +132,28 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
                 style={{ color: wishlisted ? '#fff' : '#7B6454' } as React.CSSProperties}
               />
             </button>
+
             {/* Status overlay */}
             <div className="absolute bottom-2 left-2">
               <StatusBadge status={book.status!} size="sm" />
+            </div>
+
+            {/* Cover disclaimer */}
+            <div
+              className="absolute bottom-2 right-2"
+              title="Cover shown is a general representation. Final US/UK edition cover may vary."
+            >
+              <span
+                className="text-xs px-1 py-0.5 rounded cursor-help"
+                style={{
+                  background: 'rgba(0,0,0,0.55)',
+                  color: 'rgba(255,255,255,0.75)',
+                  fontSize: '0.55rem',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                ⓘ cover
+              </span>
             </div>
           </div>
 
@@ -164,36 +194,59 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
               )}
             </div>
 
-            {/* Quick Add to Cart */}
+            {/* Quick Add / Add to Wishlist for sold-out */}
             {showQuickAdd && (
-              <button
-                onClick={priceVisible ? handleQuickAdd : undefined}
-                disabled={!priceVisible}
-                className="mt-2 w-full text-xs py-1.5 rounded-lg font-semibold transition-all duration-200"
-                style={
-                  !priceVisible
-                    ? {
-                        background: 'rgba(120,100,80,0.10)',
-                        color: '#9E8E7E',
-                        border: '1px solid rgba(120,100,80,0.25)',
-                        cursor: 'not-allowed',
-                        opacity: 0.55,
-                      }
-                    : addedToCart
-                    ? {
-                        background: 'rgba(90,138,74,0.18)',
-                        color: '#3d7a2e',
-                        border: '1px solid rgba(90,138,74,0.45)',
-                      }
-                    : {
-                        background: 'rgba(200,164,91,0.18)',
-                        color: '#8B6A20',
-                        border: '1px solid rgba(200,164,91,0.45)',
-                      }
-                }
-              >
-                {!priceVisible ? 'Price TBA' : addedToCart ? '✓ Added to Cart' : '+ Add to Cart'}
-              </button>
+              isSoldOut ? (
+                <button
+                  onClick={handleWishlist}
+                  className="mt-2 w-full text-xs py-1.5 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-1.5"
+                  style={
+                    wishlisted
+                      ? {
+                          background: 'rgba(200,164,91,0.18)',
+                          color: '#8B6A20',
+                          border: '1px solid rgba(200,164,91,0.45)',
+                        }
+                      : {
+                          background: 'rgba(220,38,38,0.10)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(220,38,38,0.35)',
+                        }
+                  }
+                >
+                  <Icon name="HeartIcon" size={12} variant={wishlisted ? 'solid' : 'outline'} />
+                  {wishlisted ? 'Wishlisted ✓' : 'Add to Wishlist'}
+                </button>
+              ) : (
+                <button
+                  onClick={priceVisible ? handleQuickAdd : undefined}
+                  disabled={!priceVisible}
+                  className="mt-2 w-full text-xs py-1.5 rounded-lg font-semibold transition-all duration-200"
+                  style={
+                    !priceVisible
+                      ? {
+                          background: 'rgba(120,100,80,0.10)',
+                          color: '#9E8E7E',
+                          border: '1px solid rgba(120,100,80,0.25)',
+                          cursor: 'not-allowed',
+                          opacity: 0.55,
+                        }
+                      : addedToCart
+                      ? {
+                          background: 'rgba(90,138,74,0.18)',
+                          color: '#3d7a2e',
+                          border: '1px solid rgba(90,138,74,0.45)',
+                        }
+                      : {
+                          background: 'rgba(200,164,91,0.18)',
+                          color: '#8B6A20',
+                          border: '1px solid rgba(200,164,91,0.45)',
+                        }
+                  }
+                >
+                  {!priceVisible ? 'Price TBA' : addedToCart ? '✓ Added to Cart' : '+ Add to Cart'}
+                </button>
+              )
             )}
           </div>
         </div>

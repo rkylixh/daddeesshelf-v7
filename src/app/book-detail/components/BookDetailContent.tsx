@@ -476,6 +476,17 @@ export default function BookDetailContent() {
               className="object-cover"
               priority
             />
+            {/* Cover disclaimer badge */}
+            <div className="absolute bottom-2 left-2 right-2">
+              <div
+                className="rounded-lg px-2 py-1 text-center"
+                style={{ background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(4px)' }}
+              >
+                <p className="text-xs leading-snug" style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.6rem' }}>
+                  ⓘ Cover shown is a general representation. Final US/UK edition may vary.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="w-full max-w-[320px] space-y-3">
@@ -641,8 +652,7 @@ export default function BookDetailContent() {
               <p className="text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                 {!priceVisible
                   ? 'Price coming soon'
-                  : book.status === 'Pre-order'
-                  ? 'Reserve your copy now'
+                  : book.status === 'Pre-order' ?'Reserve your copy now'
                   : book.status === 'On Hand'
                   ? `${book.available} copies available`
                   : 'Currently out of stock'}
@@ -650,9 +660,7 @@ export default function BookDetailContent() {
               <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
                 {!priceVisible
                   ? 'Preorder will open once the price is announced.'
-                  : book.status === 'Sold Out'
-                  ? 'Join the wishlist to be notified when available'
-                  : 'Add to cart · Pay via GCash · Shipping information is requested only after your books arrive in the Philippines.'}
+                  : book.status === 'Sold Out' ?'Join the wishlist to be notified when available' :'Add to cart · Pay via GCash · Shipping information is requested only after your books arrive in the Philippines.'}
               </p>
             </div>
             {!priceVisible ? (

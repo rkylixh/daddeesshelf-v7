@@ -85,17 +85,17 @@ function GenreEditsTab() {
         updated_at: new Date().toISOString(),
       };
 
-      let error;
+      let saveError;
       if (existing?.id) {
-        ({ error } = await supabase.from('genre_images').update(payload).eq('id', existing.id));
+        ({ saveError } = await supabase.from('genre_images').update(payload).eq('id', existing.id));
       } else if (!url.trim()) {
         // Nothing to clear
         setSaving(null);
         return;
       } else {
-        ({ error } = await supabase.from('genre_images').insert(payload));
+        ({ saveError } = await supabase.from('genre_images').insert(payload));
       }
-      if (error) throw error;
+      if (saveError) throw saveError;
       toast.success(`Image saved for ${subgenre ?? genre}`);
       await logAudit({
         action: 'GENRE_IMAGE_UPDATED',

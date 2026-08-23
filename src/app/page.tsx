@@ -6,6 +6,7 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import StarField from '@/components/layout/StarField';
 import HomeHero from './components/HomeHero';
+import BatchEtaCalendar from './components/BatchEtaCalendar';
 import BookGrid from '@/components/books/BookGrid';
 import BookCard from '@/components/books/BookCard';
 import { getBooks, mapBookFromRow, isEtaVisible, formatBookPrice } from '@/lib/books';
@@ -218,6 +219,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
 export default function HomePage() {
   const [batchInfo, setBatchInfo] = useState<BatchInfo | null>(null);
   const [batchBooks, setBatchBooks] = useState<Book[]>([]);
+  const [allBatchEtas, setAllBatchEtas] = useState<{ batch: string; eta: string; etaVisible: boolean; count: number }[]>([]);
   const [bestSellers, setBestSellers] = useState<Book[]>([]);
   const [booktokFavorites, setBooktokFavorites] = useState<Book[]>([]);
   const [featuredBooks, setFeaturedBooks] = useState<Book[]>([]);
@@ -274,6 +276,26 @@ export default function HomePage() {
           .order('arrival_date', { ascending: true });
 
         if (!batchRows || batchRows.length === 0) { setLoading(false); return; }
+
+        // Build all batch ETA entries for the calendar
+        const batchEtaMap: Record<string, { eta: string; count: number; etaVisible: boolean }> = {};
+        for (const r of batchRows) {
+          const bName = String(r.batch ?? '');
+          const bEta = String(r.arrival_date ?? '');
+          if (!bName || !bEta) continue;
+          if (!batchEtaMap[bName]) {
+            batchEtaMap[bName] = { eta: bEta, count: 0, etaVisible: true };
+          }
+          batchEtaMap[bName].count += 1;
+        }
+        setAllBatchEtas(
+          Object.entries(batchEtaMap).map(([batch, info]) => ({
+            batch,
+            eta: info.eta,
+            etaVisible: info.etaVisible,
+            count: info.count,
+          }))
+        );
 
         const now = new Date();
         const futureBatches = batchRows.filter((r: Record<string, unknown>) => r.arrival_date && new Date(String(r.arrival_date)) > now);
@@ -488,6 +510,18 @@ export default function HomePage() {
                         <BalancedBookGrid books={batchBooks} />
                       </>
                     )}
+                  </BookstoreSection>
+                </>
+              )}
+
+              {/* ── 3b. Batch ETA Calendar ── */}
+              {allBatchEtas.length > 0 && (
+                <>
+                  <BookstoreDivider label="✦ Batch ETA Calendar ✦" />
+                  <BookstoreSection>
+                    <div className="max-w-lg mx-auto">
+                      <BatchEtaCalendar batches={allBatchEtas} />
+                    </div>
                   </BookstoreSection>
                 </>
               )}

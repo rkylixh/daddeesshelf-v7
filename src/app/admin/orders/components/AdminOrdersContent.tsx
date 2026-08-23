@@ -82,7 +82,7 @@ async function mergePileOrders(confirmedOrder: Order): Promise<string | null> {
     mergedRefs.push(sib.ref_number);
   }
 
-  const pileNote = `Pile merged from: ${[confirmedOrder.ref_number, ...mergedRefs].join(', ')}`;
+  let pileNote = `Pile merged from: ${[confirmedOrder.ref_number, ...mergedRefs].join(', ')}`;
   const existingNotes = (confirmedOrder.notes || confirmedOrder.admin_notes || '').trim();
   const combinedNotes = existingNotes ? `${existingNotes}\n${pileNote}` : pileNote;
 

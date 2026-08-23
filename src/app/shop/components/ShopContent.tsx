@@ -19,6 +19,7 @@ export default function ShopContent() {
   const [allBooks, setAllBooks] = useState<Book[]>([]);
   const [genres, setGenres] = useState<string[]>([]);
   const [authors, setAuthors] = useState<string[]>([]);
+  const [batches, setBatches] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [filters, setFilters] = useState<BookFilters>({
@@ -29,6 +30,7 @@ export default function ShopContent() {
     status: '',
     series: '',
     source: '',
+    batch: '',
   });
   const [authorFilter, setAuthorFilter] = useState('');
   const [priceMin, setPriceMin] = useState('');
@@ -44,9 +46,10 @@ export default function ShopContent() {
       const [books, genreList] = await Promise.all([getBooks(), getDistinctGenres()]);
       setAllBooks(books);
       setGenres(genreList);
-      // Build sorted unique author list
       const uniqueAuthors = [...new Set(books.map(b => b.author).filter(Boolean))].sort();
       setAuthors(uniqueAuthors);
+      const uniqueBatches = [...new Set(books.map(b => b.batch).filter(Boolean))].sort();
+      setBatches(uniqueBatches);
       setLoading(false);
     }
     load();
@@ -70,7 +73,8 @@ export default function ShopContent() {
     if (filters.subgenre) books = books.filter(b => b.subgenre === filters.subgenre);
     if (filters.format) books = books.filter(b => b.format === filters.format);
     if (filters.status) books = books.filter(b => b.status === filters.status);
-    // Source filter: Pre-order = arrival_date in future, On Hand = available now, Bundle = format Bundle
+    if (filters.batch) books = books.filter(b => b.batch === filters.batch);
+    // Source filter
     if (filters.source === 'Pre-order') books = books.filter(b => b.status === 'Pre-order');
     else if (filters.source === 'On Hand') books = books.filter(b => b.status === 'On Hand');
     else if (filters.source === 'Bundle') books = books.filter(b => b.format === 'Bundle');
@@ -109,7 +113,7 @@ export default function ShopContent() {
   };
 
   const clearFilters = () => {
-    setFilters({ search: '', genre: '', subgenre: '', format: '', status: '', series: '', source: '' });
+    setFilters({ search: '', genre: '', subgenre: '', format: '', status: '', series: '', source: '', batch: '' });
     setAuthorFilter('');
     setPriceMin('');
     setPriceMax('');
@@ -170,6 +174,7 @@ export default function ShopContent() {
             genres={genres}
             formats={FORMATS}
             authors={authors}
+            batches={batches}
             onFilterChange={handleFilterChange}
             onPriceChange={handlePriceChange}
             onClear={clearFilters}

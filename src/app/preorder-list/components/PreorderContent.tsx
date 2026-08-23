@@ -258,6 +258,23 @@ function PreorderFormModal({
       });
       if (err) throw err;
 
+      // Send email notification (fire-and-forget)
+      try {
+        await supabase.functions.invoke('notify-email', {
+          body: {
+            type: 'new_order',
+            data: {
+              ref_number: orderRef,
+              tiktok_handle: form.tiktok_handle,
+              total_price: totalPrice,
+              items: orderItems,
+              payment_ref: form.payment_ref,
+              status: 'Pending Payment Verification',
+            },
+          },
+        });
+      } catch { /* non-blocking */ }
+
       // Mark store credit as used
       if (storeCredit && creditApplied > 0) {
         await supabase.from('store_credits').update({

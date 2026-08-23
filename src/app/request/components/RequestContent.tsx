@@ -18,8 +18,9 @@ export default function RequestContent() {
     setLoading(true);
     setError('');
     try {
+      const ref = genRef();
       const { error: err } = await supabase.from('title_requests').insert({
-        ref_number: genRef(),
+        ref_number: ref,
         customer_name: form.name,
         tiktok_handle: form.tiktok,
         requested_title: form.title,
@@ -27,6 +28,24 @@ export default function RequestContent() {
         notes: form.notes,
       });
       if (err) throw err;
+
+      // Send email notification (fire-and-forget)
+      try {
+        await supabase.functions.invoke('notify-email', {
+          body: {
+            type: 'new_title_request',
+            data: {
+              ref_number: ref,
+              customer_name: form.name,
+              tiktok_handle: form.tiktok,
+              requested_title: form.title,
+              requested_author: form.author,
+              notes: form.notes,
+            },
+          },
+        });
+      } catch { /* non-blocking */ }
+
       setSubmitted(true);
     } catch {
       setError('Something went wrong. Please try again or message us on TikTok.');
