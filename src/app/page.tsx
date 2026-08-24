@@ -29,6 +29,62 @@ interface SiteStats {
   wishlistCount: number;
 }
 
+// ── Batch Calendar Modal ───────────────────────────────────
+function BatchCalendarModal({
+  batches,
+  onClose,
+}: {
+  batches: { batch: string; eta: string; etaVisible: boolean; count: number }[];
+  onClose: () => void;
+}) {
+  // Close on backdrop click
+  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(30,18,10,0.72)', backdropFilter: 'blur(4px)' }}
+      onClick={handleBackdrop}
+    >
+      <div
+        className="relative w-full max-w-lg rounded-2xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(180deg, #F9F1E3 0%, #F4E8D2 100%)',
+          boxShadow: '0 24px 64px rgba(75,53,42,0.35)',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
+        {/* Modal header */}
+        <div
+          className="flex items-center justify-between px-5 py-4 sticky top-0"
+          style={{ background: 'rgba(249,241,227,0.97)', borderBottom: '1px solid rgba(200,164,91,0.3)', zIndex: 1 }}
+        >
+          <div className="flex items-center gap-2">
+            <Icon name="CalendarIcon" size={16} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+            <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>
+              Batch ETA Calendar
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+            style={{ background: 'rgba(200,164,91,0.15)', color: 'var(--foreground-muted)', border: '1px solid rgba(200,164,91,0.3)' }}
+            aria-label="Close calendar"
+          >
+            <Icon name="XMarkIcon" size={16} />
+          </button>
+        </div>
+        <div className="p-4">
+          <BatchEtaCalendar batches={batches} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Section divider that feels like a bookstore aisle ──
 function BookstoreDivider({ label, seamless = false }: { label: string; seamless?: boolean }) {
   if (seamless) return null;
@@ -225,6 +281,7 @@ export default function HomePage() {
   const [featuredBooks, setFeaturedBooks] = useState<Book[]>([]);
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [howItWorksSteps, setHowItWorksSteps] = useState<{ step: string; icon: string; title: string; desc: string }[]>([
     { step: '1', icon: 'BookOpenIcon', title: 'Browse & Select', desc: 'Choose titles from the current import batch' },
     { step: '2', icon: 'ShoppingCartIcon', title: 'Add to Cart', desc: 'Add multiple books to your preorder cart' },
@@ -403,6 +460,11 @@ export default function HomePage() {
       {/* StarField background — same as all other pages */}
       <StarField />
 
+      {/* Batch Calendar Modal */}
+      {showCalendarModal && allBatchEtas.length > 0 && (
+        <BatchCalendarModal batches={allBatchEtas} onClose={() => setShowCalendarModal(false)} />
+      )}
+
       {/* Page content sits above the environment */}
       <div className="relative" style={{ zIndex: 1 }}>
         <Navbar />
@@ -514,18 +576,6 @@ export default function HomePage() {
                 </>
               )}
 
-              {/* ── 3b. Batch ETA Calendar ── */}
-              {allBatchEtas.length > 0 && (
-                <>
-                  <BookstoreDivider label="✦ Batch ETA Calendar ✦" />
-                  <BookstoreSection>
-                    <div className="max-w-lg mx-auto">
-                      <BatchEtaCalendar batches={allBatchEtas} />
-                    </div>
-                  </BookstoreSection>
-                </>
-              )}
-
               {/* ── 4. BookTok Favorites — the curated display shelf ── */}
               {sectionVisibility.booktok_favorites && booktokFavorites.length > 0 && (
                 <>
@@ -552,6 +602,24 @@ export default function HomePage() {
                 <>
                   <BookstoreDivider label="✦ Featured Books ✦" />
                   <BookstoreSection>
+                    {/* View Batch Calendar button above featured books */}
+                    {allBatchEtas.length > 0 && (
+                      <div className="flex justify-end mb-4">
+                        <button
+                          onClick={() => setShowCalendarModal(true)}
+                          className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+                          style={{
+                            background: 'rgba(200,164,91,0.14)',
+                            border: '1px solid rgba(200,164,91,0.45)',
+                            color: 'var(--primary-bright)',
+                            boxShadow: '0 2px 8px rgba(200,164,91,0.12)',
+                          }}
+                        >
+                          <Icon name="CalendarIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+                          View Batch Calendar
+                        </button>
+                      </div>
+                    )}
                     <div className="flex items-end justify-between mb-6">
                       <div>
                         <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Featured Books</h2>
