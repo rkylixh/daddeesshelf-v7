@@ -56,6 +56,21 @@ export function mapBookFromRow(row: Record<string, unknown>): Book {
 
 function mapRow(row: Record<string, unknown>): Book {
   const available = Number(row.inventory ?? 0) - Number(row.reserved ?? 0);
+  const status = computeStatus({
+    inventory: Number(row.inventory ?? 0),
+    reserved: Number(row.reserved ?? 0),
+    arrival_date: row.arrival_date ? String(row.arrival_date) : null,
+    visibility: row.visibility ? String(row.visibility) : undefined,
+  });
+
+  const preorderPrice = row.preorder_price != null ? Number(row.preorder_price) : Number(row.final_srp ?? 0);
+  const onhandPrice = row.onhand_price != null ? Number(row.onhand_price) : null;
+
+  // Use onhand_price when the title is On Hand (and onhand_price is set), otherwise use preorder_price
+  const displayPrice = status === 'On Hand' && onhandPrice != null && onhandPrice > 0
+    ? onhandPrice
+    : preorderPrice;
+
   return {
     id: String(row.id ?? ''),
     sku: String(row.sku ?? ''),
@@ -67,7 +82,9 @@ function mapRow(row: Record<string, unknown>): Book {
     series_order: row.series_order != null ? Number(row.series_order) : null,
     format: (row.format as Book['format']) ?? 'Paperback',
     edition: String(row.edition ?? ''),
-    final_srp: Number(row.final_srp ?? 0),
+    final_srp: displayPrice,
+    preorder_price: preorderPrice,
+    onhand_price: onhandPrice,
     batch: String(row.batch ?? ''),
     arrival_date: row.arrival_date ? String(row.arrival_date) : null,
     inventory: Number(row.inventory ?? 0),
@@ -84,12 +101,7 @@ function mapRow(row: Record<string, unknown>): Book {
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
     available,
-    status: computeStatus({
-      inventory: Number(row.inventory ?? 0),
-      reserved: Number(row.reserved ?? 0),
-      arrival_date: row.arrival_date ? String(row.arrival_date) : null,
-      visibility: row.visibility ? String(row.visibility) : undefined,
-    }),
+    status,
     // Extended fields
     goodreads_ratings_count: row.goodreads_ratings_count != null ? Number(row.goodreads_ratings_count) : 0,
     reader_tags: Array.isArray(row.reader_tags) ? row.reader_tags as string[] : [],

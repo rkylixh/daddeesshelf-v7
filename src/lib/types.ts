@@ -30,6 +30,9 @@ export interface Book {
   visibility?: string;
   created_at: string;
   updated_at: string;
+  // Price fields
+  preorder_price?: number;
+  onhand_price?: number | null;
   // Extended enrichment fields
   reader_tags?: string[];
   why_readers_love?: string;
