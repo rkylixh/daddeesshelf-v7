@@ -629,7 +629,7 @@ function DeleteOrderModal({
         // Get current inventory
         const { data: bookData } = await supabase
           .from('books')
-          .select('id, inventory, reserved')
+          .select('id, inventory, ordered')
           .eq('sku', item.sku)
           .single();
         if (bookData) {
@@ -637,7 +637,7 @@ function DeleteOrderModal({
             .from('books')
             .update({
               inventory: (bookData.inventory ?? 0) + qty,
-              reserved: Math.max(0, (bookData.reserved ?? 0) - qty),
+              ordered: Math.max(0, (bookData.ordered ?? 0) - qty),
             })
             .eq('id', bookData.id);
         }

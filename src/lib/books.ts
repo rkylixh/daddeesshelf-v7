@@ -88,6 +88,7 @@ function mapRow(row: Record<string, unknown>): Book {
     arrival_date: row.arrival_date ? String(row.arrival_date) : null,
     inventory: Number(row.inventory ?? 0),
     reserved: Number(row.reserved ?? 0),
+    ordered: Number(row.ordered ?? 0),
     synopsis: String(row.synopsis ?? ''),
     cover_url: String(row.cover_url ?? ''),
     goodreads_url: row.goodreads_url ? String(row.goodreads_url) : (row.goodreads_link ? String(row.goodreads_link) : undefined),

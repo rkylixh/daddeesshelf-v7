@@ -17,6 +17,7 @@ export interface Book {
   arrival_date: string | null;
   inventory: number;
   reserved: number;
+  ordered: number;
   synopsis: string;
   cover_url: string;
   goodreads_url?: string;
