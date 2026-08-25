@@ -1787,6 +1787,23 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
       });
       if (err) throw err;
 
+      // Send email notification (fire-and-forget)
+      try {
+        await sb.functions.invoke('notify-email', {
+          body: {
+            type: 'new_order',
+            data: {
+              ref_number: orderRef,
+              tiktok_handle: normalizedHandle,
+              total_price: total,
+              items: orderItems,
+              payment_ref: form.payment_ref,
+              status: 'Pending Payment Verification',
+            },
+          },
+        });
+      } catch { /* non-blocking */ }
+
       // Mark store credit as used
       if (creditApplied > 0 && storeCredit) {
         await sb
