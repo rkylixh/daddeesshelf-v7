@@ -154,7 +154,8 @@ export default function ShopContent() {
           b.sku.toLowerCase().includes(q) ||
           b.genre.toLowerCase().includes(q) ||
           b.subgenre.toLowerCase().includes(q) ||
-          (b.series && b.series.toLowerCase().includes(q))
+          (b.series && b.series.toLowerCase().includes(q)) ||
+          (b.reader_tags && b.reader_tags.some(tag => tag.toLowerCase().includes(q)))
       );
     }
     if (filters.genre) books = books.filter(b => b.genre === filters.genre);
