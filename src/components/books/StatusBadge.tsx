@@ -40,12 +40,12 @@ export default function StatusBadge({ status, size = 'md', available }: StatusBa
           border: '1.5px solid rgba(220,80,80,0.7)',
         };
       } else if (available <= 2) {
-        // Low stock (1–2) — orange
+        // Low stock (1–2) — yellow
         return {
           ...baseStyle,
-          background: 'rgba(120, 50, 0, 0.90)',
-          color: '#FFE8CC',
-          border: '1.5px solid rgba(249,115,22,0.75)',
+          background: 'rgba(120, 100, 0, 0.90)',
+          color: '#FFF9C4',
+          border: '1.5px solid rgba(234,179,8,0.85)',
         };
       } else if (available <= 4) {
         // Medium stock (3–4) — current amber
