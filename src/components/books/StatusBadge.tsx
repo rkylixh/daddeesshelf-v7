@@ -20,12 +20,15 @@ export default function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
       ? {
           fontSize: size === 'sm' ? '0.65rem' : '0.72rem',
           padding: size === 'sm' ? '0.2rem 0.55rem' : '0.25rem 0.65rem',
-          background: 'rgba(220,38,38,0.18)',
-          color: '#b91c1c',
-          border: '1.5px solid rgba(220,38,38,0.6)',
-          fontWeight: 700,
-          letterSpacing: '0.06em',
-          boxShadow: '0 0 8px rgba(220,38,38,0.2)',
+          background: 'rgba(100, 10, 10, 0.90)',
+          color: '#FFD6D6',
+          border: '1.5px solid rgba(220,80,80,0.7)',
+          fontWeight: 800,
+          letterSpacing: '0.08em',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.45)',
+          borderRadius: '6px',
+          backdropFilter: 'blur(2px)',
+          WebkitBackdropFilter: 'blur(2px)',
         }
       : status === 'Pre-order'
       ? {
