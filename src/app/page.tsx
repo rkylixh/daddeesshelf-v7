@@ -216,7 +216,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
                   WebkitBackdropFilter: 'blur(6px)',
                 }}
               >
-                <div className="relative aspect-[2/3]">
+                <div className="relative aspect-[3/4]">
                   <AppImage
                     src={book.cover_url || '/assets/images/no_image.png'}
                     alt={`Cover of ${book.title} by ${book.author}`}
