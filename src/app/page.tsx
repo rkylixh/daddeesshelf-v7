@@ -14,6 +14,7 @@ import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import Icon from '@/components/ui/AppIcon';
 import AppImage from '@/components/ui/AppImage';
+import StatusBadge from '@/components/books/StatusBadge';
 
 interface BatchInfo {
   name: string;
@@ -216,7 +217,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
                   WebkitBackdropFilter: 'blur(6px)',
                 }}
               >
-                <div className="relative aspect-[3/4]">
+                <div className="relative aspect-[2/3]">
                   <AppImage
                     src={book.cover_url || '/assets/images/no_image.png'}
                     alt={`Cover of ${book.title} by ${book.author}`}
@@ -225,10 +226,8 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   {book.status === 'Pre-order' && (
-                    <div className="absolute top-2 left-2">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(200,164,91,0.92)', color: '#3A2214' }}>
-                        Preorder
-                      </span>
+                    <div className="absolute bottom-2 left-2">
+                      <StatusBadge status="Pre-order" size="sm" available={book.available ?? 0} />
                     </div>
                   )}
                 </div>
