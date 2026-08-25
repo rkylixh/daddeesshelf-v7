@@ -18,12 +18,18 @@ serve(async (req) => {
     });
   }
 
+  console.log("[notify-email] Request received:", req.method, new URL(req.url).pathname);
+
   try {
     const body = await req.json();
     const { type, data } = body;
 
+    console.log("[notify-email] Notification type:", type);
+
     const RESEND_API_KEY = Deno.env.get("API_ORDER_NOTIF");
     const NOTIFY_EMAIL = "daddeesshelf.web@gmail.com";
+
+    console.log("[notify-email] API_ORDER_NOTIF present:", !!RESEND_API_KEY);
 
     if (!RESEND_API_KEY) {
       throw new Error("API_ORDER_NOTIF is not set");
@@ -34,6 +40,9 @@ serve(async (req) => {
 
     if (type === "new_order") {
       const { ref_number, tiktok_handle, total_price, items, payment_ref, status } = data;
+
+      console.log("[notify-email] new_order ref_number:", ref_number);
+
       subject = `📦 New Order Received — ${ref_number}`;
       html = `
         <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; background: #FBF5EC; padding: 32px; border-radius: 12px; border: 1px solid #D8C4A8;">
@@ -82,6 +91,8 @@ serve(async (req) => {
       throw new Error(`Unknown notification type: ${type}`);
     }
 
+    console.log("[notify-email] Calling Resend API...");
+
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -96,11 +107,16 @@ serve(async (req) => {
       }),
     });
 
+    console.log("[notify-email] Resend HTTP status:", res.status);
+
     const result = await res.json();
 
     if (!res.ok) {
+      console.log("[notify-email] Resend error:", result.message || "Unknown error");
       throw new Error(result.message || "Failed to send email");
     }
+
+    console.log("[notify-email] Resend success, response ID:", result.id);
 
     return new Response(JSON.stringify({ success: true, id: result.id }), {
       headers: {
@@ -109,6 +125,7 @@ serve(async (req) => {
       },
     });
   } catch (error) {
+    console.log("[notify-email] Error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: {
