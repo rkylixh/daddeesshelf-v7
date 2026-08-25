@@ -9,6 +9,8 @@ import { getPreorderBooks, isPriceVisible, isEtaVisible, canPurchase } from '@/l
 import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useCart } from '@/components/layout/Navbar';
+import BatchEtaCalendar from '@/app/components/BatchEtaCalendar';
+import Icon from '@/components/ui/AppIcon';
 
 // ── Types ──────────────────────────────────────────────────
 interface PreorderItem {
@@ -463,6 +465,59 @@ function PreorderFormModal({
   );
 }
 
+// ── Batch Calendar Modal ───────────────────────────────────
+function BatchCalendarModal({
+  batches,
+  onClose,
+}: {
+  batches: { batch: string; eta: string; etaVisible: boolean; count: number }[];
+  onClose: () => void;
+}) {
+  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(30,18,10,0.72)', backdropFilter: 'blur(4px)' }}
+      onClick={handleBackdrop}
+    >
+      <div
+        className="relative w-full max-w-lg rounded-2xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(180deg, #F9F1E3 0%, #F4E8D2 100%)',
+          boxShadow: '0 24px 64px rgba(75,53,42,0.35)',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-4 sticky top-0"
+          style={{ background: 'rgba(249,241,227,0.97)', borderBottom: '1px solid rgba(200,164,91,0.3)', zIndex: 1 }}
+        >
+          <div className="flex items-center gap-2">
+            <Icon name="CalendarIcon" size={16} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+            <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>
+              Batch ETA Calendar
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+            style={{ background: 'rgba(200,164,91,0.15)', color: 'var(--foreground-muted)', border: '1px solid rgba(200,164,91,0.3)' }}
+            aria-label="Close calendar"
+          >
+            <Icon name="XMarkIcon" size={16} />
+          </button>
+        </div>
+        <div className="p-4">
+          <BatchEtaCalendar batches={batches} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────
 export default function PreorderContent() {
   const [sortBy, setSortBy] = useState<'arrival' | 'title' | 'price-asc' | 'price-desc'>('arrival');
@@ -472,13 +527,47 @@ export default function PreorderContent() {
   const [confirmation, setConfirmation] = useState<ConfirmationData | null>(null);
   const [allPreorderBooks, setAllPreorderBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allBatchEtas, setAllBatchEtas] = useState<{ batch: string; eta: string; etaVisible: boolean; count: number }[]>([]);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const { items: cartItems, addItem: addToCart, clearCart } = useCart();
 
   useEffect(() => {
-    getPreorderBooks().then(books => {
+    async function load() {
+      let books = await getPreorderBooks();
       setAllPreorderBooks(books);
+
+      // Fetch batch ETA data for the calendar
+      const { data: batchRows } = await supabase
+        .from('books')
+        .select('batch, arrival_date')
+        .eq('is_visible', true)
+        .not('arrival_date', 'is', null)
+        .order('arrival_date', { ascending: true });
+
+      if (batchRows && batchRows.length > 0) {
+        const batchEtaMap: Record<string, { eta: string; count: number; etaVisible: boolean }> = {};
+        for (const r of batchRows) {
+          const bName = String(r.batch ?? '');
+          const bEta = String(r.arrival_date ?? '');
+          if (!bName || !bEta) continue;
+          if (!batchEtaMap[bName]) {
+            batchEtaMap[bName] = { eta: bEta, count: 0, etaVisible: true };
+          }
+          batchEtaMap[bName].count += 1;
+        }
+        setAllBatchEtas(
+          Object.entries(batchEtaMap).map(([batch, info]) => ({
+            batch,
+            eta: info.eta,
+            etaVisible: info.etaVisible,
+            count: info.count,
+          }))
+        );
+      }
+
       setLoading(false);
-    });
+    }
+    load();
   }, []);
 
   // Sync cart items to local preorder list
@@ -579,6 +668,11 @@ export default function PreorderContent() {
 
   return (
     <div className="content-wrapper py-12">
+      {/* Batch Calendar Modal */}
+      {showCalendarModal && allBatchEtas.length > 0 && (
+        <BatchCalendarModal batches={allBatchEtas} onClose={() => setShowCalendarModal(false)} />
+      )}
+
       {/* Header */}
       <div className="text-center mb-12">
         <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
@@ -639,6 +733,21 @@ export default function PreorderContent() {
                 <option key={b} value={b}>{b}</option>
               ))}
             </select>
+          )}
+
+          {/* Batch Calendar button */}
+          {allBatchEtas.length > 0 && (
+            <button
+              onClick={() => setShowCalendarModal(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] btn-secondary"
+              style={{
+                border: '1px solid rgba(200,164,91,0.45)',
+                color: 'var(--primary-bright)',
+              }}
+            >
+              <Icon name="CalendarIcon" size={13} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+              Batch ETA
+            </button>
           )}
         </div>
 
