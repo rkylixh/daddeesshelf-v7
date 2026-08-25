@@ -465,7 +465,8 @@ function PreorderFormModal({
 
 // ── Main Component ─────────────────────────────────────────
 export default function PreorderContent() {
-  const [sortBy, setSortBy] = useState<'arrival' | 'title' | 'price'>('arrival');
+  const [sortBy, setSortBy] = useState<'arrival' | 'title' | 'price-asc' | 'price-desc'>('arrival');
+  const [batchFilter, setBatchFilter] = useState<string>('');
   const [preorderList, setPreorderList] = useState<PreorderItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationData | null>(null);
@@ -487,12 +488,22 @@ export default function PreorderContent() {
     }
   }, [cartItems]);
 
+  // Derive distinct batches from loaded data
+  const availableBatches = useMemo(() => {
+    return [...new Set(allPreorderBooks.map(b => b.batch).filter(Boolean))].sort() as string[];
+  }, [allPreorderBooks]);
+
   const preorderBooks = useMemo(() => {
-    const books = [...allPreorderBooks];
-    if (sortBy === 'arrival') return books.sort((a, b) => (a.arrival_date ?? '').localeCompare(b.arrival_date ?? ''));
-    if (sortBy === 'title') return books.sort((a, b) => a.title.localeCompare(b.title));
-    return books.sort((a, b) => a.final_srp - b.final_srp);
-  }, [allPreorderBooks, sortBy]);
+    let books = [...allPreorderBooks];
+    // Apply batch filter
+    if (batchFilter) books = books.filter(b => b.batch === batchFilter);
+    // Apply sort
+    if (sortBy === 'arrival') books.sort((a, b) => (a.arrival_date ?? '').localeCompare(b.arrival_date ?? ''));
+    else if (sortBy === 'title') books.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sortBy === 'price-asc') books.sort((a, b) => a.final_srp - b.final_srp);
+    else if (sortBy === 'price-desc') books.sort((a, b) => b.final_srp - a.final_srp);
+    return books;
+  }, [allPreorderBooks, sortBy, batchFilter]);
 
   const byBatch = useMemo(() => {
     const map = new Map<string, Book[]>();
@@ -581,19 +592,62 @@ export default function PreorderContent() {
         </p>
       </div>
 
-      {/* Sort + Cart Summary */}
+      {/* Sort + Batch Filter + Cart Summary */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold" style={{ color: 'var(--foreground-muted)' }}>Sort by:</span>
-          {(['arrival', 'title', 'price'] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => setSortBy(s)}
-              className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${sortBy === s ? 'btn-primary' : 'btn-secondary'}`}
+          {/* Arrival Date button */}
+          <button
+            onClick={() => setSortBy('arrival')}
+            className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${sortBy === 'arrival' ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            Arrival Date
+          </button>
+          {/* Title button */}
+          <button
+            onClick={() => setSortBy('title')}
+            className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${sortBy === 'title' ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            Title
+          </button>
+          {/* Price dropdown */}
+          <select
+            value={sortBy === 'price-asc' || sortBy === 'price-desc' ? sortBy : ''}
+            onChange={e => {
+              if (e.target.value === 'price-asc' || e.target.value === 'price-desc') {
+                setSortBy(e.target.value as 'price-asc' | 'price-desc');
+              }
+            }}
+            className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all select-field"
+            style={{
+              background: (sortBy === 'price-asc' || sortBy === 'price-desc') ? 'var(--primary-glow)' : undefined,
+              color: (sortBy === 'price-asc' || sortBy === 'price-desc') ? 'var(--primary-bright)' : undefined,
+              border: (sortBy === 'price-asc' || sortBy === 'price-desc') ? '1px solid var(--border-glow)' : undefined,
+            }}
+          >
+            <option value="" disabled>Price</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+          </select>
+
+          {/* Batch filter dropdown */}
+          {availableBatches.length > 0 && (
+            <select
+              value={batchFilter}
+              onChange={e => setBatchFilter(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all select-field"
+              style={{
+                background: batchFilter ? 'var(--primary-glow)' : undefined,
+                color: batchFilter ? 'var(--primary-bright)' : undefined,
+                border: batchFilter ? '1px solid var(--border-glow)' : undefined,
+              }}
             >
-              {s === 'arrival' ? 'Arrival Date' : s === 'title' ? 'Title' : 'Price'}
-            </button>
-          ))}
+              <option value="">All Batches</option>
+              {availableBatches.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {preorderList.length > 0 && (
@@ -661,73 +715,50 @@ export default function PreorderContent() {
                       )}
                     </p>
                   </div>
-                  {isActive && (
-                    <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>{books.length} titles available</span>
-                  )}
+                  <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>{books.length} titles available</span>
                 </div>
 
-                {/* FIFO: Show book cards for all batches */}
-                {isActive ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    {books.map(book => {
-                      const inList = isInList(book.id);
-                      const listItem = preorderList.find(i => i.book.id === book.id);
+                {/* Book cards — same layout and logic for ALL batches */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {books.map(book => {
+                    const inList = isInList(book.id);
+                    const listItem = preorderList.find(i => i.book.id === book.id);
 
-                      return (
-                        <div key={book.id} className="flex flex-col">
-                          <div className="flex-1 mb-2">
-                            <BookCard book={book} />
-                          </div>
+                    return (
+                      <div key={book.id} className="flex flex-col">
+                        <div className="flex-1 mb-2">
+                          <BookCard book={book} />
+                        </div>
 
-                          {canPurchase(book) ? (
-                            inList ? (
-                              <div className="flex items-center gap-1">
-                                <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) - 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>−</button>
-                                <span className="flex-1 text-center text-xs font-bold" style={{ color: 'var(--foreground)' }}>{listItem?.qty}</span>
-                                <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) + 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>+</button>
-                                <button onClick={() => removeFromList(book.id)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>✕</button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => addToList(book)}
-                                className="btn-primary text-xs py-2 w-full"
-                              >
-                                + Preorder
-                              </button>
-                            )
-                          ) : !isPriceVisible(book) ? (
-                            <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'rgba(120,100,80,0.10)', color: '#9E8E7E', border: '1px solid rgba(120,100,80,0.25)', cursor: 'not-allowed', opacity: 0.7 }}>
-                              Price TBA
-                            </button>
+                        {canPurchase(book) ? (
+                          inList ? (
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) - 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>−</button>
+                              <span className="flex-1 text-center text-xs font-bold" style={{ color: 'var(--foreground)' }}>{listItem?.qty}</span>
+                              <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) + 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>+</button>
+                              <button onClick={() => removeFromList(book.id)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>✕</button>
+                            </div>
                           ) : (
-                            <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)', cursor: 'not-allowed' }}>
-                              Sold Out
+                            <button
+                              onClick={() => addToList(book)}
+                              className="btn-primary text-xs py-2 w-full"
+                            >
+                              + Preorder
                             </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  // Future batch: show full book cards filtered by batch + visible
-                  <div>
-                    <p className="text-sm mb-6" style={{ color: 'var(--foreground-muted)' }}>
-                      This batch will open for preorder once the current batch has substantially sold.
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                      {books.map(book => (
-                        <div key={book.id} className="flex flex-col">
-                          <div className="flex-1 mb-2">
-                            <BookCard book={book} />
-                          </div>
+                          )
+                        ) : !isPriceVisible(book) ? (
                           <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'rgba(120,100,80,0.10)', color: '#9E8E7E', border: '1px solid rgba(120,100,80,0.25)', cursor: 'not-allowed', opacity: 0.7 }}>
-                            Coming Soon
+                            Price TBA
                           </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                        ) : (
+                          <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)', cursor: 'not-allowed' }}>
+                            Sold Out
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
