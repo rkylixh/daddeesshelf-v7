@@ -137,25 +137,19 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
             <div className="absolute bottom-2 left-2">
               <StatusBadge status={book.status!} size="sm" />
             </div>
-
-            {/* Cover disclaimer */}
-            <div
-              className="absolute bottom-2 right-2"
-              title="Cover shown is a general representation. Final US/UK edition cover may vary."
-            >
-              <span
-                className="text-xs px-1 py-0.5 rounded cursor-help"
-                style={{
-                  background: 'rgba(0,0,0,0.55)',
-                  color: 'rgba(255,255,255,0.75)',
-                  fontSize: '0.55rem',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                ⓘ cover
-              </span>
-            </div>
           </div>
+
+          {/* Cover disclaimer — below the image, not overlapping it */}
+          <p
+            className="text-center leading-snug px-1"
+            style={{
+              fontSize: '0.65rem',
+              color: 'var(--foreground-subtle)',
+              opacity: 0.7,
+            }}
+          >
+            Cover shown for reference only. Actual edition/cover may vary.
+          </p>
 
           {/* Info */}
           <div className="p-3" style={{ borderTop: '1px solid rgba(216,196,168,0.35)', background: 'rgba(251,245,236,0.12)' }}>

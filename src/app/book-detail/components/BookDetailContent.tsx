@@ -476,18 +476,19 @@ export default function BookDetailContent() {
               className="object-cover"
               priority
             />
-            {/* Cover disclaimer badge */}
-            <div className="absolute bottom-2 left-2 right-2">
-              <div
-                className="rounded-lg px-2 py-1 text-center"
-                style={{ background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(4px)' }}
-              >
-                <p className="text-xs leading-snug" style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.6rem' }}>
-                  ⓘ Cover shown is a general representation. Final US/UK edition may vary.
-                </p>
-              </div>
-            </div>
           </div>
+
+          {/* Cover disclaimer — below the image, not overlapping it */}
+          <p
+            className="w-full max-w-[320px] text-center leading-snug px-1"
+            style={{
+              fontSize: '0.65rem',
+              color: 'var(--foreground-subtle)',
+              opacity: 0.7,
+            }}
+          >
+            Cover shown for reference only. Actual edition/cover may vary.
+          </p>
 
           <div className="w-full max-w-[320px] space-y-3">
             {/* Preorder / Add to Cart — blocked when price is hidden */}
