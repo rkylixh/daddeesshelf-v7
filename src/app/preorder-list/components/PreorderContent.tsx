@@ -676,7 +676,57 @@ export default function PreorderContent() {
         </div>
       ) : (
         <div className="space-y-12">
-          {Array.from(byBatch.entries()).map(([batchName, books]) => {
+          {(sortBy === 'price-asc' || sortBy === 'price-desc') ? (
+            /* Price sort: flat grid across all batches */
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <p className="text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>
+                  {preorderBooks.length} titles — sorted by {sortBy === 'price-asc' ? 'price: low to high' : 'price: high to low'}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {preorderBooks.map(book => {
+                  const inList = isInList(book.id);
+                  const listItem = preorderList.find(i => i.book.id === book.id);
+
+                  return (
+                    <div key={book.id} className="flex flex-col">
+                      <div className="flex-1 mb-2">
+                        <BookCard book={book} />
+                      </div>
+
+                      {canPurchase(book) ? (
+                        inList ? (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) - 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>−</button>
+                            <span className="flex-1 text-center text-xs font-bold" style={{ color: 'var(--foreground)' }}>{listItem?.qty}</span>
+                            <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) + 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>+</button>
+                            <button onClick={() => removeFromList(book.id)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>✕</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => addToList(book)}
+                            className="btn-primary text-xs py-2 w-full"
+                          >
+                            + Preorder
+                          </button>
+                        )
+                      ) : !isPriceVisible(book) ? (
+                        <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'rgba(120,100,80,0.10)', color: '#9E8E7E', border: '1px solid rgba(120,100,80,0.25)', cursor: 'not-allowed', opacity: 0.7 }}>
+                          Price TBA
+                        </button>
+                      ) : (
+                        <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)', cursor: 'not-allowed' }}>
+                          Sold Out
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+          Array.from(byBatch.entries()).map(([batchName, books]) => {
             const isActive = batchName === activeBatch;
             const batchEta = books[0]?.arrival_date ?? null;
             const daysUntil = getDaysUntil(batchEta);
@@ -753,7 +803,8 @@ export default function PreorderContent() {
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
       )}
 

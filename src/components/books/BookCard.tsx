@@ -139,17 +139,37 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
             </div>
           </div>
 
-          {/* Cover disclaimer — below the image, not overlapping it */}
-          <p
-            className="text-center leading-snug px-1"
-            style={{
-              fontSize: '0.65rem',
-              color: 'var(--foreground-subtle)',
-              opacity: 0.7,
-            }}
-          >
-            Cover shown for reference only. Actual edition/cover may vary.
-          </p>
+          {/* Cover disclaimer — info button with hover tooltip */}
+          <div className="flex justify-end px-1.5 pt-1 pb-0.5">
+            <div className="relative group/disclaimer">
+              <button
+                aria-label="Cover disclaimer"
+                className="flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold leading-none"
+                style={{
+                  background: 'rgba(123,100,84,0.15)',
+                  color: 'var(--foreground-subtle)',
+                  border: '1px solid rgba(123,100,84,0.25)',
+                  fontSize: '0.6rem',
+                }}
+                tabIndex={-1}
+              >
+                i
+              </button>
+              <div
+                className="absolute bottom-full right-0 mb-1.5 w-44 rounded-lg px-2.5 py-2 text-center pointer-events-none opacity-0 group-hover/disclaimer:opacity-100 transition-opacity duration-150 z-10"
+                style={{
+                  fontSize: '0.65rem',
+                  color: 'var(--foreground-muted)',
+                  background: 'var(--background-card)',
+                  border: '1px solid rgba(216,196,168,0.4)',
+                  boxShadow: '0 4px 12px rgba(75,53,42,0.18)',
+                  lineHeight: 1.4,
+                }}
+              >
+                Cover shown for reference only. Actual edition/cover may vary.
+              </div>
+            </div>
+          </div>
 
           {/* Info */}
           <div className="p-3" style={{ borderTop: '1px solid rgba(216,196,168,0.35)', background: 'rgba(251,245,236,0.12)' }}>
