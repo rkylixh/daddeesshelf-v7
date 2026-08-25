@@ -618,12 +618,8 @@ export default function PreorderContent() {
                 setSortBy(e.target.value as 'price-asc' | 'price-desc');
               }
             }}
-            className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all select-field"
-            style={{
-              background: (sortBy === 'price-asc' || sortBy === 'price-desc') ? 'var(--primary-glow)' : undefined,
-              color: (sortBy === 'price-asc' || sortBy === 'price-desc') ? 'var(--primary-bright)' : undefined,
-              border: (sortBy === 'price-asc' || sortBy === 'price-desc') ? '1px solid var(--border-glow)' : undefined,
-            }}
+            className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${(sortBy === 'price-asc' || sortBy === 'price-desc') ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ appearance: 'none', cursor: 'pointer' }}
           >
             <option value="" disabled>Price</option>
             <option value="price-asc">Price: Low to High</option>
@@ -635,12 +631,8 @@ export default function PreorderContent() {
             <select
               value={batchFilter}
               onChange={e => setBatchFilter(e.target.value)}
-              className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all select-field"
-              style={{
-                background: batchFilter ? 'var(--primary-glow)' : undefined,
-                color: batchFilter ? 'var(--primary-bright)' : undefined,
-                border: batchFilter ? '1px solid var(--border-glow)' : undefined,
-              }}
+              className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${batchFilter ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ appearance: 'none', cursor: 'pointer' }}
             >
               <option value="">All Batches</option>
               {availableBatches.map(b => (
