@@ -296,9 +296,8 @@ export default function HomePage() {
   useEffect(() => {
     async function load() {
       try {
-        const [booksRes, wishlistRes] = await Promise.all([
+        const [booksRes] = await Promise.all([
           supabase.from('books').select('final_srp, preorder_price, onhand_price, batch, is_visible').eq('is_visible', true),
-          supabase.from('wishlists').select('id', { count: 'exact', head: true }),
         ]);
 
         const allBooks = booksRes.data ?? [];
@@ -314,7 +313,7 @@ export default function HomePage() {
           titlesAvailable: allBooks.length,
           activeBatchCount: distinctBatches.length,
           lowestPrice: prices.length > 0 ? Math.min(...prices) : 0,
-          wishlistCount: wishlistRes.count ?? 0,
+          wishlistCount: 0,
         });
 
         // Load homepage settings
