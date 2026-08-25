@@ -692,7 +692,7 @@ export default function PreorderContent() {
                   return (
                     <div key={book.id} className="flex flex-col">
                       <div className="flex-1 mb-2">
-                        <BookCard book={book} />
+                        <BookCard book={book} batchLabel={book.batch || undefined} />
                       </div>
 
                       {canPurchase(book) ? (

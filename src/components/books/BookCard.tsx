@@ -14,9 +14,10 @@ interface BookCardProps {
   book: Book;
   href?: string;
   showQuickAdd?: boolean;
+  batchLabel?: string;
 }
 
-export default function BookCard({ book, href, showQuickAdd = false }: BookCardProps) {
+export default function BookCard({ book, href, showQuickAdd = false, batchLabel }: BookCardProps) {
   const [wishlisted, setWishlisted] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showWishlistPrompt, setShowWishlistPrompt] = useState(false);
@@ -135,12 +136,28 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
 
             {/* Status overlay */}
             <div className="absolute bottom-2 left-2">
-              <StatusBadge status={book.status!} size="sm" />
+              <StatusBadge status={book.status!} size="sm" available={book.status === 'Pre-order' ? (book.available ?? 0) : undefined} />
             </div>
           </div>
 
           {/* Cover disclaimer — info button with hover tooltip */}
-          <div className="flex justify-end px-1.5 pt-1 pb-0.5">
+          <div className="flex items-center justify-between px-1.5 pt-1 pb-0.5">
+            {batchLabel ? (
+              <span
+                className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                style={{
+                  fontSize: '0.62rem',
+                  color: 'var(--primary-bright)',
+                  background: 'rgba(184,134,11,0.12)',
+                  border: '1px solid rgba(184,134,11,0.3)',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {batchLabel}
+              </span>
+            ) : (
+              <span />
+            )}
             <div className="relative group/disclaimer">
               <button
                 aria-label="Cover disclaimer"
