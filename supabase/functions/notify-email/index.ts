@@ -22,11 +22,11 @@ serve(async (req) => {
     const body = await req.json();
     const { type, data } = body;
 
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    const RESEND_API_KEY = Deno.env.get("API_ORDER_NOTIF");
     const NOTIFY_EMAIL = "daddeesshelf.web@gmail.com";
 
     if (!RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is not set");
+      throw new Error("API_ORDER_NOTIF is not set");
     }
 
     let subject = "";
@@ -89,7 +89,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "onboarding@resend.dev",
+        from: "orders@daddeesshelf.shop",
         to: [NOTIFY_EMAIL],
         subject,
         html,

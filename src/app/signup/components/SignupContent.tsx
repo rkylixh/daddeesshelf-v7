@@ -161,7 +161,7 @@ export default function SignupContent() {
         .maybeSingle();
 
       if (existingHandle) {
-        setError('This TikTok handle is already registered. Please log in instead.');
+        setError('This TikTok handle is already registered. Please create a Shelfie Username to log in or sign up instead.');
         setLoading(false);
         return;
       }

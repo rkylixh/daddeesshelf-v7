@@ -180,7 +180,7 @@ export default function ClaimAccountContent() {
         }
 
         if (data.username && data.pin_enrolled) {
-          setIdentifyError('This account already has a username and PIN set up. Please log in instead.');
+          setIdentifyError('This TikTok handle is already linked to a Shelfie account. Please use your Shelfie Username to log in instead.');
           return;
         }
 
