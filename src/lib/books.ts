@@ -11,9 +11,11 @@ function getClient() {
 function computeStatus(book: Partial<Book> & { visibility?: string }): Book['status'] {
   // If visibility is explicitly 'Reserved', treat as Sold Out
   if (book.visibility === 'Reserved') return 'Sold Out';
-  // If reserved column equals 1, treat as out of stock regardless of inventory
-  if ((book.reserved ?? 0) === 1) return 'Sold Out';
-  const available = (book.inventory ?? 0) - (book.reserved ?? 0);
+  // Sold out when all copies are reserved (reserved >= total copies)
+  const inventory = book.inventory ?? 0;
+  const reserved = book.reserved ?? 0;
+  if (reserved >= inventory && inventory > 0) return 'Sold Out';
+  const available = inventory - reserved;
   if (book.arrival_date && new Date(book.arrival_date) > new Date()) return 'Pre-order';
   if (available > 0) return 'On Hand';
   return 'Sold Out';
@@ -42,10 +44,7 @@ export function formatBookPrice(book: { is_price_visible?: boolean; final_srp?: 
 export function canPurchase(book: Book): boolean {
   if (!isPriceVisible(book)) return false;
   if (book.status === 'Sold Out') return false;
-  const isReservedSoldOut = (book.reserved ?? 0) === 1;
-  const available = isReservedSoldOut
-    ? 0
-    : Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0));
+  const available = Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0));
   return available > 0;
 }
 
