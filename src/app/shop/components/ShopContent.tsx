@@ -91,6 +91,8 @@ export default function ShopContent() {
     source: '',
     batch: '',
     trope: '',
+    selectedTropes: [],
+    tropeMatchMode: 'any',
   });
   const [authorFilter, setAuthorFilter] = useState('');
   const [priceMin, setPriceMin] = useState('');
@@ -169,7 +171,15 @@ export default function ShopContent() {
     if (filters.format) books = books.filter(b => b.format === filters.format);
     if (filters.status) books = books.filter(b => b.status === filters.status);
     if (filters.batch) books = books.filter(b => b.batch === filters.batch);
-    if (filters.trope) books = books.filter(b => b.reader_tags && b.reader_tags.includes(filters.trope!));
+    // Multi-trope filter
+    const selectedTropes = filters.selectedTropes ?? [];
+    if (selectedTropes.length > 0) {
+      if (filters.tropeMatchMode === 'all') {
+        books = books.filter(b => selectedTropes.every(t => b.reader_tags && b.reader_tags.includes(t)));
+      } else {
+        books = books.filter(b => selectedTropes.some(t => b.reader_tags && b.reader_tags.includes(t)));
+      }
+    }
     // Source filter
     if (filters.source === 'Pre-order') books = books.filter(b => b.status === 'Pre-order');
     else if (filters.source === 'On Hand') books = books.filter(b => b.status === 'On Hand');
@@ -193,9 +203,9 @@ export default function ShopContent() {
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  const handleFilterChange = (key: keyof BookFilters, value: string) => {
+  const handleFilterChange = (key: keyof BookFilters, value: string | string[]) => {
     if (key === 'author') {
-      setAuthorFilter(value);
+      setAuthorFilter(value as string);
     } else {
       setFilters(prev => ({ ...prev, [key]: value }));
     }
@@ -209,7 +219,7 @@ export default function ShopContent() {
   };
 
   const clearFilters = () => {
-    setFilters({ search: '', genre: '', subgenre: '', format: '', status: '', series: '', source: '', batch: '', trope: '' });
+    setFilters({ search: '', genre: '', subgenre: '', format: '', status: '', series: '', source: '', batch: '', trope: '', selectedTropes: [], tropeMatchMode: 'any' });
     setAuthorFilter('');
     setPriceMin('');
     setPriceMax('');
@@ -217,7 +227,7 @@ export default function ShopContent() {
   };
 
   const activeFilterCount =
-    Object.values(filters).filter(Boolean).length +
+    Object.values(filters).filter(v => v && v !== 'any' && (!Array.isArray(v) || v.length > 0)).filter(Boolean).length +
     (authorFilter ? 1 : 0) +
     (priceMin ? 1 : 0) +
     (priceMax ? 1 : 0);

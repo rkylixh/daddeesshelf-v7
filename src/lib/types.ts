@@ -74,6 +74,8 @@ export interface BookFilters {
   batch?: string;
   source?: string;
   trope?: string;
+  selectedTropes?: string[];
+  tropeMatchMode?: 'all' | 'any';
 }
 
 export interface AdminFilters extends BookFilters {
