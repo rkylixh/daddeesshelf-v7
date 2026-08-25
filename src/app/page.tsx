@@ -297,13 +297,13 @@ export default function HomePage() {
     async function load() {
       try {
         const [booksRes] = await Promise.all([
-          supabase.from('books').select('final_srp, preorder_price, onhand_price, batch, is_visible').eq('is_visible', true),
+          supabase.from('books').select('preorder_price, onhand_price, batch, is_visible').eq('is_visible', true),
         ]);
 
         const allBooks = booksRes.data ?? [];
         const distinctBatches = [...new Set(allBooks.map((b: Record<string, unknown>) => String(b.batch)).filter(Boolean))];
         const prices = allBooks.map((b: Record<string, unknown>) => {
-          const preorderPrice = b.preorder_price != null ? Number(b.preorder_price) : Number(b.final_srp ?? 0);
+          const preorderPrice = b.preorder_price != null ? Number(b.preorder_price) : 0;
           const onhandPrice = b.onhand_price != null ? Number(b.onhand_price) : null;
           const candidates = [preorderPrice, onhandPrice].filter((p): p is number => p != null && p > 0);
           return candidates.length > 0 ? Math.min(...candidates) : 0;
