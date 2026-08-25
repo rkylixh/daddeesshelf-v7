@@ -731,20 +731,38 @@ export default function PreorderContent() {
                     })}
                   </div>
                 ) : (
-                  // Future batch: name + ETA only, no covers/prices/preorder
+                  // Future batch: name + ETA + visible titles list, no covers/prices/preorder
                   <div
-                    className="rounded-xl p-6 text-center"
+                    className="rounded-xl p-6"
                     style={{ background: 'rgba(184,134,11,0.04)', border: '1px dashed rgba(184,134,11,0.2)' }}
                   >
-                    <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+                    <p className="text-sm mb-3" style={{ color: 'var(--foreground-muted)' }}>
                       This batch will open for preorder once the current batch has substantially sold.
                     </p>
-                    <p className="text-xs mt-2" style={{ color: 'var(--foreground-subtle)' }}>
+                    <p className="text-xs mb-4" style={{ color: 'var(--foreground-subtle)' }}>
                       Estimated Arrival:{' '}
                       <strong style={{ color: 'var(--foreground)' }}>
                         {books.some(b => isEtaVisible(b)) ? formatDate(batchEta) : 'TBA'}
                       </strong>
                     </p>
+                    {books.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--foreground-subtle)', letterSpacing: '0.1em' }}>
+                          Titles in this batch
+                        </p>
+                        <ul className="space-y-1">
+                          {books.map(book => (
+                            <li key={book.id} className="flex items-center gap-2 text-xs" style={{ color: 'var(--foreground-muted)' }}>
+                              <span style={{ color: 'var(--primary-bright)', flexShrink: 0 }}>✦</span>
+                              <span className="font-medium" style={{ color: 'var(--foreground)' }}>{book.title}</span>
+                              {book.author && (
+                                <span style={{ color: 'var(--foreground-subtle)' }}>— {book.author}</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

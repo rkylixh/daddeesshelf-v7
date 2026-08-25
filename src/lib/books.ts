@@ -222,7 +222,7 @@ export async function getDistinctGenres(): Promise<string[]> {
 
 export async function getDistinctBatches(): Promise<string[]> {
   const supabase = getClient();
-  const { data } = await supabase.from('books').select('batch');
+  const { data } = await supabase.from('books').select('batch').eq('is_visible', true);
   if (!data) return [];
   return [...new Set(data.map((r: Record<string, unknown>) => String(r.batch)).filter(Boolean))].sort();
 }
