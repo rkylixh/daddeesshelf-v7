@@ -152,7 +152,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartX = useRef<number | null>(null);
 
-  const visibleCount = 3;
+  const visibleCount = 4;
   const total = books.length;
 
   const next = useCallback(() => {
@@ -201,7 +201,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
         <Icon name="ChevronLeftIcon" size={18} />
       </button>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 overflow-hidden">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 overflow-hidden">
         {indices.map((idx, pos) => {
           const book = books[idx];
           return (
@@ -221,7 +221,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
                     src={book.cover_url || '/assets/images/no_image.png'}
                     alt={`Cover of ${book.title} by ${book.author}`}
                     fill
-                    sizes="(max-width: 640px) 50vw, 33vw"
+                    sizes="(max-width: 640px) 50vw, 25vw"
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   {book.status === 'Pre-order' && (
@@ -384,7 +384,7 @@ export default function HomePage() {
           etaVisible,
           count: preorderBooks.length,
         });
-        setBatchBooks(preorderBooks.slice(0, 6));
+        setBatchBooks(preorderBooks.slice(0, 8));
 
         const { data: seedData } = await supabase
           .from('best_sellers_seed')
@@ -736,10 +736,8 @@ const COL_CLASSES: Record<number, string> = {
 };
 
 function BalancedBookGrid({ books }: { books: Book[] }) {
-  const cols = getBalancedCols(books.length);
-  const colClass = COL_CLASSES[cols] ?? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5';
   return (
-    <div className={`grid ${colClass} gap-4`}>
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
       {books.map(book => (
         <BookCard key={book.id} book={book} />
       ))}
