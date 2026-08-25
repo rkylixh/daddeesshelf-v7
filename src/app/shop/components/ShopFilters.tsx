@@ -9,6 +9,7 @@ interface Props {
   formats: string[];
   authors: string[];
   batches: string[];
+  tropes: string[];
   onFilterChange: (key: keyof BookFilters, value: string) => void;
   onPriceChange: (min: string, max: string) => void;
   onClear: () => void;
@@ -26,6 +27,7 @@ export default function ShopFilters({
   formats,
   authors,
   batches,
+  tropes,
   onFilterChange,
   onPriceChange,
   onClear,
@@ -122,6 +124,25 @@ export default function ShopFilters({
           ))}
         </select>
       </div>
+
+      {/* Tropes */}
+      {tropes.length > 0 && (
+        <div>
+          <label className="block text-xs font-medium mb-2" style={{ color: 'var(--foreground-muted)' }}>
+            Trope
+          </label>
+          <select
+            value={filters.trope ?? ''}
+            onChange={e => onFilterChange('trope', e.target.value)}
+            className="select-field text-sm py-2 w-full"
+          >
+            <option value="">All Tropes</option>
+            {tropes.map(t => (
+              <option key={`filter-trope-${t}`} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Author */}
       <div>

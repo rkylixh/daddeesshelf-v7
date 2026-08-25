@@ -76,6 +76,7 @@ export default function ShopContent() {
   const [genres, setGenres] = useState<string[]>([]);
   const [authors, setAuthors] = useState<string[]>([]);
   const [batches, setBatches] = useState<string[]>([]);
+  const [tropes, setTropes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [allBatchEtas, setAllBatchEtas] = useState<{ batch: string; eta: string; etaVisible: boolean; count: number }[]>([]);
   const [showCalendarModal, setShowCalendarModal] = useState(false);
@@ -89,6 +90,7 @@ export default function ShopContent() {
     series: '',
     source: '',
     batch: '',
+    trope: '',
   });
   const [authorFilter, setAuthorFilter] = useState('');
   const [priceMin, setPriceMin] = useState('');
@@ -108,6 +110,10 @@ export default function ShopContent() {
       setAuthors(uniqueAuthors);
       const uniqueBatches = [...new Set(books.map(b => b.batch).filter(Boolean))].sort();
       setBatches(uniqueBatches);
+      // Extract unique tropes from reader_tags
+      const allTropes = books.flatMap(b => b.reader_tags ?? []);
+      const uniqueTropes = [...new Set(allTropes)].sort();
+      setTropes(uniqueTropes);
 
       // Fetch batch ETA data for the calendar
       const { data: batchRows } = await supabase
@@ -163,6 +169,7 @@ export default function ShopContent() {
     if (filters.format) books = books.filter(b => b.format === filters.format);
     if (filters.status) books = books.filter(b => b.status === filters.status);
     if (filters.batch) books = books.filter(b => b.batch === filters.batch);
+    if (filters.trope) books = books.filter(b => b.reader_tags && b.reader_tags.includes(filters.trope!));
     // Source filter
     if (filters.source === 'Pre-order') books = books.filter(b => b.status === 'Pre-order');
     else if (filters.source === 'On Hand') books = books.filter(b => b.status === 'On Hand');
@@ -202,7 +209,7 @@ export default function ShopContent() {
   };
 
   const clearFilters = () => {
-    setFilters({ search: '', genre: '', subgenre: '', format: '', status: '', series: '', source: '', batch: '' });
+    setFilters({ search: '', genre: '', subgenre: '', format: '', status: '', series: '', source: '', batch: '', trope: '' });
     setAuthorFilter('');
     setPriceMin('');
     setPriceMax('');
@@ -288,6 +295,7 @@ export default function ShopContent() {
             formats={FORMATS}
             authors={authors}
             batches={batches}
+            tropes={tropes}
             onFilterChange={handleFilterChange}
             onPriceChange={handlePriceChange}
             onClear={clearFilters}

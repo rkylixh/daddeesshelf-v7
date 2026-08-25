@@ -73,6 +73,7 @@ export interface BookFilters {
   author?: string;
   batch?: string;
   source?: string;
+  trope?: string;
 }
 
 export interface AdminFilters extends BookFilters {

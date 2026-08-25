@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown, { BOOK_SEARCH_HINTS } from '@/components/ui/SearchHintDropdown';
 import { getBooks, isPriceVisible } from '@/lib/books';
 import { ADMIN_ACCESS_CODE, saveAdminSession } from '@/lib/admin-auth';
 import { Book } from '@/lib/types';
@@ -792,6 +793,7 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -819,6 +821,7 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
     if (val === ADMIN_TRIGGER) {
       setQuery('');
       setOpen(false);
+      setShowHint(false);
       onAdminTrigger();
       return;
     }
@@ -828,18 +831,29 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
 
   const handleSelect = (book: Book) => {
     setOpen(false);
+    setShowHint(false);
     setQuery('');
     router.push(`/book-detail?id=${book.id}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { setOpen(false); setQuery(''); }
+    if (e.key === 'Escape') { setOpen(false); setShowHint(false); setQuery(''); }
+  };
+
+  const handleFocus = () => {
+    if (!query.trim()) setShowHint(true);
+  };
+
+  const handleBlur = () => {
+    // Delay to allow click events on dropdown to fire first
+    setTimeout(() => setShowHint(false), 150);
   };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setShowHint(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -855,6 +869,8 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
         value={query}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         className="input-field pl-9 py-2 text-sm w-full"
         style={{ borderRadius: '9999px', paddingRight: '1rem' }}
         autoComplete="off"
@@ -863,6 +879,11 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
         <div className="absolute right-3">
           <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
         </div>
+      )}
+
+      {/* Search hint dropdown — shown when focused with empty query */}
+      {showHint && !query.trim() && !open && (
+        <SearchHintDropdown hints={BOOK_SEARCH_HINTS} />
       )}
 
       {open && results.length > 0 && (
@@ -924,6 +945,7 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -970,6 +992,8 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
           placeholder="Search books..."
           value={query}
           onChange={handleChange}
+          onFocus={() => { if (!query.trim()) setShowHint(true); }}
+          onBlur={() => setTimeout(() => setShowHint(false), 150)}
           className="input-field pl-9 text-sm"
           autoComplete="off"
         />
@@ -977,6 +1001,10 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
           </div>
+        )}
+        {/* Search hint dropdown */}
+        {showHint && !query.trim() && results.length === 0 && (
+          <SearchHintDropdown hints={BOOK_SEARCH_HINTS} />
         )}
       </div>
       {results.length > 0 && (
