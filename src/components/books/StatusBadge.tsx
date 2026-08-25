@@ -29,13 +29,17 @@ export default function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
         }
       : status === 'Pre-order'
       ? {
-          fontSize: size === 'sm' ? '0.65rem' : '0.72rem',
-          padding: size === 'sm' ? '0.2rem 0.55rem' : '0.25rem 0.65rem',
-          background: 'rgba(200,140,30,0.22)',
-          color: '#7C4F00',
-          border: '1.5px solid rgba(180,120,20,0.6)',
-          fontWeight: 700,
-          letterSpacing: '0.06em',
+          fontSize: size === 'sm' ? '0.68rem' : '0.75rem',
+          padding: size === 'sm' ? '0.25rem 0.6rem' : '0.3rem 0.7rem',
+          background: 'rgba(120, 60, 0, 0.88)',
+          color: '#FFF3D6',
+          border: '1.5px solid rgba(255,200,80,0.7)',
+          fontWeight: 800,
+          letterSpacing: '0.08em',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.45)',
+          borderRadius: '6px',
+          backdropFilter: 'blur(2px)',
+          WebkitBackdropFilter: 'blur(2px)',
         }
       : size === 'sm'
       ? { fontSize: '0.65rem', padding: '0.2rem 0.5rem' }
