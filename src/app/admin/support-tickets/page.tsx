@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import AdminGuard from '../components/AdminGuard';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown from '@/components/ui/SearchHintDropdown';
 import { createClient } from '@/lib/supabase/client';
 import { SupportTicket } from '@/lib/types';
 
@@ -221,6 +222,7 @@ function AdminSupportTicketsContent() {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -286,8 +288,17 @@ function AdminSupportTicketsContent() {
             placeholder="Search by name, subject, handle..."
             value={search}
             onChange={e => setSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             className="input-field pl-9 text-sm"
           />
+          {searchFocused && (
+            <SearchHintDropdown hints={[
+              { label: 'Name', icon: 'IdentificationIcon' },
+              { label: 'Subject', icon: 'ChatBubbleLeftIcon' },
+              { label: 'TikTok Handle', icon: 'UserIcon' },
+            ]} />
+          )}
         </div>
 
         {/* Table */}

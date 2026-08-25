@@ -7,6 +7,7 @@ import Footer from '@/components/layout/Footer';
 import StarField from '@/components/layout/StarField';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown, { BOOK_SEARCH_HINTS } from '@/components/ui/SearchHintDropdown';
 import { createClient } from '@/lib/supabase/client';
 import { OnHandItem } from '@/lib/types';
 
@@ -44,6 +45,7 @@ export default function OnHandPage() {
   const [search, setSearch] = useState('');
   const [genreFilter, setGenreFilter] = useState('');
   const [genres, setGenres] = useState<string[]>([]);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -98,8 +100,11 @@ export default function OnHandPage() {
                   placeholder="Search titles or authors..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setSearchFocused(false)}
                   className="input-field pl-9 text-sm w-full"
                 />
+                {searchFocused && <SearchHintDropdown hints={BOOK_SEARCH_HINTS} />}
               </div>
               {genres.length > 0 && (
                 <select

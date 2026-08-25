@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import AppLogo from '@/components/ui/AppLogo';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown, { BOOK_SEARCH_HINTS } from '@/components/ui/SearchHintDropdown';
 import { Book } from '@/lib/types';
 import { getAllBooksAdmin, createBook, updateBook, deleteBook, bulkUpdateBooks, getDistinctGenres, getDistinctBatches } from '@/lib/books';
 import InventoryTable from './InventoryTable';
@@ -22,6 +23,7 @@ export default function InventoryControlContent() {
   const [batches, setBatches] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [filterGenre, setFilterGenre] = useState('');
   const [filterFormat, setFilterFormat] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -237,8 +239,11 @@ export default function InventoryControlContent() {
               placeholder="Search by title, author, SKU, genre..."
               value={search}
               onChange={e => setSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
               className="input-field pl-9 py-2 text-sm"
             />
+            {searchFocused && <SearchHintDropdown hints={BOOK_SEARCH_HINTS} />}
           </div>
 
           {/* Genre filter */}

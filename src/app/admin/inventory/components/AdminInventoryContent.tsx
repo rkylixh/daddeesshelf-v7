@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown, { BOOK_SEARCH_HINTS } from '@/components/ui/SearchHintDropdown';
 import { Book } from '@/lib/types';
 import { getAllBooksAdmin, createBook, updateBook, deleteBook, bulkUpdateBooks } from '@/lib/books';
 import { toast } from 'sonner';
@@ -279,14 +280,14 @@ function GenreEditsTab() {
 
       let saveError;
       if (existing?.id) {
-        const result = await supabase.from('genre_images').update(payload).eq('id', existing.id);
+        let result = await supabase.from('genre_images').update(payload).eq('id', existing.id);
         saveError = result.error;
       } else if (!url.trim()) {
         // Nothing to clear
         setSaving(null);
         return;
       } else {
-        const result = await supabase.from('genre_images').insert(payload);
+        let result = await supabase.from('genre_images').insert(payload);
         saveError = result.error;
       }
       if (saveError) throw saveError;
@@ -468,6 +469,7 @@ export default function AdminInventoryContent() {
   const [deleteTarget, setDeleteTarget] = useState<Book | null>(null);
   const [sortCol, setSortCol] = useState<keyof Book>('created_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     loadBooks();
@@ -686,7 +688,8 @@ export default function AdminInventoryContent() {
           <div className="rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-end" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
             <div className="relative flex-1 min-w-[200px]">
               <Icon name="MagnifyingGlassIcon" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
-              <input type="search" placeholder="Search by title, author, SKU..." value={search} onChange={e => setSearch(e.target.value)} className="input-field pl-9 py-2 text-sm" />
+              <input type="search" placeholder="Search by title, author, SKU..." value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} className="input-field pl-9 py-2 text-sm" />
+              {searchFocused && <SearchHintDropdown hints={BOOK_SEARCH_HINTS} />}
             </div>
             <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} className="select-field text-sm py-2">
               <option value="">All Genres</option>
