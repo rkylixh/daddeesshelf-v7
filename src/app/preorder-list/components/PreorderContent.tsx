@@ -3,8 +3,9 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
-import StatusBadge from '@/components/books/StatusBadge';
-import { getPreorderBooks, isPriceVisible, isEtaVisible, canPurchase, formatBookPrice } from '@/lib/books';
+
+import BookCard from '@/components/books/BookCard';
+import { getPreorderBooks, isPriceVisible, isEtaVisible, canPurchase } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useCart } from '@/components/layout/Navbar';
@@ -665,7 +666,7 @@ export default function PreorderContent() {
                   )}
                 </div>
 
-                {/* FIFO: Only show covers/prices/preorder for active batch */}
+                {/* FIFO: Show book cards for all batches */}
                 {isActive ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {books.map(book => {
@@ -674,32 +675,9 @@ export default function PreorderContent() {
 
                       return (
                         <div key={book.id} className="flex flex-col">
-                          <Link href={`/book-detail?id=${book.id}`} className="block group mb-2">
-                            <div className="card-glow rounded-xl overflow-hidden" style={{ background: 'var(--background-card)' }}>
-                              <div className="relative aspect-[2/3] overflow-hidden">
-                                <AppImage
-                                  src={book.cover_url || '/assets/images/no_image.png'}
-                                  alt={`Cover of ${book.title} by ${book.author}`}
-                                  fill
-                                  sizes="(max-width: 640px) 50vw, 20vw"
-                                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                                />
-                                <div className="absolute bottom-2 left-2">
-                                  <StatusBadge status={book.status!} size="sm" />
-                                </div>
-                              </div>
-                              <div className="p-2.5">
-                                <p className="text-xs font-medium mb-0.5 truncate" style={{ color: 'var(--foreground-subtle)' }}>{book.genre}</p>
-                                <h3 className="font-display text-xs font-semibold leading-snug mb-0.5 line-clamp-2" style={{ color: 'var(--foreground)' }}>{book.title}</h3>
-                                <p className="text-xs mb-1.5 truncate" style={{ color: 'var(--foreground-muted)' }}>{book.author}</p>
-                                {isPriceVisible(book) ? (
-                                  <p className="text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>{formatBookPrice(book)}</p>
-                                ) : (
-                                  <p className="text-xs font-medium" style={{ color: 'var(--foreground-subtle)' }}>Price TBA</p>
-                                )}
-                              </div>
-                            </div>
-                          </Link>
+                          <div className="flex-1 mb-2">
+                            <BookCard book={book} />
+                          </div>
 
                           {canPurchase(book) ? (
                             inList ? (
@@ -731,38 +709,23 @@ export default function PreorderContent() {
                     })}
                   </div>
                 ) : (
-                  // Future batch: name + ETA + visible titles list, no covers/prices/preorder
-                  <div
-                    className="rounded-xl p-6"
-                    style={{ background: 'rgba(184,134,11,0.04)', border: '1px dashed rgba(184,134,11,0.2)' }}
-                  >
-                    <p className="text-sm mb-3" style={{ color: 'var(--foreground-muted)' }}>
+                  // Future batch: show full book cards filtered by batch + visible
+                  <div>
+                    <p className="text-sm mb-6" style={{ color: 'var(--foreground-muted)' }}>
                       This batch will open for preorder once the current batch has substantially sold.
                     </p>
-                    <p className="text-xs mb-4" style={{ color: 'var(--foreground-subtle)' }}>
-                      Estimated Arrival:{' '}
-                      <strong style={{ color: 'var(--foreground)' }}>
-                        {books.some(b => isEtaVisible(b)) ? formatDate(batchEta) : 'TBA'}
-                      </strong>
-                    </p>
-                    {books.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--foreground-subtle)', letterSpacing: '0.1em' }}>
-                          Titles in this batch
-                        </p>
-                        <ul className="space-y-1">
-                          {books.map(book => (
-                            <li key={book.id} className="flex items-center gap-2 text-xs" style={{ color: 'var(--foreground-muted)' }}>
-                              <span style={{ color: 'var(--primary-bright)', flexShrink: 0 }}>✦</span>
-                              <span className="font-medium" style={{ color: 'var(--foreground)' }}>{book.title}</span>
-                              {book.author && (
-                                <span style={{ color: 'var(--foreground-subtle)' }}>— {book.author}</span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                      {books.map(book => (
+                        <div key={book.id} className="flex flex-col">
+                          <div className="flex-1 mb-2">
+                            <BookCard book={book} />
+                          </div>
+                          <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'rgba(120,100,80,0.10)', color: '#9E8E7E', border: '1px solid rgba(120,100,80,0.25)', cursor: 'not-allowed', opacity: 0.7 }}>
+                            Coming Soon
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
