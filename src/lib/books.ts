@@ -8,14 +8,15 @@ function getClient() {
   );
 }
 
-function computeStatus(book: Partial<Book> & { visibility?: string }): Book['status'] {
+function computeStatus(book: Partial<Book> & { visibility?: string; ordered?: number }): Book['status'] {
   // If visibility is explicitly 'Reserved', treat as Sold Out
   if (book.visibility === 'Reserved') return 'Sold Out';
-  // Sold out when all copies are reserved (reserved >= total copies)
+  // Sold out when all copies are reserved OR ordered (reserved + ordered >= total copies)
   const inventory = book.inventory ?? 0;
   const reserved = book.reserved ?? 0;
-  if (reserved >= inventory && inventory > 0) return 'Sold Out';
-  const available = inventory - reserved;
+  const ordered = book.ordered ?? 0;
+  if ((reserved + ordered) >= inventory && inventory > 0) return 'Sold Out';
+  const available = inventory - reserved - ordered;
   if (book.arrival_date && new Date(book.arrival_date) > new Date()) return 'Pre-order';
   if (available > 0) return 'On Hand';
   return 'Sold Out';
@@ -44,7 +45,7 @@ export function formatBookPrice(book: { is_price_visible?: boolean; final_srp?: 
 export function canPurchase(book: Book): boolean {
   if (!isPriceVisible(book)) return false;
   if (book.status === 'Sold Out') return false;
-  const available = Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0));
+  const available = Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0) - (book.ordered ?? 0));
   return available > 0;
 }
 
@@ -54,10 +55,11 @@ export function mapBookFromRow(row: Record<string, unknown>): Book {
 }
 
 function mapRow(row: Record<string, unknown>): Book {
-  const available = Number(row.inventory ?? 0) - Number(row.reserved ?? 0);
+  const available = Number(row.inventory ?? 0) - Number(row.reserved ?? 0) - Number(row.ordered ?? 0);
   const status = computeStatus({
     inventory: Number(row.inventory ?? 0),
     reserved: Number(row.reserved ?? 0),
+    ordered: Number(row.ordered ?? 0),
     arrival_date: row.arrival_date ? String(row.arrival_date) : null,
     visibility: row.visibility ? String(row.visibility) : undefined,
   });
