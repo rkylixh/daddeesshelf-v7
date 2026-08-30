@@ -151,13 +151,13 @@ export default function SignupContent() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const normalizedHandle = '@' + tiktok;
+      const normalizedHandle = '@' + tiktok.toLowerCase();
 
-      // Check if TikTok handle already registered
+      // Check if TikTok handle already registered (case-insensitive, with or without @)
       const { data: existingHandle } = await supabase
         .from('customers')
         .select('id')
-        .eq('tiktok_handle', normalizedHandle)
+        .or(`tiktok_handle.eq.${normalizedHandle},tiktok_handle.eq.${tiktok.toLowerCase()}`)
         .maybeSingle();
 
       if (existingHandle) {

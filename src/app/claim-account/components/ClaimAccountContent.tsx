@@ -163,7 +163,7 @@ export default function ClaimAccountContent() {
     const supabase = createClient();
 
     if (method === 'tiktok') {
-      const handle = tiktokInput.trim().replace(/^@/, '');
+      const handle = tiktokInput.trim().replace(/^@/, '').toLowerCase();
       if (!handle) { setIdentifyError('Please enter your TikTok handle.'); return; }
 
       setIdentifyLoading(true);
@@ -171,7 +171,7 @@ export default function ClaimAccountContent() {
         const { data, error } = await supabase
           .from('customers')
           .select('id, customer_id, tiktok_handle, username, pin_enrolled')
-          .eq('tiktok_handle', '@' + handle)
+          .or(`tiktok_handle.eq.@${handle},tiktok_handle.eq.${handle}`)
           .maybeSingle();
 
         if (error || !data) {
