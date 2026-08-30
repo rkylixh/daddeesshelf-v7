@@ -230,13 +230,16 @@ export default function MyOrdersContent() {
       setLoading(true);
       try {
         const supabase = createClient();
+        const rawHandle = customer.tiktokHandle.replace(/^@/, '');
+        const normalizedHandle = '@' + rawHandle;
+        // Search both '@handle' and 'handle' variants to catch orders stored under either format
         const { data: orderData } = await supabase
           .from('orders')
           .select('*')
-          .eq('tiktok_handle', customer.tiktokHandle)
+          .in('tiktok_handle', [normalizedHandle, rawHandle])
           .order('created_at', { ascending: false });
         setOrders((orderData ?? []) as Order[]);
-        setHandle(customer.tiktokHandle);
+        setHandle(normalizedHandle);
         setStep('orders');
       } catch {
         // ignore — fall through to manual login
@@ -360,11 +363,11 @@ export default function MyOrdersContent() {
         throw new Error('Incorrect PIN.');
       }
 
-      // Fetch orders
+      // Fetch orders — search both '@handle' and 'handle' variants
       const { data: orderData, error: ordersErr } = await supabase
         .from('orders')
         .select('*')
-        .eq('tiktok_handle', normalizedHandle)
+        .in('tiktok_handle', [normalizedHandle, rawHandle])
         .order('created_at', { ascending: false });
 
       if (ordersErr) throw ordersErr;
@@ -424,11 +427,11 @@ export default function MyOrdersContent() {
         if (updateErr) throw updateErr;
       }
 
-      // Fetch orders after PIN creation
+      // Fetch orders — search both '@handle' and 'handle' variants
       const { data: orderData } = await supabase
         .from('orders')
         .select('*')
-        .eq('tiktok_handle', normalizedHandle)
+        .in('tiktok_handle', [normalizedHandle, rawHandle])
         .order('created_at', { ascending: false });
 
       setOrders((orderData ?? []) as Order[]);
