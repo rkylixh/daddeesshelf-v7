@@ -89,7 +89,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         supabase
           .from('orders')
           .select('id', { count: 'exact', head: true })
-          .eq('processing_status', 'Pending Payment Verification'),
+          .eq('status', 'Pending Payment Verification'),
       ]);
 
       const ticketCount = ticketsRes.count ?? 0;
