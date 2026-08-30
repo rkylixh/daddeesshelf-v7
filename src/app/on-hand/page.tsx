@@ -9,38 +9,24 @@ import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
 import SearchHintDropdown, { BOOK_SEARCH_HINTS } from '@/components/ui/SearchHintDropdown';
 import { createClient } from '@/lib/supabase/client';
-import { OnHandItem } from '@/lib/types';
 
-function mapOnHandRow(row: Record<string, unknown>): OnHandItem {
-  return {
-    id: String(row.id ?? ''),
-    sku: String(row.sku ?? ''),
-    title: String(row.title ?? ''),
-    author: String(row.author ?? ''),
-    genre: String(row.genre ?? ''),
-    subgenre: String(row.subgenre ?? ''),
-    series: String(row.series ?? ''),
-    series_order: row.series_order != null ? Number(row.series_order) : null,
-    format: (row.format as OnHandItem['format']) ?? 'Paperback',
-    edition: String(row.edition ?? ''),
-    final_srp: Number(row.final_srp ?? 0),
-    inventory: Number(row.inventory ?? 0),
-    synopsis: String(row.synopsis ?? ''),
-    cover_url: String(row.cover_url ?? ''),
-    goodreads_url: row.goodreads_url ? String(row.goodreads_url) : undefined,
-    goodreads_score: row.goodreads_score != null ? Number(row.goodreads_score) : undefined,
-    spice_level: row.spice_level != null ? Number(row.spice_level) : 0,
-    gore_level: row.gore_level != null ? Number(row.gore_level) : 0,
-    is_visible: row.is_visible !== false,
-    is_price_visible: row.is_price_visible !== false,
-    notes: String(row.notes ?? ''),
-    created_at: String(row.created_at ?? ''),
-    updated_at: String(row.updated_at ?? ''),
-  };
+interface OnHandBook {
+  id: string;
+  sku: string;
+  title: string;
+  author: string;
+  genre: string;
+  cover_url: string;
+  inventory: number;
+  reserved: number;
+  ordered: number;
+  onhand_price: number | null;
+  preorder_price: number;
+  is_price_visible: boolean;
 }
 
 export default function OnHandPage() {
-  const [items, setItems] = useState<OnHandItem[]>([]);
+  const [items, setItems] = useState<OnHandBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [genreFilter, setGenreFilter] = useState('');
@@ -51,19 +37,48 @@ export default function OnHandPage() {
     async function load() {
       const supabase = createClient();
       const { data } = await supabase
-        .from('on_hand_items')
-        .select('*')
+        .from('books')
+        .select('id, sku, title, author, genre, cover_url, inventory, reserved, ordered, onhand_price, preorder_price, is_price_visible, arrival_date, visibility')
         .eq('is_visible', true)
-        .gt('inventory', 0)
         .order('created_at', { ascending: false });
-      const mapped = (data ?? []).map(mapOnHandRow);
-      setItems(mapped);
-      const uniqueGenres = [...new Set(mapped.map(i => i.genre).filter(Boolean))].sort();
+
+      // Filter to only On Hand books: arrival_date is null or in the past, not Reserved, and has available stock
+      const today = new Date().toISOString().split('T')[0];
+      const onHandBooks = (data ?? []).filter((row) => {
+        if (row.visibility === 'Reserved') return false;
+        if (row.arrival_date && row.arrival_date > today) return false;
+        const available = (row.inventory ?? 0) - (row.reserved ?? 0) - (row.ordered ?? 0);
+        return available > 0;
+      }).map((row) => ({
+        id: String(row.id ?? ''),
+        sku: String(row.sku ?? ''),
+        title: String(row.title ?? ''),
+        author: String(row.author ?? ''),
+        genre: String(row.genre ?? ''),
+        cover_url: String(row.cover_url ?? ''),
+        inventory: Number(row.inventory ?? 0),
+        reserved: Number(row.reserved ?? 0),
+        ordered: Number(row.ordered ?? 0),
+        onhand_price: row.onhand_price != null ? Number(row.onhand_price) : null,
+        preorder_price: Number(row.preorder_price ?? 0),
+        is_price_visible: row.is_price_visible !== false,
+      }));
+
+      setItems(onHandBooks);
+      const uniqueGenres = [...new Set(onHandBooks.map(i => i.genre).filter(Boolean))].sort();
       setGenres(uniqueGenres);
       setLoading(false);
     }
     load();
   }, []);
+
+  const getDisplayPrice = (item: OnHandBook): number => {
+    if (item.onhand_price != null && item.onhand_price > 0) return item.onhand_price;
+    return item.preorder_price;
+  };
+
+  const getAvailable = (item: OnHandBook): number =>
+    Math.max(0, item.inventory - item.reserved - item.ordered);
 
   const filtered = items.filter(item => {
     const matchSearch = !search.trim() || item.title.toLowerCase().includes(search.toLowerCase()) || item.author.toLowerCase().includes(search.toLowerCase());
@@ -145,7 +160,7 @@ export default function OnHandPage() {
                   {filtered.map(item => (
                     <Link
                       key={item.id}
-                      href={`/book-detail?on_hand_id=${item.id}`}
+                      href={`/book-detail?id=${item.id}`}
                       className="group block"
                     >
                       <div
@@ -171,15 +186,15 @@ export default function OnHandPage() {
                           </div>
                           <div className="absolute top-2 right-2">
                             <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.7)', color: '#fff' }}>
-                              {item.inventory} left
+                              {getAvailable(item)} left
                             </span>
                           </div>
                         </div>
                         <div className="p-3">
                           <p className="text-xs font-bold truncate" style={{ color: 'var(--foreground)' }}>{item.title}</p>
                           <p className="text-xs truncate mt-0.5" style={{ color: 'var(--foreground-muted)' }}>{item.author}</p>
-                          {item.is_price_visible !== false ? (
-                            <p className="text-xs font-bold mt-1" style={{ color: 'var(--primary-bright)' }}>₱{item.final_srp.toLocaleString()}</p>
+                          {item.is_price_visible ? (
+                            <p className="text-xs font-bold mt-1" style={{ color: 'var(--primary-bright)' }}>₱{getDisplayPrice(item).toLocaleString()}</p>
                           ) : (
                             <p className="text-xs font-medium mt-1" style={{ color: 'var(--foreground-subtle)' }}>Price TBA</p>
                           )}
