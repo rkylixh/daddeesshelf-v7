@@ -516,6 +516,7 @@ function BookDetailManagementContent() {
   const [books, setBooks] = useState<BookDetailFields[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterSynopsis, setFilterSynopsis] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<string[]>([]);
 
@@ -559,9 +560,17 @@ function BookDetailManagementContent() {
   }, [load]);
 
   const filtered = books.filter(b => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q);
+    const matchesSearch = !search.trim() || (() => {
+      const q = search.toLowerCase();
+      return b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q);
+    })();
+    const matchesSynopsis =
+      filterSynopsis === 'has'
+        ? !!(b.synopsis && b.synopsis.trim().length > 0)
+        : filterSynopsis === 'missing'
+        ? !b.synopsis || b.synopsis.trim().length === 0
+        : true;
+    return matchesSearch && matchesSynopsis;
   });
 
   // Sort: unsaved books first (in original order), saved books at the bottom
@@ -588,15 +597,28 @@ function BookDetailManagementContent() {
       </div>
 
       <div className="mb-5">
-        <div className="relative">
-          <Icon name="MagnifyingGlassIcon" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
-          <input
-            type="search"
-            placeholder="Search by title or author..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="input-field pl-9 text-sm"
-          />
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Icon name="MagnifyingGlassIcon" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
+            <input
+              type="search"
+              placeholder="Search by title or author..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="input-field pl-9 text-sm w-full"
+            />
+          </div>
+          <div className="flex flex-col gap-1 min-w-[160px]">
+            <select
+              value={filterSynopsis}
+              onChange={e => setFilterSynopsis(e.target.value)}
+              className="select-field text-sm py-2"
+            >
+              <option value="">All Titles</option>
+              <option value="has">Synopsis Done ✓</option>
+              <option value="missing">No Synopsis Yet</option>
+            </select>
+          </div>
         </div>
       </div>
 

@@ -14,14 +14,16 @@ interface BookCardProps {
   book: Book;
   href?: string;
   showQuickAdd?: boolean;
+  batchLabel?: string;
 }
 
-export default function BookCard({ book, href, showQuickAdd = false }: BookCardProps) {
+export default function BookCard({ book, href, showQuickAdd = false, batchLabel }: BookCardProps) {
   const [wishlisted, setWishlisted] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showWishlistPrompt, setShowWishlistPrompt] = useState(false);
   const { addItem } = useContext(CartContext);
   const detailHref = href ?? `/book-detail?id=${book.id}`;
+  const isSoldOut = book.status === 'Sold Out';
 
   // Load wishlist state from localStorage on mount
   useEffect(() => {
@@ -51,7 +53,6 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
     try {
       const account = localStorage.getItem(WISHLIST_ACCOUNT_KEY);
       if (account) {
-        // Account exists — save directly
         const stored = JSON.parse(localStorage.getItem(WISHLIST_KEY) || '[]') as string[];
         if (!stored.includes(book.id)) {
           localStorage.setItem(WISHLIST_KEY, JSON.stringify([...stored, book.id]));
@@ -87,7 +88,7 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
           className="card-glow rounded-xl overflow-hidden"
           style={{
             background: 'rgba(251,245,236,0.18)',
-            border: '1px solid rgba(216,196,168,0.4)',
+            border: isSoldOut ? '1px solid rgba(220,38,38,0.35)' : '1px solid rgba(216,196,168,0.4)',
             backdropFilter: 'blur(6px)',
             WebkitBackdropFilter: 'blur(6px)',
           }}
@@ -99,9 +100,20 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
               alt={`Cover of ${book.title} by ${book.author}`}
               fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              className={`object-cover transition-transform duration-500 group-hover:scale-105 ${isSoldOut ? 'opacity-60 grayscale-[30%]' : ''}`}
             />
-            {/* Wishlist button — always visible, not just on hover */}
+
+            {/* Sold-out diagonal overlay */}
+            {isSoldOut && (
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(220,38,38,0.08) 0%, rgba(220,38,38,0.18) 100%)',
+                }}
+              />
+            )}
+
+            {/* Wishlist button — always visible */}
             <button
               onClick={handleWishlist}
               aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
@@ -121,9 +133,58 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
                 style={{ color: wishlisted ? '#fff' : '#7B6454' } as React.CSSProperties}
               />
             </button>
+
             {/* Status overlay */}
             <div className="absolute bottom-2 left-2">
-              <StatusBadge status={book.status!} size="sm" />
+              <StatusBadge status={book.status!} size="sm" available={book.status === 'Pre-order' ? (book.available ?? 0) : undefined} />
+            </div>
+          </div>
+
+          {/* Cover disclaimer — info button with hover tooltip */}
+          <div className="flex items-center justify-between px-1.5 pt-1 pb-0.5">
+            {batchLabel ? (
+              <span
+                className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                style={{
+                  fontSize: '0.62rem',
+                  color: 'var(--primary-bright)',
+                  background: 'rgba(184,134,11,0.12)',
+                  border: '1px solid rgba(184,134,11,0.3)',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {batchLabel}
+              </span>
+            ) : (
+              <span />
+            )}
+            <div className="relative group/disclaimer">
+              <button
+                aria-label="Cover disclaimer"
+                className="flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold leading-none"
+                style={{
+                  background: 'rgba(123,100,84,0.15)',
+                  color: 'var(--foreground-subtle)',
+                  border: '1px solid rgba(123,100,84,0.25)',
+                  fontSize: '0.6rem',
+                }}
+                tabIndex={-1}
+              >
+                i
+              </button>
+              <div
+                className="absolute bottom-full right-0 mb-1.5 w-44 rounded-lg px-2.5 py-2 text-center pointer-events-none opacity-0 group-hover/disclaimer:opacity-100 transition-opacity duration-150 z-10"
+                style={{
+                  fontSize: '0.65rem',
+                  color: 'var(--foreground-muted)',
+                  background: 'var(--background-card)',
+                  border: '1px solid rgba(216,196,168,0.4)',
+                  boxShadow: '0 4px 12px rgba(75,53,42,0.18)',
+                  lineHeight: 1.4,
+                }}
+              >
+                Cover shown for reference only. Actual edition/cover may vary.
+              </div>
             </div>
           </div>
 
@@ -164,36 +225,59 @@ export default function BookCard({ book, href, showQuickAdd = false }: BookCardP
               )}
             </div>
 
-            {/* Quick Add to Cart */}
+            {/* Quick Add / Add to Wishlist for sold-out */}
             {showQuickAdd && (
-              <button
-                onClick={priceVisible ? handleQuickAdd : undefined}
-                disabled={!priceVisible}
-                className="mt-2 w-full text-xs py-1.5 rounded-lg font-semibold transition-all duration-200"
-                style={
-                  !priceVisible
-                    ? {
-                        background: 'rgba(120,100,80,0.10)',
-                        color: '#9E8E7E',
-                        border: '1px solid rgba(120,100,80,0.25)',
-                        cursor: 'not-allowed',
-                        opacity: 0.55,
-                      }
-                    : addedToCart
-                    ? {
-                        background: 'rgba(90,138,74,0.18)',
-                        color: '#3d7a2e',
-                        border: '1px solid rgba(90,138,74,0.45)',
-                      }
-                    : {
-                        background: 'rgba(200,164,91,0.18)',
-                        color: '#8B6A20',
-                        border: '1px solid rgba(200,164,91,0.45)',
-                      }
-                }
-              >
-                {!priceVisible ? 'Price TBA' : addedToCart ? '✓ Added to Cart' : '+ Add to Cart'}
-              </button>
+              isSoldOut ? (
+                <button
+                  onClick={handleWishlist}
+                  className="mt-2 w-full text-xs py-1.5 rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-1.5"
+                  style={
+                    wishlisted
+                      ? {
+                          background: 'rgba(200,164,91,0.18)',
+                          color: '#8B6A20',
+                          border: '1px solid rgba(200,164,91,0.45)',
+                        }
+                      : {
+                          background: 'rgba(220,38,38,0.10)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(220,38,38,0.35)',
+                        }
+                  }
+                >
+                  <Icon name="HeartIcon" size={12} variant={wishlisted ? 'solid' : 'outline'} />
+                  {wishlisted ? 'Wishlisted ✓' : 'Add to Wishlist'}
+                </button>
+              ) : (
+                <button
+                  onClick={priceVisible ? handleQuickAdd : undefined}
+                  disabled={!priceVisible}
+                  className="mt-2 w-full text-xs py-1.5 rounded-lg font-semibold transition-all duration-200"
+                  style={
+                    !priceVisible
+                      ? {
+                          background: 'rgba(120,100,80,0.10)',
+                          color: '#9E8E7E',
+                          border: '1px solid rgba(120,100,80,0.25)',
+                          cursor: 'not-allowed',
+                          opacity: 0.55,
+                        }
+                      : addedToCart
+                      ? {
+                          background: 'rgba(90,138,74,0.18)',
+                          color: '#3d7a2e',
+                          border: '1px solid rgba(90,138,74,0.45)',
+                        }
+                      : {
+                          background: 'rgba(200,164,91,0.18)',
+                          color: '#8B6A20',
+                          border: '1px solid rgba(200,164,91,0.45)',
+                        }
+                  }
+                >
+                  {!priceVisible ? 'Price TBA' : addedToCart ? '✓ Added to Cart' : '+ Add to Cart'}
+                </button>
+              )
             )}
           </div>
         </div>

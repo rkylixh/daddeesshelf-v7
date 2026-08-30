@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import { createClient } from '@/lib/supabase/client';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 
 // ── Types ──────────────────────────────────────────────────
 interface SupportTicket {
@@ -18,12 +19,23 @@ interface SupportTicket {
   updated_at: string;
 }
 
+interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: 'customer' | 'admin';
+  sender_name: string;
+  message: string;
+  created_at: string;
+}
+
 type AuthStep = 'handle' | 'enter-pin' | 'create-pin' | 'tickets';
 
 // ── Status config ──────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
   'New': '#f59e0b',
   'In Progress': '#3b82f6',
+  'Open': '#3b82f6',
+  'Waiting for Customer': '#f59e0b',
   'Resolved': '#10b981',
   'Closed': '#6b7280',
 };
@@ -37,17 +49,85 @@ async function hashPin(pin: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ── Ticket Card ────────────────────────────────────────────
-function TicketCard({ ticket }: { ticket: SupportTicket }) {
+// ── Ticket Card with Thread ────────────────────────────────
+function TicketCard({ ticket, customerHandle, customerName }: { ticket: SupportTicket; customerHandle: string; customerName: string }) {
   const [expanded, setExpanded] = useState(false);
+  const [messages, setMessages] = useState<TicketMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [replyError, setReplyError] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const statusColor = STATUS_COLORS[ticket.status] ?? '#f59e0b';
-  const hasResponse = ticket.admin_notes && ticket.admin_notes.trim().length > 0;
 
   const formatDate = (d: string) => {
     const date = new Date(d);
     const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
   };
+
+  const formatDateTime = (d: string) => {
+    const date = new Date(d);
+    return date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const loadMessages = useCallback(async () => {
+    setLoadingMessages(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('ticket_messages')
+        .select('*')
+        .eq('ticket_id', ticket.id)
+        .order('created_at', { ascending: true });
+      setMessages((data ?? []) as TicketMessage[]);
+    } catch {
+      // silently fail
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, [ticket.id]);
+
+  useEffect(() => {
+    if (expanded && messages.length === 0 && !loadingMessages) {
+      loadMessages();
+    }
+  }, [expanded, messages.length, loadingMessages, loadMessages]);
+
+  useEffect(() => {
+    if (expanded && !loadingMessages) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, expanded, loadingMessages]);
+
+  const handleSendReply = async () => {
+    if (!replyText.trim()) return;
+    setSendingReply(true);
+    setReplyError('');
+    try {
+      const supabase = createClient();
+      const { data: newMsg, error: msgErr } = await supabase
+        .from('ticket_messages')
+        .insert({
+          ticket_id: ticket.id,
+          sender_type: 'customer',
+          sender_name: customerName || customerHandle,
+          message: replyText.trim(),
+        })
+        .select()
+        .single();
+      if (msgErr) throw msgErr;
+      setMessages(prev => [...prev, newMsg as TicketMessage]);
+      setReplyText('');
+    } catch {
+      setReplyError('Failed to send reply. Please try again.');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const hasAdminReplies = messages.some(m => m.sender_type === 'admin');
 
   return (
     <div
@@ -70,12 +150,12 @@ function TicketCard({ ticket }: { ticket: SupportTicket }) {
             >
               {ticket.status}
             </span>
-            {hasResponse && (
+            {hasAdminReplies && (
               <span
                 className="text-xs font-bold px-2.5 py-0.5 rounded-full"
                 style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
               >
-                ✦ Response Available
+                ✦ Admin Replied
               </span>
             )}
           </div>
@@ -90,45 +170,122 @@ function TicketCard({ ticket }: { ticket: SupportTicket }) {
         />
       </button>
 
-      {/* Expanded details */}
+      {/* Expanded thread */}
       {expanded && (
         <div className="px-5 pb-5" style={{ borderTop: '1px solid var(--border)' }}>
-          <div className="pt-4 space-y-4">
+          <div className="pt-4 space-y-3">
             {/* Original message */}
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--foreground-subtle)' }}>
-                Your Message
-              </p>
+            <div className="flex gap-3">
               <div
-                className="rounded-lg p-3 text-sm"
-                style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)', color: 'var(--foreground-muted)', lineHeight: '1.6' }}
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--primary-bright)' }}
               >
-                {ticket.message}
+                {(customerName || customerHandle).charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>{customerName || `@${customerHandle}`}</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.1)', color: 'var(--primary-bright)', fontSize: '10px' }}>You</span>
+                  <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>{formatDateTime(ticket.created_at)}</span>
+                </div>
+                <div
+                  className="rounded-xl rounded-tl-sm p-3 text-sm leading-relaxed"
+                  style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)', color: 'var(--foreground-muted)' }}
+                >
+                  {ticket.message}
+                </div>
               </div>
             </div>
 
-            {/* Admin response */}
-            {hasResponse ? (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#10b981' }}>
-                  ✦ Admin Response
-                </p>
-                <div
-                  className="rounded-lg p-3 text-sm"
-                  style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.25)', color: 'var(--foreground-muted)', lineHeight: '1.6' }}
-                >
-                  {ticket.admin_notes}
-                </div>
-                <p className="text-xs mt-1.5" style={{ color: 'var(--foreground-subtle)' }}>
-                  Last updated {formatDate(ticket.updated_at)}
-                </p>
+            {/* Thread messages */}
+            {loadingMessages ? (
+              <div className="flex justify-center py-3">
+                <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
               </div>
-            ) : (
+            ) : messages.length === 0 ? (
               <div
                 className="rounded-lg p-3 text-sm text-center"
                 style={{ background: 'var(--muted)', border: '1px solid var(--border)', color: 'var(--foreground-subtle)' }}
               >
-                No response yet — we&apos;ll get back to you soon via TikTok or here.
+                No replies yet — we&apos;ll get back to you soon.
+              </div>
+            ) : (
+              messages.map(msg => (
+                <div key={msg.id} className={`flex gap-3 ${msg.sender_type === 'admin' ? 'flex-row-reverse' : ''}`}>
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                    style={{
+                      background: msg.sender_type === 'admin' ? 'rgba(16,185,129,0.15)' : 'rgba(139,92,246,0.15)',
+                      color: msg.sender_type === 'admin' ? '#10b981' : 'var(--primary-bright)',
+                    }}
+                  >
+                    {msg.sender_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1">
+                    <div className={`flex items-center gap-2 mb-1 ${msg.sender_type === 'admin' ? 'flex-row-reverse' : ''}`}>
+                      <span className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>
+                        {msg.sender_type === 'admin' ? "Daddee's Shelf" : msg.sender_name}
+                      </span>
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded"
+                        style={{
+                          background: msg.sender_type === 'admin' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)',
+                          color: msg.sender_type === 'admin' ? '#10b981' : 'var(--primary-bright)',
+                          fontSize: '10px',
+                        }}
+                      >
+                        {msg.sender_type === 'admin' ? 'Admin' : 'You'}
+                      </span>
+                      <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>{formatDateTime(msg.created_at)}</span>
+                    </div>
+                    <div
+                      className={`rounded-xl p-3 text-sm leading-relaxed ${msg.sender_type === 'admin' ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
+                      style={{
+                        background: msg.sender_type === 'admin' ? 'rgba(16,185,129,0.08)' : 'rgba(139,92,246,0.08)',
+                        border: `1px solid ${msg.sender_type === 'admin' ? 'rgba(16,185,129,0.2)' : 'rgba(139,92,246,0.15)'}`,
+                        color: 'var(--foreground-muted)',
+                      }}
+                    >
+                      {msg.message}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+
+            {/* Customer reply input */}
+            {ticket.status !== 'Resolved' && ticket.status !== 'Closed' && (
+              <div
+                className="rounded-xl p-3 mt-2"
+                style={{ background: 'var(--muted)', border: '1px solid var(--border)' }}
+              >
+                <textarea
+                  rows={2}
+                  value={replyText}
+                  onChange={e => { setReplyText(e.target.value); setReplyError(''); }}
+                  className="input-field text-sm resize-none w-full mb-2"
+                  placeholder="Reply to this ticket..."
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault();
+                      handleSendReply();
+                    }
+                  }}
+                />
+                {replyError && <p className="text-xs mb-2" style={{ color: '#f87171' }}>{replyError}</p>}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Ctrl+Enter to send</p>
+                  <button
+                    onClick={handleSendReply}
+                    disabled={sendingReply || !replyText.trim()}
+                    className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
+                    style={{ opacity: (sendingReply || !replyText.trim()) ? 0.6 : 1 }}
+                  >
+                    <Icon name="PaperAirplaneIcon" size={13} />
+                    {sendingReply ? 'Sending...' : 'Send Reply'}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -159,7 +316,7 @@ function AuthCard({ children }: { children: React.ReactNode }) {
           </p>
           <h1 className="font-display text-3xl font-bold" style={{ color: 'var(--foreground)' }}>My Queries</h1>
           <p className="text-sm mt-2" style={{ color: 'var(--foreground-muted)' }}>
-            View your support tickets and admin responses
+            View your support tickets and reply to admin responses
           </p>
         </div>
         <div
@@ -175,12 +332,15 @@ function AuthCard({ children }: { children: React.ReactNode }) {
 
 // ── Main Component ─────────────────────────────────────────
 export default function MyQueriesContent() {
-  const [step, setStep] = useState<AuthStep>('handle');
-  const [handle, setHandle] = useState('');
+  const { customer } = useCustomerAuth();
+
+  const [step, setStep] = useState<AuthStep>(() => customer ? 'enter-pin' : 'handle');
+  const [handle, setHandle] = useState(customer?.tiktokHandle ?? '');
+  const [customerName, setCustomerName] = useState('');
   const [pin, setPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
-  const [customerId, setCustomerId] = useState('');
+  const [customerId, setCustomerId] = useState(customer?.customerId ?? '');
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -190,12 +350,19 @@ export default function MyQueriesContent() {
   const newPinInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (customer) {
+      setHandle(customer.tiktokHandle ?? '');
+      setCustomerId(customer.customerId ?? '');
+      if (step === 'handle') setStep('enter-pin');
+    }
+  }, [customer]);
+
+  useEffect(() => {
     if (step === 'handle') handleInputRef.current?.focus();
     else if (step === 'enter-pin') pinInputRef.current?.focus();
     else if (step === 'create-pin') newPinInputRef.current?.focus();
   }, [step]);
 
-  // Step 1: Check TikTok handle
   const handleCheckHandle = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!handle.trim()) { setError('TikTok Handle is required.'); return; }
@@ -206,29 +373,29 @@ export default function MyQueriesContent() {
       const supabase = createClient();
       const rawHandle = handle.trim().replace(/^@/, '');
 
-      const { data: customer } = await supabase
+      const { data: customerData } = await supabase
         .from('customers')
-        .select('id, tiktok_handle, pin_hash, pin_enrolled')
+        .select('id, tiktok_handle, pin_hash, pin_enrolled, display_name')
         .eq('tiktok_handle', rawHandle)
         .maybeSingle();
 
-      if (customer) {
-        setCustomerId(customer.id);
-        if (!customer.pin_enrolled || !customer.pin_hash) {
+      if (customerData) {
+        setCustomerId(customerData.id);
+        if (customerData.display_name) setCustomerName(customerData.display_name);
+        if (!customerData.pin_enrolled || !customerData.pin_hash) {
           setStep('create-pin');
         } else {
           setStep('enter-pin');
         }
       } else {
-        // Check if they have any support tickets with this handle
         const { data: ticketCheck } = await supabase
           .from('support_tickets')
-          .select('id')
+          .select('id, name')
           .eq('tiktok_handle', rawHandle)
           .limit(1);
 
         if (ticketCheck && ticketCheck.length > 0) {
-          // Has tickets but no customer record — create one and set PIN
+          if (ticketCheck[0].name) setCustomerName(ticketCheck[0].name);
           setStep('create-pin');
         } else {
           setError('No queries found for this TikTok handle. Submit a query via the Contact page first.');
@@ -241,7 +408,6 @@ export default function MyQueriesContent() {
     }
   };
 
-  // Step 2a: Verify PIN and load tickets
   const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
@@ -255,19 +421,20 @@ export default function MyQueriesContent() {
       const supabase = createClient();
       const pinHash = await hashPin(pin);
 
-      const { data: customer } = await supabase
+      const { data: customerData } = await supabase
         .from('customers')
-        .select('id, pin_hash')
+        .select('id, pin_hash, display_name')
         .eq('id', customerId)
         .single();
 
-      if (!customer || customer.pin_hash !== pinHash) {
+      if (!customerData || customerData.pin_hash !== pinHash) {
         setError('Incorrect PIN. Please try again.');
         setLoading(false);
         return;
       }
 
-      // Load tickets
+      if (customerData.display_name) setCustomerName(customerData.display_name);
+
       const rawHandle = handle.trim().replace(/^@/, '');
       const { data: ticketData } = await supabase
         .from('support_tickets')
@@ -284,7 +451,6 @@ export default function MyQueriesContent() {
     }
   };
 
-  // Step 2b: Create PIN (first time)
   const handleCreatePin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
@@ -304,13 +470,11 @@ export default function MyQueriesContent() {
       const rawHandle = handle.trim().replace(/^@/, '');
 
       if (customerId) {
-        // Update existing customer
         await supabase
           .from('customers')
           .update({ pin_hash: pinHash, pin_enrolled: true })
           .eq('id', customerId);
       } else {
-        // Create new customer record
         const { data: newCustomer } = await supabase
           .from('customers')
           .insert({ tiktok_handle: rawHandle, pin_hash: pinHash, pin_enrolled: true })
@@ -319,7 +483,6 @@ export default function MyQueriesContent() {
         if (newCustomer) setCustomerId(newCustomer.id);
       }
 
-      // Load tickets
       const { data: ticketData } = await supabase
         .from('support_tickets')
         .select('*')
@@ -342,6 +505,7 @@ export default function MyQueriesContent() {
     setNewPin('');
     setConfirmPin('');
     setCustomerId('');
+    setCustomerName('');
     setTickets([]);
     setError('');
   };
@@ -573,7 +737,12 @@ export default function MyQueriesContent() {
       ) : (
         <div className="space-y-3 max-w-2xl">
           {tickets.map(ticket => (
-            <TicketCard key={ticket.id} ticket={ticket} />
+            <TicketCard
+              key={ticket.id}
+              ticket={ticket}
+              customerHandle={rawHandle}
+              customerName={customerName || ticket.name}
+            />
           ))}
         </div>
       )}

@@ -5,6 +5,8 @@ import AdminLayout from '../../components/AdminLayout';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
+import SearchHintDropdown, { BOOK_SEARCH_HINTS } from '@/components/ui/SearchHintDropdown';
+
 interface Order {
   id: string;
   ref_number: string;
@@ -82,7 +84,7 @@ async function mergePileOrders(confirmedOrder: Order): Promise<string | null> {
     mergedRefs.push(sib.ref_number);
   }
 
-  const pileNote = `Pile merged from: ${[confirmedOrder.ref_number, ...mergedRefs].join(', ')}`;
+  let pileNote = `Pile merged from: ${[confirmedOrder.ref_number, ...mergedRefs].join(', ')}`;
   const existingNotes = (confirmedOrder.notes || confirmedOrder.admin_notes || '').trim();
   const combinedNotes = existingNotes ? `${existingNotes}\n${pileNote}` : pileNote;
 
@@ -629,7 +631,7 @@ function DeleteOrderModal({
         // Get current inventory
         const { data: bookData } = await supabase
           .from('books')
-          .select('id, inventory, reserved')
+          .select('id, inventory, ordered')
           .eq('sku', item.sku)
           .single();
         if (bookData) {
@@ -637,7 +639,7 @@ function DeleteOrderModal({
             .from('books')
             .update({
               inventory: (bookData.inventory ?? 0) + qty,
-              reserved: Math.max(0, (bookData.reserved ?? 0) - qty),
+              ordered: Math.max(0, (bookData.ordered ?? 0) - qty),
             })
             .eq('id', bookData.id);
         }
@@ -787,6 +789,7 @@ export default function AdminOrdersContent() {
   const [statusChangeOrder, setStatusChangeOrder] = useState<{ order: Order; newStatus: string } | null>(null);
   const [deleteOrder, setDeleteOrder] = useState<Order | null>(null);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const [searchFocused, setSearchFocused] = useState(false);
   const ownerAccess = hasOrderAccess();
 
   const loadOrders = useCallback(async () => {
@@ -914,13 +917,25 @@ export default function AdminOrdersContent() {
 
       {/* Search + status filter */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        <input
-          type="search"
-          placeholder="Search by ref, TikTok handle, name, payment ref..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="input-field text-sm py-2 flex-1 min-w-[200px]"
-        />
+        <div className="relative flex-1 min-w-[200px]">
+          <input
+            type="search"
+            placeholder="Search by ref, TikTok handle, name, payment ref..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            className="input-field text-sm py-2 w-full"
+          />
+          {searchFocused && (
+            <SearchHintDropdown hints={[
+              { label: 'Order Ref', icon: 'HashtagIcon' },
+              { label: 'TikTok Handle', icon: 'UserIcon' },
+              { label: 'Name', icon: 'IdentificationIcon' },
+              { label: 'Payment Ref', icon: 'CreditCardIcon' },
+            ]} />
+          )}
+        </div>
         <select
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}

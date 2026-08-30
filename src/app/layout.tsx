@@ -5,6 +5,7 @@ import '../styles/tailwind.css';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/components/layout/Navbar';
+import { CustomerAuthProvider } from '@/contexts/CustomerAuthContext';
 import AmbientDust from '@/components/layout/AmbientDust';
 
 const dmSans = DM_Sans({
@@ -37,10 +38,12 @@ export default function RootLayout({
     <html lang="en" className={dmSans.variable}>
       <body className={dmSans.className}>
         <AuthProvider>
-          <CartProvider>
-            <AmbientDust />
-            {children}
-          </CartProvider>
+          <CustomerAuthProvider>
+            <CartProvider>
+              <AmbientDust />
+              {children}
+            </CartProvider>
+          </CustomerAuthProvider>
         </AuthProvider>
         <Toaster
           position="bottom-right"
@@ -54,7 +57,7 @@ export default function RootLayout({
           }}
         />
 
-        <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fdaddeesshe6488back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.20" />
+        <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fdaddeesshe6860back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.20" />
         <script type="module" defer src="https://static.rocket.new/rocket-shot.js?v=0.0.2" /></body>
     </html>
   );

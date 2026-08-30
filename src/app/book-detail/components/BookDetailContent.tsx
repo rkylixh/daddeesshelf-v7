@@ -478,6 +478,18 @@ export default function BookDetailContent() {
             />
           </div>
 
+          {/* Cover disclaimer — below the image, not overlapping it */}
+          <p
+            className="w-full max-w-[320px] text-center leading-snug px-1"
+            style={{
+              fontSize: '0.65rem',
+              color: 'var(--foreground-subtle)',
+              opacity: 0.7,
+            }}
+          >
+            Cover shown for reference only. Actual edition/cover may vary.
+          </p>
+
           <div className="w-full max-w-[320px] space-y-3">
             {/* Preorder / Add to Cart — blocked when price is hidden */}
             {book.status !== 'Sold Out' && purchasable && (
@@ -641,8 +653,7 @@ export default function BookDetailContent() {
               <p className="text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>
                 {!priceVisible
                   ? 'Price coming soon'
-                  : book.status === 'Pre-order'
-                  ? 'Reserve your copy now'
+                  : book.status === 'Pre-order' ?'Reserve your copy now'
                   : book.status === 'On Hand'
                   ? `${book.available} copies available`
                   : 'Currently out of stock'}
@@ -650,9 +661,7 @@ export default function BookDetailContent() {
               <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
                 {!priceVisible
                   ? 'Preorder will open once the price is announced.'
-                  : book.status === 'Sold Out'
-                  ? 'Join the wishlist to be notified when available'
-                  : 'Add to cart · Pay via GCash · Shipping information is requested only after your books arrive in the Philippines.'}
+                  : book.status === 'Sold Out' ?'Join the wishlist to be notified when available' :'Add to cart · Pay via GCash · Shipping information is requested only after your books arrive in the Philippines.'}
               </p>
             </div>
             {!priceVisible ? (

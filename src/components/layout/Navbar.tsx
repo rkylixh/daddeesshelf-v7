@@ -6,9 +6,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/ui/AppLogo';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown, { BOOK_SEARCH_HINTS } from '@/components/ui/SearchHintDropdown';
 import { getBooks, isPriceVisible } from '@/lib/books';
 import { ADMIN_ACCESS_CODE, saveAdminSession } from '@/lib/admin-auth';
 import { Book } from '@/lib/types';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 
 // ── Preorder Cart Context ──────────────────────────────────
 export interface CartItem {
@@ -240,13 +242,9 @@ export { WishlistAccountPrompt, WISHLIST_KEY, WISHLIST_ACCOUNT_KEY };
 // ── Admin Access Overlay ───────────────────────────────────
 function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const [step, setStep] = useState<'code' | 'auth' | 'enter-pin' | 'set-pin'>('code');
   const [accessCode, setAccessCode] = useState('');
   const [tiktok, setTiktok] = useState('');
   const [adminPin, setAdminPin] = useState('');
-  const [newPin, setNewPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
-  const [pendingAdminId, setPendingAdminId] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -258,20 +256,27 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  const handleCodeVerify = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
+    // Validate access code
     if (accessCode.trim().toUpperCase() !== ADMIN_ACCESS_CODE) {
-      setError('Invalid access code.');
+      setError('Invalid access code. Please try again.');
       return;
     }
-    setError('');
-    setStep('auth');
-  };
 
-  const handleCheckHandle = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (!tiktok.trim()) {
+      setError('Please enter your TikTok handle.');
+      return;
+    }
+
+    if (adminPin.length !== 6 || !/^\d{6}$/.test(adminPin)) {
+      setError('Admin PIN must be exactly 6 digits.');
+      return;
+    }
+
     setLoading(true);
-    setError('');
     try {
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
@@ -283,7 +288,7 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
 
       const { data: d1 } = await supabase
         .from('admin_users')
-        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
+        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active, display_name')
         .eq('tiktok_handle', handleNoAt)
         .maybeSingle();
 
@@ -292,7 +297,7 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
       } else {
         const { data: d2 } = await supabase
           .from('admin_users')
-          .select('id, tiktok_handle, pin_hash, pin_set, role, is_active')
+          .select('id, tiktok_handle, pin_hash, pin_set, role, is_active, display_name')
           .eq('tiktok_handle', handleWithAt)
           .maybeSingle();
         if (d2) adminUser = d2;
@@ -310,85 +315,34 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
         return;
       }
 
-      setPendingAdminId(adminUser.id);
-
       const pinHashValue = (adminUser.pin_hash ?? '').trim();
       const pinIsSet = adminUser.pin_set === true;
 
       if (!pinIsSet || !pinHashValue) {
-        setStep('set-pin');
+        // First-time admin — set their PIN
+        const pinHash = await hashPin(adminPin);
+        const { error: updateError } = await supabase
+          .from('admin_users')
+          .update({ pin_hash: pinHash, pin_set: true })
+          .eq('id', adminUser.id);
+        if (updateError) throw updateError;
+        saveAdminSession(adminUser);
+        onClose();
+        router.push('/admin/inventory');
       } else {
-        setStep('enter-pin');
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Verification failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminPin.length !== 6 || !/^\d{6}$/.test(adminPin)) {
-      setError('Admin PIN must be exactly 6 digits.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-      const { data: adminUser, error: dbError } = await supabase
-        .from('admin_users')
-        .select('id, tiktok_handle, pin_hash, pin_set, role, is_active, display_name')
-        .eq('id', pendingAdminId)
-        .single();
-      if (dbError || !adminUser) throw new Error('Admin account not found.');
-      const pinHash = await hashPin(adminPin);
-      if (pinHash !== adminUser.pin_hash) throw new Error('Incorrect PIN. Please try again.');
-      saveAdminSession(adminUser);
-      onClose();
-      router.push('/admin/inventory');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSetPin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
-      setError('PIN must be exactly 6 digits.');
-      return;
-    }
-    if (newPin !== confirmPin) {
-      setError('PINs do not match. Please try again.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-      const pinHash = await hashPin(newPin);
-      const { error: updateError } = await supabase
-        .from('admin_users')
-        .update({ pin_hash: pinHash, pin_set: true })
-        .eq('id', pendingAdminId);
-      if (updateError) throw updateError;
-      const { data: adminUser } = await supabase
-        .from('admin_users')
-        .select('id, tiktok_handle, role, display_name')
-        .eq('id', pendingAdminId)
-        .single();
-      if (adminUser) {
+        // Returning admin — verify PIN
+        const pinHash = await hashPin(adminPin);
+        if (pinHash !== adminUser.pin_hash) {
+          setError('Incorrect PIN. Please try again.');
+          setLoading(false);
+          return;
+        }
         saveAdminSession(adminUser);
         onClose();
         router.push('/admin/inventory');
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to set PIN. Please try again.');
+      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -414,13 +368,15 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-6">
-          {/* Step 1: Access Code */}
-          {step === 'code' && (
-            <form onSubmit={handleCodeVerify} className="space-y-4">
-              <div className="text-center mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#C8A45B' }}>Step 1 of 2</p>
-                <h3 className="font-display text-base font-bold mt-1" style={{ color: '#F0DFC4' }}>Enter Access Code</h3>
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="text-center mb-2">
+              <h3 className="font-display text-base font-bold" style={{ color: '#F0DFC4' }}>Admin Sign In</h3>
+              <p className="text-xs mt-1" style={{ color: 'rgba(200,164,91,0.7)' }}>Enter your credentials to access the admin portal</p>
+            </div>
+
+            {/* Access Code */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>Access Code</label>
               <input
                 type="password"
                 required
@@ -429,112 +385,60 @@ function AdminAccessOverlay({ onClose }: { onClose: () => void }) {
                 className="input-field text-center tracking-widest"
                 placeholder="••••••••"
                 autoFocus
+                suppressHydrationWarning
               />
-              {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
-              <button type="submit" className="btn-primary w-full py-2.5 text-sm">Verify Code</button>
-            </form>
-          )}
+            </div>
 
-          {/* Step 2: TikTok Handle only */}
-          {step === 'auth' && (
-            <form onSubmit={handleCheckHandle} className="space-y-4">
-              <div className="text-center mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#C8A45B' }}>Step 2 of 2</p>
-                <h3 className="font-display text-base font-bold mt-1" style={{ color: '#F0DFC4' }}>Admin Authentication</h3>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>TikTok Handle</label>
+            {/* TikTok Handle */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>TikTok Handle</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold" style={{ color: 'rgba(200,164,91,0.7)' }}>@</span>
                 <input
                   type="text"
                   required
                   value={tiktok}
                   onChange={e => setTiktok(e.target.value)}
-                  className="input-field text-sm"
-                  placeholder="@yourtiktok"
-                  autoFocus
+                  className="input-field pl-7 text-sm"
+                  placeholder="your.tiktok.handle"
+                  autoComplete="username"
+                  suppressHydrationWarning
                 />
               </div>
-              {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
-              <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 text-sm" style={{ opacity: loading ? 0.7 : 1 }}>
-                {loading ? 'Verifying...' : 'Continue →'}
-              </button>
-              <button type="button" onClick={() => { setStep('code'); setError(''); }} className="w-full text-xs text-center" style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                ← Back
-              </button>
-            </form>
-          )}
+            </div>
 
-          {/* Step 3a: Returning admin — Enter PIN */}
-          {step === 'enter-pin' && (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="text-center mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#C8A45B' }}>Admin PIN</p>
-                <h3 className="font-display text-base font-bold mt-1" style={{ color: '#F0DFC4' }}>Enter Your PIN</h3>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>6-Digit Admin PIN</label>
-                <input
-                  type="password"
-                  required
-                  maxLength={6}
-                  value={adminPin}
-                  onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="input-field text-sm text-center tracking-widest"
-                  placeholder="••••••"
-                  autoFocus
-                />
-              </div>
-              {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
-              <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 text-sm" style={{ opacity: loading ? 0.7 : 1 }}>
-                {loading ? 'Verifying...' : 'Sign In ✦'}
-              </button>
-              <button type="button" onClick={() => { setStep('auth'); setError(''); setAdminPin(''); }} className="w-full text-xs text-center" style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                ← Back
-              </button>
-            </form>
-          )}
+            {/* PIN */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>6-Digit Admin PIN</label>
+              <input
+                type="password"
+                required
+                maxLength={6}
+                pattern="\d{6}"
+                inputMode="numeric"
+                value={adminPin}
+                onChange={e => setAdminPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="input-field text-sm text-center tracking-widest"
+                placeholder="••••••"
+                autoComplete="current-password"
+                suppressHydrationWarning
+              />
+              <p className="text-xs mt-1" style={{ color: 'rgba(160,128,112,0.8)' }}>
+                First-time login? Your PIN will be set on first sign-in.
+              </p>
+            </div>
 
-          {/* Step 3b: First-time admin — Create PIN */}
-          {step === 'set-pin' && (
-            <form onSubmit={handleSetPin} className="space-y-4">
-              <div className="text-center mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#C8A45B' }}>First Time Setup</p>
-                <h3 className="font-display text-base font-bold mt-1" style={{ color: '#F0DFC4' }}>Create Admin PIN</h3>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>Create 6-Digit PIN</label>
-                <input
-                  type="password"
-                  required
-                  maxLength={6}
-                  value={newPin}
-                  onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="input-field text-sm text-center tracking-widest"
-                  placeholder="••••••"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#C8A45B' }}>Confirm 6-Digit PIN</label>
-                <input
-                  type="password"
-                  required
-                  maxLength={6}
-                  value={confirmPin}
-                  onChange={e => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="input-field text-sm text-center tracking-widest"
-                  placeholder="••••••"
-                />
-              </div>
-              {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
-              <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 text-sm" style={{ opacity: loading ? 0.7 : 1 }}>
-                {loading ? 'Saving...' : 'Create PIN ✦'}
-              </button>
-              <button type="button" onClick={() => { setStep('auth'); setError(''); setNewPin(''); setConfirmPin(''); }} className="w-full text-xs text-center" style={{ color: 'var(--foreground-subtle)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                ← Back
-              </button>
-            </form>
-          )}
+            {error && <p className="text-xs text-center" style={{ color: '#f87171' }}>{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full py-2.5 text-sm"
+              style={{ opacity: loading ? 0.7 : 1 }}
+            >
+              {loading ? 'Signing In...' : 'Sign In to Admin ✦'}
+            </button>
+          </form>
         </div>
       </div>
     </div>
@@ -791,6 +695,7 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -818,6 +723,7 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
     if (val === ADMIN_TRIGGER) {
       setQuery('');
       setOpen(false);
+      setShowHint(false);
       onAdminTrigger();
       return;
     }
@@ -827,18 +733,29 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
 
   const handleSelect = (book: Book) => {
     setOpen(false);
+    setShowHint(false);
     setQuery('');
     router.push(`/book-detail?id=${book.id}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { setOpen(false); setQuery(''); }
+    if (e.key === 'Escape') { setOpen(false); setShowHint(false); setQuery(''); }
+  };
+
+  const handleFocus = () => {
+    if (!query.trim()) setShowHint(true);
+  };
+
+  const handleBlur = () => {
+    // Delay to allow click events on dropdown to fire first
+    setTimeout(() => setShowHint(false), 150);
   };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setShowHint(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -854,6 +771,8 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
         value={query}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         className="input-field pl-9 py-2 text-sm w-full"
         style={{ borderRadius: '9999px', paddingRight: '1rem' }}
         autoComplete="off"
@@ -862,6 +781,11 @@ const NavSearch = React.memo(function NavSearch({ onAdminTrigger }: { onAdminTri
         <div className="absolute right-3">
           <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
         </div>
+      )}
+
+      {/* Search hint dropdown — shown when focused with empty query */}
+      {showHint && !query.trim() && !open && (
+        <SearchHintDropdown hints={BOOK_SEARCH_HINTS} />
       )}
 
       {open && results.length > 0 && (
@@ -923,6 +847,7 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -969,6 +894,8 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
           placeholder="Search books..."
           value={query}
           onChange={handleChange}
+          onFocus={() => { if (!query.trim()) setShowHint(true); }}
+          onBlur={() => setTimeout(() => setShowHint(false), 150)}
           className="input-field pl-9 text-sm"
           autoComplete="off"
         />
@@ -976,6 +903,10 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
           </div>
+        )}
+        {/* Search hint dropdown */}
+        {showHint && !query.trim() && results.length === 0 && (
+          <SearchHintDropdown hints={BOOK_SEARCH_HINTS} />
         )}
       </div>
       {results.length > 0 && (
@@ -1006,7 +937,7 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
 });
 
 // ── Nav Links (no admin) ───────────────────────────────────
-const NAV_LINKS = [
+const BASE_NAV_LINKS = [
   { label: 'Home', href: '/' },
   { label: 'Shop', href: '/shop' },
   { label: 'On Hand', href: '/on-hand' },
@@ -1019,6 +950,184 @@ const NAV_LINKS = [
   { label: 'Contact', href: '/contact' },
 ];
 
+// ── Notification Bell ──────────────────────────────────────
+interface CustomerNotification {
+  id: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  book_title?: string;
+  order_ref?: string;
+}
+
+function NotificationBell() {
+  const { customer } = useCustomerAuth();
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState<CustomerNotification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  const fetchNotifications = useCallback(async () => {
+    if (!customer) return;
+    setLoading(true);
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('customer_notifications')
+        .select('id, title, message, is_read, created_at, book_title, order_ref')
+        .eq('customer_id', customer.customerCode)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      setNotifications((data ?? []) as CustomerNotification[]);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, [customer]);
+
+  useEffect(() => {
+    if (customer) fetchNotifications();
+  }, [customer, fetchNotifications]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleOpen = async () => {
+    setOpen(o => !o);
+    if (!open && unreadCount > 0 && customer) {
+      // Mark all as read
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        await supabase
+          .from('customer_notifications')
+          .update({ is_read: true })
+          .eq('customer_id', customer.customerCode)
+          .eq('is_read', false);
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
+  if (!customer) return null;
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        onClick={handleOpen}
+        className="btn-ghost p-2 rounded-lg relative"
+        aria-label="Notifications"
+        suppressHydrationWarning
+      >
+        <Icon name="BellIcon" size={18} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+        {unreadCount > 0 && (
+          <span
+            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{ background: '#ef4444', color: '#fff', fontSize: '10px' }}
+          >
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 mt-2 w-80 rounded-xl overflow-hidden z-50 shadow-2xl"
+          style={{ background: 'var(--background-card)', border: '1px solid var(--border)', top: '100%' }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2">
+              <Icon name="BellIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+              <span className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>Notifications</span>
+            </div>
+            {unreadCount === 0 && (
+              <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>All caught up ✓</span>
+            )}
+          </div>
+
+          {/* List */}
+          <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="py-10 text-center px-4">
+                <Icon name="BellIcon" size={28} className="mx-auto mb-3" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
+                <p className="text-sm font-semibold" style={{ color: 'var(--foreground-muted)' }}>No notifications yet</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>
+                  You&apos;ll be notified when your ordered titles are on hand.
+                </p>
+              </div>
+            ) : (
+              notifications.map(n => (
+                <div
+                  key={n.id}
+                  className="px-4 py-3"
+                  style={{
+                    borderBottom: '1px solid var(--border)',
+                    background: n.is_read ? 'transparent' : 'rgba(139,92,246,0.06)',
+                  }}
+                >
+                  <div className="flex items-start gap-2">
+                    {!n.is_read && (
+                      <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#a78bfa' }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold" style={{ color: 'var(--foreground)' }}>{n.title}</p>
+                      <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--foreground-muted)' }}>{n.message}</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>{formatTime(n.created_at)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Footer */}
+          {notifications.length > 0 && (
+            <div className="px-4 py-2.5 text-center" style={{ borderTop: '1px solid var(--border)' }}>
+              <Link
+                href="/orders"
+                onClick={() => setOpen(false)}
+                className="text-xs font-semibold"
+                style={{ color: 'var(--primary-bright)' }}
+              >
+                View My Orders →
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -1029,6 +1138,34 @@ export default function Navbar() {
   const cartCount = items.reduce((s, i) => s + i.qty, 0);
   const [announcements, setAnnouncements] = useState<{ id: string; title: string; message: string; type: string }[]>([]);
   const [dismissedBanners, setDismissedBanners] = useState<string[]>([]);
+  const { customer, logout: customerLogout } = useCustomerAuth();
+  const [myInquiriesVisible, setMyInquiriesVisible] = useState(false);
+
+  // Build nav links — conditionally include My Queries
+  const NAV_LINKS = myInquiriesVisible
+    ? [...BASE_NAV_LINKS.slice(0, 9), { label: 'My Queries', href: '/my-queries' }, BASE_NAV_LINKS[9]]
+    : BASE_NAV_LINKS;
+
+  // Load My Inquiries visibility setting
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSetting = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('homepage_settings')
+          .select('value')
+          .eq('key', 'my_inquiries_visible')
+          .maybeSingle();
+        if (!cancelled && data) {
+          setMyInquiriesVisible(data.value === 'true');
+        }
+      } catch { /* ignore */ }
+    };
+    fetchSetting();
+    return () => { cancelled = true; };
+  }, []);
 
   // Load active announcements (client-side date filter — ISO timestamps break PostgREST .or() filters)
   useEffect(() => {
@@ -1181,6 +1318,40 @@ export default function Navbar() {
 
             {/* Preorder Cart + Mobile Toggle */}
             <div className="flex items-center gap-2">
+              {/* Notification Bell — logged-in customers only */}
+              <NotificationBell />
+
+              {/* Customer account button */}
+              {customer ? (
+                <div className="hidden sm:flex items-center gap-1">
+                  <Link
+                    href="/orders"
+                    className="btn-ghost px-3 py-1.5 rounded-lg text-xs font-semibold hidden md:flex items-center gap-1.5"
+                    style={{ color: 'var(--primary-bright)' }}
+                  >
+                    <Icon name="UserCircleIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+                    {customer.username}
+                  </Link>
+                  <button
+                    onClick={customerLogout}
+                    className="btn-ghost px-2 py-1.5 rounded-lg text-xs hidden md:flex"
+                    style={{ color: 'var(--foreground-subtle)' }}
+                    title="Log out"
+                  >
+                    <Icon name="ArrowRightOnRectangleIcon" size={14} />
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="btn-ghost px-3 py-1.5 rounded-lg text-xs font-semibold hidden md:flex items-center gap-1.5"
+                  style={{ color: 'var(--foreground-muted)' }}
+                >
+                  <Icon name="UserCircleIcon" size={14} style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
+                  Log In
+                </Link>
+              )}
+
               <button
                 onClick={() => setCartOpen(true)}
                 className="btn-ghost p-2 rounded-lg hidden sm:flex relative"
@@ -1262,6 +1433,43 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
+
+              {/* Customer auth links in mobile */}
+              <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(200,164,91,0.2)' }}>
+                {customer ? (
+                  <>
+                    <div className="px-3 py-2 text-xs" style={{ color: '#C8A45B' }}>
+                      Logged in as <strong style={{ color: '#F0DFC4' }}>{customer.username}</strong>
+                    </div>
+                    <button
+                      onClick={() => { customerLogout(); setMobileOpen(false); }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm w-full text-left"
+                      style={{ color: '#D4B896' }}
+                    >
+                      Log Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm"
+                      style={{ color: '#D4B896' }}
+                    >
+                      Log In
+                    </Link>
+                    <Link
+                      href="/signup"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm"
+                      style={{ color: '#C8A45B', fontWeight: 600 }}
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1333,12 +1541,26 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
         const { supabase: sb } = await import('@/lib/supabase');
         const rawHandle = handle.replace(/^@/, '');
         const handleWithAt = '@' + rawHandle;
-        const { data } = await sb
+
+        // First check customer_slugs table (legacy/anonymous orders)
+        const { data: slugData } = await sb
           .from('customer_slugs')
           .select('user_slug')
           .or(`tiktok_handle.eq.${rawHandle},tiktok_handle.eq.${handleWithAt}`)
           .maybeSingle();
-        setExistingSlug(data?.user_slug ?? null);
+
+        if (slugData?.user_slug) {
+          setExistingSlug(slugData.user_slug);
+        } else {
+          // Also check customers table for registered accounts (customer_id field)
+          const { data: customerData } = await sb
+            .from('customers')
+            .select('customer_id')
+            .or(`tiktok_handle.eq.${rawHandle},tiktok_handle.eq.${handleWithAt}`)
+            .not('customer_id', 'is', null)
+            .maybeSingle();
+          setExistingSlug(customerData?.customer_id ?? null);
+        }
       } catch { setExistingSlug(null); }
       setSlugChecking(false);
     }, 600);
@@ -1507,6 +1729,23 @@ function CheckoutRedirectModal({ onClose }: { onClose: () => void }) {
         store_credit_id: creditApplied > 0 && storeCredit ? storeCredit.id : null,
       });
       if (err) throw err;
+
+      // Send email notification (fire-and-forget)
+      try {
+        await sb.functions.invoke('notify-email', {
+          body: {
+            type: 'new_order',
+            data: {
+              ref_number: orderRef,
+              tiktok_handle: normalizedHandle,
+              total_price: total,
+              items: orderItems,
+              payment_ref: form.payment_ref,
+              status: 'Pending Payment Verification',
+            },
+          },
+        });
+      } catch { /* non-blocking */ }
 
       // Mark store credit as used
       if (creditApplied > 0 && storeCredit) {

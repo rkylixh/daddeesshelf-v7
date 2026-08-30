@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { logAudit } from '@/lib/auditLog';
 
+import SearchHintDropdown from '@/components/ui/SearchHintDropdown';
+
 interface TitleRequest {
   id: string;
   ref_number: string;
@@ -44,6 +46,7 @@ export default function AdminRequestsContent() {
   const [search, setSearch] = useState('');
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   const ownerAccess = isOwner();
+  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => { loadRequests(); }, []);
 
@@ -125,13 +128,24 @@ export default function AdminRequestsContent() {
         <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
           {requests.filter(r => !r.is_reviewed).length} unreviewed · {requests.length} total
         </p>
-        <input
-          type="search"
-          placeholder="Search requests..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="input-field text-sm py-2 w-64"
-        />
+        <div className="relative">
+          <input
+            type="search"
+            placeholder="Search requests..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            className="input-field text-sm py-2 w-64"
+          />
+          {searchFocused && (
+            <SearchHintDropdown hints={[
+              { label: 'Title', icon: 'BookOpenIcon' },
+              { label: 'Author', icon: 'UserIcon' },
+              { label: 'TikTok Handle', icon: 'HashtagIcon' },
+            ]} />
+          )}
+        </div>
       </div>
 
       {loading ? (

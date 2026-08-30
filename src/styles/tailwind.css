@@ -46,12 +46,12 @@
   --palette-lavender: #9b7fc4;
 
   /* Status colors — warm tones */
-  --status-preorder: #B8903F;
-  --status-preorder-bg: rgba(200,164,91,0.12);
-  --status-onhand: #5a8a4a;
-  --status-onhand-bg: rgba(90,138,74,0.12);
-  --status-soldout: #9A7A60;
-  --status-soldout-bg: rgba(154,122,96,0.12);
+  --status-preorder: #7C4F00;
+  --status-preorder-bg: rgba(200,140,30,0.22);
+  --status-onhand: #2d6e1f;
+  --status-onhand-bg: rgba(60,130,45,0.18);
+  --status-soldout: #b91c1c;
+  --status-soldout-bg: rgba(220,38,38,0.16);
 
   /* Dust particle color */
   --star-color: #C8A45B;
@@ -401,40 +401,43 @@
   .badge-preorder {
     background: var(--status-preorder-bg);
     color: var(--status-preorder);
-    border: 1px solid rgba(200,164,91,0.4);
+    border: 1.5px solid rgba(180,120,20,0.6);
     padding: 0.25rem 0.625rem;
     border-radius: 9999px;
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     font-family: var(--font-sans);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.4);
   }
 
   .badge-onhand {
     background: var(--status-onhand-bg);
     color: var(--status-onhand);
-    border: 1px solid rgba(90,138,74,0.35);
+    border: 1.5px solid rgba(60,130,45,0.5);
     padding: 0.25rem 0.625rem;
     border-radius: 9999px;
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     font-family: var(--font-sans);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.4);
   }
 
   .badge-soldout {
     background: var(--status-soldout-bg);
     color: var(--status-soldout);
-    border: 1px solid rgba(154,122,96,0.35);
+    border: 1.5px solid rgba(220,38,38,0.55);
     padding: 0.25rem 0.625rem;
     border-radius: 9999px;
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     font-family: var(--font-sans);
+    text-shadow: 0 1px 0 rgba(255,255,255,0.3);
   }
 
   .nav-link {

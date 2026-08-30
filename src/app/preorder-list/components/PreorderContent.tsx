@@ -3,11 +3,14 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
-import StatusBadge from '@/components/books/StatusBadge';
-import { getPreorderBooks, isPriceVisible, isEtaVisible, canPurchase, formatBookPrice } from '@/lib/books';
+
+import BookCard from '@/components/books/BookCard';
+import { getPreorderBooks, isPriceVisible, isEtaVisible, canPurchase } from '@/lib/books';
 import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { useCart } from '@/components/layout/Navbar';
+import BatchEtaCalendar from '@/app/components/BatchEtaCalendar';
+import Icon from '@/components/ui/AppIcon';
 
 // ── Types ──────────────────────────────────────────────────
 interface PreorderItem {
@@ -258,6 +261,23 @@ function PreorderFormModal({
       });
       if (err) throw err;
 
+      // Send email notification (fire-and-forget)
+      try {
+        await supabase.functions.invoke('notify-email', {
+          body: {
+            type: 'new_order',
+            data: {
+              ref_number: orderRef,
+              tiktok_handle: form.tiktok_handle,
+              total_price: totalPrice,
+              items: orderItems,
+              payment_ref: form.payment_ref,
+              status: 'Pending Payment Verification',
+            },
+          },
+        });
+      } catch { /* non-blocking */ }
+
       // Mark store credit as used
       if (storeCredit && creditApplied > 0) {
         await supabase.from('store_credits').update({
@@ -445,21 +465,109 @@ function PreorderFormModal({
   );
 }
 
+// ── Batch Calendar Modal ───────────────────────────────────
+function BatchCalendarModal({
+  batches,
+  onClose,
+}: {
+  batches: { batch: string; eta: string; etaVisible: boolean; count: number }[];
+  onClose: () => void;
+}) {
+  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(30,18,10,0.72)', backdropFilter: 'blur(4px)' }}
+      onClick={handleBackdrop}
+    >
+      <div
+        className="relative w-full max-w-lg rounded-2xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(180deg, #F9F1E3 0%, #F4E8D2 100%)',
+          boxShadow: '0 24px 64px rgba(75,53,42,0.35)',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-4 sticky top-0"
+          style={{ background: 'rgba(249,241,227,0.97)', borderBottom: '1px solid rgba(200,164,91,0.3)', zIndex: 1 }}
+        >
+          <div className="flex items-center gap-2">
+            <Icon name="CalendarIcon" size={16} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+            <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>
+              Batch ETA Calendar
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+            style={{ background: 'rgba(200,164,91,0.15)', color: 'var(--foreground-muted)', border: '1px solid rgba(200,164,91,0.3)' }}
+            aria-label="Close calendar"
+          >
+            <Icon name="XMarkIcon" size={16} />
+          </button>
+        </div>
+        <div className="p-4">
+          <BatchEtaCalendar batches={batches} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────
 export default function PreorderContent() {
-  const [sortBy, setSortBy] = useState<'arrival' | 'title' | 'price'>('arrival');
+  const [sortBy, setSortBy] = useState<'arrival' | 'title' | 'price-asc' | 'price-desc'>('arrival');
+  const [batchFilter, setBatchFilter] = useState<string>('');
   const [preorderList, setPreorderList] = useState<PreorderItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationData | null>(null);
   const [allPreorderBooks, setAllPreorderBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allBatchEtas, setAllBatchEtas] = useState<{ batch: string; eta: string; etaVisible: boolean; count: number }[]>([]);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const { items: cartItems, addItem: addToCart, clearCart } = useCart();
 
   useEffect(() => {
-    getPreorderBooks().then(books => {
+    async function load() {
+      let books = await getPreorderBooks();
       setAllPreorderBooks(books);
+
+      // Fetch batch ETA data for the calendar
+      const { data: batchRows } = await supabase
+        .from('books')
+        .select('batch, arrival_date')
+        .eq('is_visible', true)
+        .not('arrival_date', 'is', null)
+        .order('arrival_date', { ascending: true });
+
+      if (batchRows && batchRows.length > 0) {
+        const batchEtaMap: Record<string, { eta: string; count: number; etaVisible: boolean }> = {};
+        for (const r of batchRows) {
+          const bName = String(r.batch ?? '');
+          const bEta = String(r.arrival_date ?? '');
+          if (!bName || !bEta) continue;
+          if (!batchEtaMap[bName]) {
+            batchEtaMap[bName] = { eta: bEta, count: 0, etaVisible: true };
+          }
+          batchEtaMap[bName].count += 1;
+        }
+        setAllBatchEtas(
+          Object.entries(batchEtaMap).map(([batch, info]) => ({
+            batch,
+            eta: info.eta,
+            etaVisible: info.etaVisible,
+            count: info.count,
+          }))
+        );
+      }
+
       setLoading(false);
-    });
+    }
+    load();
   }, []);
 
   // Sync cart items to local preorder list
@@ -469,12 +577,22 @@ export default function PreorderContent() {
     }
   }, [cartItems]);
 
+  // Derive distinct batches from loaded data
+  const availableBatches = useMemo(() => {
+    return [...new Set(allPreorderBooks.map(b => b.batch).filter(Boolean))].sort() as string[];
+  }, [allPreorderBooks]);
+
   const preorderBooks = useMemo(() => {
-    const books = [...allPreorderBooks];
-    if (sortBy === 'arrival') return books.sort((a, b) => (a.arrival_date ?? '').localeCompare(b.arrival_date ?? ''));
-    if (sortBy === 'title') return books.sort((a, b) => a.title.localeCompare(b.title));
-    return books.sort((a, b) => a.final_srp - b.final_srp);
-  }, [allPreorderBooks, sortBy]);
+    let books = [...allPreorderBooks];
+    // Apply batch filter
+    if (batchFilter) books = books.filter(b => b.batch === batchFilter);
+    // Apply sort
+    if (sortBy === 'arrival') books.sort((a, b) => (a.arrival_date ?? '').localeCompare(b.arrival_date ?? ''));
+    else if (sortBy === 'title') books.sort((a, b) => a.title.localeCompare(b.title));
+    else if (sortBy === 'price-asc') books.sort((a, b) => a.final_srp - b.final_srp);
+    else if (sortBy === 'price-desc') books.sort((a, b) => b.final_srp - a.final_srp);
+    return books;
+  }, [allPreorderBooks, sortBy, batchFilter]);
 
   const byBatch = useMemo(() => {
     const map = new Map<string, Book[]>();
@@ -550,6 +668,11 @@ export default function PreorderContent() {
 
   return (
     <div className="content-wrapper py-12">
+      {/* Batch Calendar Modal */}
+      {showCalendarModal && allBatchEtas.length > 0 && (
+        <BatchCalendarModal batches={allBatchEtas} onClose={() => setShowCalendarModal(false)} />
+      )}
+
       {/* Header */}
       <div className="text-center mb-12">
         <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
@@ -563,19 +686,69 @@ export default function PreorderContent() {
         </p>
       </div>
 
-      {/* Sort + Cart Summary */}
+      {/* Sort + Batch Filter + Cart Summary */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold" style={{ color: 'var(--foreground-muted)' }}>Sort by:</span>
-          {(['arrival', 'title', 'price'] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => setSortBy(s)}
-              className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${sortBy === s ? 'btn-primary' : 'btn-secondary'}`}
+          {/* Arrival Date button */}
+          <button
+            onClick={() => setSortBy('arrival')}
+            className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${sortBy === 'arrival' ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            Arrival Date
+          </button>
+          {/* Title button */}
+          <button
+            onClick={() => setSortBy('title')}
+            className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${sortBy === 'title' ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            Title
+          </button>
+          {/* Price dropdown */}
+          <select
+            value={sortBy === 'price-asc' || sortBy === 'price-desc' ? sortBy : ''}
+            onChange={e => {
+              if (e.target.value === 'price-asc' || e.target.value === 'price-desc') {
+                setSortBy(e.target.value as 'price-asc' | 'price-desc');
+              }
+            }}
+            className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${(sortBy === 'price-asc' || sortBy === 'price-desc') ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ appearance: 'none', cursor: 'pointer' }}
+          >
+            <option value="" disabled>Price</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+          </select>
+
+          {/* Batch filter dropdown */}
+          {availableBatches.length > 0 && (
+            <select
+              value={batchFilter}
+              onChange={e => setBatchFilter(e.target.value)}
+              className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${batchFilter ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ appearance: 'none', cursor: 'pointer' }}
             >
-              {s === 'arrival' ? 'Arrival Date' : s === 'title' ? 'Title' : 'Price'}
+              <option value="">All Batches</option>
+              {availableBatches.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Batch Calendar button */}
+          {allBatchEtas.length > 0 && (
+            <button
+              onClick={() => setShowCalendarModal(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] btn-secondary"
+              style={{
+                border: '1px solid rgba(200,164,91,0.45)',
+                color: 'var(--primary-bright)',
+              }}
+            >
+              <Icon name="CalendarIcon" size={13} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+              Batch ETA
             </button>
-          ))}
+          )}
         </div>
 
         {preorderList.length > 0 && (
@@ -612,7 +785,57 @@ export default function PreorderContent() {
         </div>
       ) : (
         <div className="space-y-12">
-          {Array.from(byBatch.entries()).map(([batchName, books]) => {
+          {(sortBy === 'price-asc' || sortBy === 'price-desc') ? (
+            /* Price sort: flat grid across all batches */
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <p className="text-xs font-semibold" style={{ color: 'var(--foreground-subtle)' }}>
+                  {preorderBooks.length} titles — sorted by {sortBy === 'price-asc' ? 'price: low to high' : 'price: high to low'}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {preorderBooks.map(book => {
+                  const inList = isInList(book.id);
+                  const listItem = preorderList.find(i => i.book.id === book.id);
+
+                  return (
+                    <div key={book.id} className="flex flex-col">
+                      <div className="flex-1 mb-2">
+                        <BookCard book={book} batchLabel={book.batch || undefined} />
+                      </div>
+
+                      {canPurchase(book) ? (
+                        inList ? (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) - 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>−</button>
+                            <span className="flex-1 text-center text-xs font-bold" style={{ color: 'var(--foreground)' }}>{listItem?.qty}</span>
+                            <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) + 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>+</button>
+                            <button onClick={() => removeFromList(book.id)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>✕</button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => addToList(book)}
+                            className="btn-primary text-xs py-2 w-full"
+                          >
+                            + Preorder
+                          </button>
+                        )
+                      ) : !isPriceVisible(book) ? (
+                        <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'rgba(120,100,80,0.10)', color: '#9E8E7E', border: '1px solid rgba(120,100,80,0.25)', cursor: 'not-allowed', opacity: 0.7 }}>
+                          Price TBA
+                        </button>
+                      ) : (
+                        <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)', cursor: 'not-allowed' }}>
+                          Sold Out
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+          Array.from(byBatch.entries()).map(([batchName, books]) => {
             const isActive = batchName === activeBatch;
             const batchEta = books[0]?.arrival_date ?? null;
             const daysUntil = getDaysUntil(batchEta);
@@ -643,96 +866,54 @@ export default function PreorderContent() {
                       )}
                     </p>
                   </div>
-                  {isActive && (
-                    <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>{books.length} titles available</span>
-                  )}
+                  <span className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>{books.length} titles available</span>
                 </div>
 
-                {/* FIFO: Only show covers/prices/preorder for active batch */}
-                {isActive ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    {books.map(book => {
-                      const inList = isInList(book.id);
-                      const listItem = preorderList.find(i => i.book.id === book.id);
+                {/* Book cards — same layout and logic for ALL batches */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {books.map(book => {
+                    const inList = isInList(book.id);
+                    const listItem = preorderList.find(i => i.book.id === book.id);
 
-                      return (
-                        <div key={book.id} className="flex flex-col">
-                          <Link href={`/book-detail?id=${book.id}`} className="block group mb-2">
-                            <div className="card-glow rounded-xl overflow-hidden" style={{ background: 'var(--background-card)' }}>
-                              <div className="relative aspect-[2/3] overflow-hidden">
-                                <AppImage
-                                  src={book.cover_url || '/assets/images/no_image.png'}
-                                  alt={`Cover of ${book.title} by ${book.author}`}
-                                  fill
-                                  sizes="(max-width: 640px) 50vw, 20vw"
-                                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                                />
-                                <div className="absolute bottom-2 left-2">
-                                  <StatusBadge status={book.status!} size="sm" />
-                                </div>
-                              </div>
-                              <div className="p-2.5">
-                                <p className="text-xs font-medium mb-0.5 truncate" style={{ color: 'var(--foreground-subtle)' }}>{book.genre}</p>
-                                <h3 className="font-display text-xs font-semibold leading-snug mb-0.5 line-clamp-2" style={{ color: 'var(--foreground)' }}>{book.title}</h3>
-                                <p className="text-xs mb-1.5 truncate" style={{ color: 'var(--foreground-muted)' }}>{book.author}</p>
-                                {isPriceVisible(book) ? (
-                                  <p className="text-sm font-bold" style={{ color: 'var(--primary-bright)' }}>{formatBookPrice(book)}</p>
-                                ) : (
-                                  <p className="text-xs font-medium" style={{ color: 'var(--foreground-subtle)' }}>Price TBA</p>
-                                )}
-                              </div>
-                            </div>
-                          </Link>
-
-                          {canPurchase(book) ? (
-                            inList ? (
-                              <div className="flex items-center gap-1">
-                                <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) - 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>−</button>
-                                <span className="flex-1 text-center text-xs font-bold" style={{ color: 'var(--foreground)' }}>{listItem?.qty}</span>
-                                <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) + 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>+</button>
-                                <button onClick={() => removeFromList(book.id)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>✕</button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => addToList(book)}
-                                className="btn-primary text-xs py-2 w-full"
-                              >
-                                + Preorder
-                              </button>
-                            )
-                          ) : !isPriceVisible(book) ? (
-                            <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'rgba(120,100,80,0.10)', color: '#9E8E7E', border: '1px solid rgba(120,100,80,0.25)', cursor: 'not-allowed', opacity: 0.7 }}>
-                              Price TBA
-                            </button>
-                          ) : (
-                            <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)', cursor: 'not-allowed' }}>
-                              Sold Out
-                            </button>
-                          )}
+                    return (
+                      <div key={book.id} className="flex flex-col">
+                        <div className="flex-1 mb-2">
+                          <BookCard book={book} />
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  // Future batch: name + ETA only, no covers/prices/preorder
-                  <div
-                    className="rounded-xl p-6 text-center"
-                    style={{ background: 'rgba(184,134,11,0.04)', border: '1px dashed rgba(184,134,11,0.2)' }}
-                  >
-                    <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
-                      This batch will open for preorder once the current batch has substantially sold.
-                    </p>
-                    <p className="text-xs mt-2" style={{ color: 'var(--foreground-subtle)' }}>
-                      Estimated Arrival:{' '}
-                      <strong style={{ color: 'var(--foreground)' }}>
-                        {books.some(b => isEtaVisible(b)) ? formatDate(batchEta) : 'TBA'}
-                      </strong>
-                    </p>
-                  </div>
-                )}
+
+                        {canPurchase(book) ? (
+                          inList ? (
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) - 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>−</button>
+                              <span className="flex-1 text-center text-xs font-bold" style={{ color: 'var(--foreground)' }}>{listItem?.qty}</span>
+                              <button onClick={() => updateQty(book.id, (listItem?.qty ?? 1) + 1)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-sm font-bold" style={{ background: 'var(--muted)', color: 'var(--foreground)' }}>+</button>
+                              <button onClick={() => removeFromList(book.id)} className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171' }}>✕</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => addToList(book)}
+                              className="btn-primary text-xs py-2 w-full"
+                            >
+                              + Preorder
+                            </button>
+                          )
+                        ) : !isPriceVisible(book) ? (
+                          <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'rgba(120,100,80,0.10)', color: '#9E8E7E', border: '1px solid rgba(120,100,80,0.25)', cursor: 'not-allowed', opacity: 0.7 }}>
+                            Price TBA
+                          </button>
+                        ) : (
+                          <button disabled className="text-xs py-2 w-full rounded-lg font-semibold" style={{ background: 'var(--muted)', color: 'var(--foreground-subtle)', cursor: 'not-allowed' }}>
+                            Sold Out
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
       )}
 

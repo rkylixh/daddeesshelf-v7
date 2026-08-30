@@ -8,12 +8,15 @@ function getClient() {
   );
 }
 
-function computeStatus(book: Partial<Book> & { visibility?: string }): Book['status'] {
+function computeStatus(book: Partial<Book> & { visibility?: string; ordered?: number }): Book['status'] {
   // If visibility is explicitly 'Reserved', treat as Sold Out
   if (book.visibility === 'Reserved') return 'Sold Out';
-  // If reserved column equals 1, treat as out of stock regardless of inventory
-  if ((book.reserved ?? 0) === 1) return 'Sold Out';
-  const available = (book.inventory ?? 0) - (book.reserved ?? 0);
+  // Sold out when all copies are reserved OR ordered (reserved + ordered >= total copies)
+  const inventory = book.inventory ?? 0;
+  const reserved = book.reserved ?? 0;
+  const ordered = book.ordered ?? 0;
+  if ((reserved + ordered) >= inventory && inventory > 0) return 'Sold Out';
+  const available = inventory - reserved - ordered;
   if (book.arrival_date && new Date(book.arrival_date) > new Date()) return 'Pre-order';
   if (available > 0) return 'On Hand';
   return 'Sold Out';
@@ -42,10 +45,7 @@ export function formatBookPrice(book: { is_price_visible?: boolean; final_srp?: 
 export function canPurchase(book: Book): boolean {
   if (!isPriceVisible(book)) return false;
   if (book.status === 'Sold Out') return false;
-  const isReservedSoldOut = (book.reserved ?? 0) === 1;
-  const available = isReservedSoldOut
-    ? 0
-    : Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0));
+  const available = Math.max(0, (book.inventory ?? 0) - (book.reserved ?? 0) - (book.ordered ?? 0));
   return available > 0;
 }
 
@@ -55,7 +55,27 @@ export function mapBookFromRow(row: Record<string, unknown>): Book {
 }
 
 function mapRow(row: Record<string, unknown>): Book {
-  const available = Number(row.inventory ?? 0) - Number(row.reserved ?? 0);
+  const available = Number(row.inventory ?? 0) - Number(row.reserved ?? 0) - Number(row.ordered ?? 0);
+  const status = computeStatus({
+    inventory: Number(row.inventory ?? 0),
+    reserved: Number(row.reserved ?? 0),
+    ordered: Number(row.ordered ?? 0),
+    arrival_date: row.arrival_date ? String(row.arrival_date) : null,
+    visibility: row.visibility ? String(row.visibility) : undefined,
+  });
+
+  const preorderPrice = row.preorder_price != null ? Number(row.preorder_price) : Number(row.final_srp ?? 0);
+  const onhandPrice = row.onhand_price != null ? Number(row.onhand_price) : null;
+
+  // For On Hand books, prefer onhand_price; for all others use preorder_price
+  // Fall back to preorder_price if onhand_price is not set
+  let displayPrice: number;
+  if (status === 'On Hand' && onhandPrice != null && onhandPrice > 0) {
+    displayPrice = onhandPrice;
+  } else {
+    displayPrice = preorderPrice;
+  }
+
   return {
     id: String(row.id ?? ''),
     sku: String(row.sku ?? ''),
@@ -67,11 +87,14 @@ function mapRow(row: Record<string, unknown>): Book {
     series_order: row.series_order != null ? Number(row.series_order) : null,
     format: (row.format as Book['format']) ?? 'Paperback',
     edition: String(row.edition ?? ''),
-    final_srp: Number(row.final_srp ?? 0),
+    final_srp: displayPrice,
+    preorder_price: preorderPrice,
+    onhand_price: onhandPrice,
     batch: String(row.batch ?? ''),
     arrival_date: row.arrival_date ? String(row.arrival_date) : null,
     inventory: Number(row.inventory ?? 0),
     reserved: Number(row.reserved ?? 0),
+    ordered: Number(row.ordered ?? 0),
     synopsis: String(row.synopsis ?? ''),
     cover_url: String(row.cover_url ?? ''),
     goodreads_url: row.goodreads_url ? String(row.goodreads_url) : (row.goodreads_link ? String(row.goodreads_link) : undefined),
@@ -84,12 +107,7 @@ function mapRow(row: Record<string, unknown>): Book {
     created_at: String(row.created_at ?? ''),
     updated_at: String(row.updated_at ?? ''),
     available,
-    status: computeStatus({
-      inventory: Number(row.inventory ?? 0),
-      reserved: Number(row.reserved ?? 0),
-      arrival_date: row.arrival_date ? String(row.arrival_date) : null,
-      visibility: row.visibility ? String(row.visibility) : undefined,
-    }),
+    status,
     // Extended fields
     goodreads_ratings_count: row.goodreads_ratings_count != null ? Number(row.goodreads_ratings_count) : 0,
     reader_tags: Array.isArray(row.reader_tags) ? row.reader_tags as string[] : [],
@@ -211,7 +229,7 @@ export async function getDistinctGenres(): Promise<string[]> {
 
 export async function getDistinctBatches(): Promise<string[]> {
   const supabase = getClient();
-  const { data } = await supabase.from('books').select('batch');
+  const { data } = await supabase.from('books').select('batch').eq('is_visible', true);
   if (!data) return [];
   return [...new Set(data.map((r: Record<string, unknown>) => String(r.batch)).filter(Boolean))].sort();
 }

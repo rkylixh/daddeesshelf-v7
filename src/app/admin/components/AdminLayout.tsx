@@ -157,7 +157,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     const fetchMessages = async (showLoading = false) => {
       if (showLoading) setChatLoading(true);
       try {
-        const [{ data: messages, error: msgError }, { data: admins, error: adminError }] = await Promise.all([
+        const [msgResult, adminResult] = await Promise.all([
           supabase
             .from('admin_messages')
             .select('id, sender_handle, sender_display_name, message, created_at')
@@ -167,6 +167,9 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             .from('admin_users')
             .select('tiktok_handle, display_name'),
         ]);
+
+        const { data: messages, error: msgError } = msgResult;
+        const { data: admins, error: adminError } = adminResult;
 
         if (msgError) {
           toast.error(`Could not load chat: ${msgError.message}`);
