@@ -25,7 +25,7 @@ export default function SearchHintDropdown({ hints }: Props) {
     <div
       className="absolute left-0 right-0 top-full mt-1 rounded-lg z-30 py-2 px-3"
       style={{
-        background: 'var(--surface)',
+        background: 'var(--background-card)',
         border: '1px solid var(--border)',
         boxShadow: '0 8px 24px rgba(30,18,10,0.18)',
       }}
@@ -39,9 +39,9 @@ export default function SearchHintDropdown({ hints }: Props) {
             key={label}
             className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full"
             style={{
-              background: 'var(--primary-glow)',
+              background: 'rgba(200,164,91,0.18)',
               color: 'var(--primary-bright)',
-              border: '1px solid rgba(200,164,91,0.25)',
+              border: '1px solid rgba(200,164,91,0.35)',
             }}
           >
             <Icon name={icon as any} size={11} />
