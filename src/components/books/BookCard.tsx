@@ -81,11 +81,6 @@ export default function BookCard({ book, href, showQuickAdd = false, batchLabel 
 
   const priceVisible = isPriceVisible(book);
 
-  // For on-hand books, prefer onhand_price over final_srp
-  const displayPrice = book.status === 'On Hand' && book.onhand_price != null && book.onhand_price > 0
-    ? book.onhand_price
-    : book.final_srp;
-
   return (
     <>
       <Link href={detailHref} className="block group">
@@ -218,7 +213,7 @@ export default function BookCard({ book, href, showQuickAdd = false, batchLabel 
             <div className="flex items-center justify-between">
               {priceVisible ? (
                 <span className="text-sm font-bold tabular-nums" style={{ color: '#8B6A20' }}>
-                  ₱{displayPrice.toLocaleString()}
+                  ₱{book.final_srp.toLocaleString()}
                 </span>
               ) : (
                 <span className="text-sm font-medium" style={{ color: '#7B6454' }}>Price TBA</span>
