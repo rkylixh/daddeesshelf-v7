@@ -153,15 +153,29 @@ export default function SignupContent() {
       const supabase = createClient();
       const normalizedHandle = '@' + tiktok.toLowerCase();
 
-      // Check if TikTok handle already registered (case-insensitive, with or without @)
+      // Check if TikTok handle already registered — match both '@handle' and 'handle' variants
       const { data: existingHandle } = await supabase
         .from('customers')
         .select('id')
-        .or(`tiktok_handle.eq.${normalizedHandle},tiktok_handle.eq.${tiktok.toLowerCase()}`)
+        .in('tiktok_handle', [normalizedHandle, tiktok.toLowerCase()])
         .maybeSingle();
 
       if (existingHandle) {
         setError('This TikTok handle is already registered. Please create a Shelfie Username to log in or sign up instead.');
+        setLoading(false);
+        return;
+      }
+
+      // Also check if this handle matches an existing username (prevents creating a duplicate
+      // when someone tries to sign up with their username as a TikTok handle)
+      const { data: existingAsUsername } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('username', tiktok.toLowerCase())
+        .maybeSingle();
+
+      if (existingAsUsername) {
+        setError('This handle matches an existing account username. Please use your Shelfie Username to log in instead.');
         setLoading(false);
         return;
       }

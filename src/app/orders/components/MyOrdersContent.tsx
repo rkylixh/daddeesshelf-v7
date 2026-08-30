@@ -268,20 +268,19 @@ export default function MyOrdersContent() {
       const rawHandle = handle.trim().replace(/^@/, '');
       const normalizedHandle = '@' + rawHandle;
 
-      // Check customers table first
-      const { data: customer } = await supabase
+      // Check customers table — try both '@handle' and 'handle' variants
+      const { data: customerRows } = await supabase
         .from('customers')
         .select('id, tiktok_handle, pin_hash, pin_enrolled')
-        .eq('tiktok_handle', normalizedHandle)
-        .maybeSingle();
+        .in('tiktok_handle', [normalizedHandle, rawHandle]);
+
+      const customer = customerRows && customerRows.length > 0 ? customerRows[0] : null;
 
       if (customer) {
         setCustomerId(customer.id);
         if (!customer.pin_enrolled || !customer.pin_hash) {
-          // Customer exists but no PIN yet — create PIN
           setStep('create-pin');
         } else {
-          // Customer has PIN — enter PIN
           setStep('enter-pin');
         }
         return;
@@ -291,23 +290,27 @@ export default function MyOrdersContent() {
       const { data: existingOrders } = await supabase
         .from('orders')
         .select('id, customer_pin')
-        .eq('tiktok_handle', normalizedHandle)
+        .in('tiktok_handle', [normalizedHandle, rawHandle])
         .limit(1);
 
       if (existingOrders && existingOrders.length > 0) {
-        // Legacy customer with orders but no customer record — create customer record and prompt PIN creation
-        const { data: newCustomer, error: insertErr } = await supabase
+        // Legacy customer with orders but no customer record.
+        // Use upsert on tiktok_handle to avoid creating a duplicate if a race condition occurs.
+        const { data: upserted, error: upsertErr } = await supabase
           .from('customers')
-          .insert({ tiktok_handle: normalizedHandle, pin_hash: '', pin_enrolled: false })
-          .select('id')
+          .upsert(
+            { tiktok_handle: normalizedHandle, pin_hash: '', pin_enrolled: false },
+            { onConflict: 'tiktok_handle', ignoreDuplicates: false }
+          )
+          .select('id, pin_hash, pin_enrolled')
           .single();
 
-        if (insertErr || !newCustomer) {
-          // If insert fails (e.g. already exists race condition), try select again
+        if (upsertErr || !upserted) {
+          // Upsert failed — try a plain select as fallback (row may already exist)
           const { data: retryCustomer } = await supabase
             .from('customers')
             .select('id, pin_hash, pin_enrolled')
-            .eq('tiktok_handle', normalizedHandle)
+            .in('tiktok_handle', [normalizedHandle, rawHandle])
             .maybeSingle();
           if (retryCustomer) {
             setCustomerId(retryCustomer.id);
@@ -321,8 +324,12 @@ export default function MyOrdersContent() {
           throw new Error('Could not initialize your account. Please try again.');
         }
 
-        setCustomerId(newCustomer.id);
-        setStep('create-pin');
+        setCustomerId(upserted.id);
+        if (!upserted.pin_enrolled || !upserted.pin_hash) {
+          setStep('create-pin');
+        } else {
+          setStep('enter-pin');
+        }
         return;
       }
 
