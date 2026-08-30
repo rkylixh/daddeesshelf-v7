@@ -26,13 +26,14 @@ serve(async (req) => {
 
     console.log("[notify-email] Notification type:", type);
 
-    const RESEND_API_KEY = Deno.env.get("API_ORDER_NOTIF");
+    // Try API_ORDER_NOTIF first, then fall back to RESEND_API_KEY
+    const RESEND_API_KEY = Deno.env.get("API_ORDER_NOTIF") || Deno.env.get("RESEND_API_KEY");
     const NOTIFY_EMAIL = "daddeesshelf.web@gmail.com";
 
-    console.log("[notify-email] API_ORDER_NOTIF present:", !!RESEND_API_KEY);
+    console.log("[notify-email] Resend API key present:", !!RESEND_API_KEY);
 
     if (!RESEND_API_KEY) {
-      throw new Error("API_ORDER_NOTIF is not set");
+      throw new Error("No Resend API key configured. Set API_ORDER_NOTIF or RESEND_API_KEY in Supabase Edge Function secrets.");
     }
 
     let subject = "";
@@ -125,8 +126,8 @@ serve(async (req) => {
       },
     });
   } catch (error) {
-    console.log("[notify-email] Error:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.log("[notify-email] Error:", (error as Error).message);
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: {
         "Content-Type": "application/json",

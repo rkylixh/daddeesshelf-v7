@@ -67,9 +67,14 @@ function mapRow(row: Record<string, unknown>): Book {
   const preorderPrice = row.preorder_price != null ? Number(row.preorder_price) : Number(row.final_srp ?? 0);
   const onhandPrice = row.onhand_price != null ? Number(row.onhand_price) : null;
 
-  // Always show the lowest available price
-  const candidates = [preorderPrice, onhandPrice].filter((p): p is number => p != null && p > 0);
-  const displayPrice = candidates.length > 0 ? Math.min(...candidates) : preorderPrice;
+  // For on-hand books, use onhand_price if set; otherwise fall back to preorder_price
+  // For pre-order books, always use preorder_price
+  let displayPrice: number;
+  if (status === 'On Hand' && onhandPrice != null && onhandPrice > 0) {
+    displayPrice = onhandPrice;
+  } else {
+    displayPrice = preorderPrice;
+  }
 
   return {
     id: String(row.id ?? ''),

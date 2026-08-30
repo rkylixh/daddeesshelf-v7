@@ -265,20 +265,62 @@ export default function MyOrdersContent() {
       const rawHandle = handle.trim().replace(/^@/, '');
       const normalizedHandle = '@' + rawHandle;
 
-      // Check customers table first
-      const { data: customer } = await supabase
+      // Check customers table — try both @handle and handle formats
+      let customer = null;
+
+      const { data: c1 } = await supabase
         .from('customers')
         .select('id, tiktok_handle, pin_hash, pin_enrolled')
         .eq('tiktok_handle', normalizedHandle)
         .maybeSingle();
+      if (c1) customer = c1;
+
+      if (!customer) {
+        const { data: c2 } = await supabase
+          .from('customers')
+          .select('id, tiktok_handle, pin_hash, pin_enrolled')
+          .eq('tiktok_handle', rawHandle)
+          .maybeSingle();
+        if (c2) customer = c2;
+      }
+
+      // Also try looking up by username or customer_id
+      if (!customer) {
+        const { data: c3 } = await supabase
+          .from('customers')
+          .select('id, tiktok_handle, pin_hash, pin_enrolled')
+          .or(`username.eq.${rawHandle},customer_id.eq.${rawHandle.toUpperCase()}`)
+          .maybeSingle();
+        if (c3) customer = c3;
+      }
+
+      // Try customer_slugs lookup (user_slug like DS-XXXXXXX)
+      if (!customer) {
+        const { data: slugRow } = await supabase
+          .from('customer_slugs')
+          .select('tiktok_handle')
+          .or(`user_slug.eq.${rawHandle.toUpperCase()},tiktok_handle.eq.${normalizedHandle},tiktok_handle.eq.${rawHandle}`)
+          .maybeSingle();
+
+        if (slugRow?.tiktok_handle) {
+          const slugHandle = slugRow.tiktok_handle;
+          const { data: c4 } = await supabase
+            .from('customers')
+            .select('id, tiktok_handle, pin_hash, pin_enrolled')
+            .or(`tiktok_handle.eq.${slugHandle},tiktok_handle.eq.${slugHandle.replace(/^@/, '')}`)
+            .maybeSingle();
+          if (c4) customer = c4;
+        }
+      }
 
       if (customer) {
         setCustomerId(customer.id);
+        // Use the stored handle for order lookup
+        const storedHandle = customer.tiktok_handle;
+        setHandle(storedHandle.startsWith('@') ? storedHandle.slice(1) : storedHandle);
         if (!customer.pin_enrolled || !customer.pin_hash) {
-          // Customer exists but no PIN yet — create PIN
           setStep('create-pin');
         } else {
-          // Customer has PIN — enter PIN
           setStep('enter-pin');
         }
         return;
@@ -288,7 +330,7 @@ export default function MyOrdersContent() {
       const { data: existingOrders } = await supabase
         .from('orders')
         .select('id, customer_pin')
-        .eq('tiktok_handle', normalizedHandle)
+        .or(`tiktok_handle.eq.${normalizedHandle},tiktok_handle.eq.${rawHandle}`)
         .limit(1);
 
       if (existingOrders && existingOrders.length > 0) {
@@ -348,7 +390,7 @@ export default function MyOrdersContent() {
       // Verify PIN against customers table
       const { data: customer } = await supabase
         .from('customers')
-        .select('id, pin_hash, pin_enrolled')
+        .select('id, pin_hash, pin_enrolled, tiktok_handle')
         .eq('id', customerId)
         .maybeSingle();
 
@@ -360,11 +402,16 @@ export default function MyOrdersContent() {
         throw new Error('Incorrect PIN.');
       }
 
-      // Fetch orders
+      // Use the stored tiktok_handle for order lookup (handles both @handle and handle formats)
+      const storedHandle = customer.tiktok_handle ?? normalizedHandle;
+      const handleNoAt = storedHandle.replace(/^@/, '');
+      const handleWithAt = '@' + handleNoAt;
+
+      // Fetch orders — try both handle formats
       const { data: orderData, error: ordersErr } = await supabase
         .from('orders')
         .select('*')
-        .eq('tiktok_handle', normalizedHandle)
+        .or(`tiktok_handle.eq.${handleWithAt},tiktok_handle.eq.${handleNoAt}`)
         .order('created_at', { ascending: false });
 
       if (ordersErr) throw ordersErr;
