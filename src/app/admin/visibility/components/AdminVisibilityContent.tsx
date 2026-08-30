@@ -46,9 +46,53 @@ export default function AdminVisibilityContent() {
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
 
+  // My Inquiries feature visibility
+  const [myInquiriesVisible, setMyInquiriesVisible] = useState(false);
+  const [myInquiriesSaving, setMyInquiriesSaving] = useState(false);
+
   useEffect(() => {
     loadBooks();
+    loadFeatureSettings();
   }, []);
+
+  const loadFeatureSettings = async () => {
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('homepage_settings')
+        .select('value')
+        .eq('key', 'my_inquiries_visible')
+        .maybeSingle();
+      if (data) {
+        setMyInquiriesVisible(data.value === 'true');
+      }
+    } catch { /* ignore */ }
+  };
+
+  const toggleMyInquiries = async () => {
+    const newValue = !myInquiriesVisible;
+    setMyInquiriesSaving(true);
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('homepage_settings')
+        .upsert({ key: 'my_inquiries_visible', value: String(newValue) }, { onConflict: 'key' });
+      setMyInquiriesVisible(newValue);
+      toast.success(`"My Inquiries" feature ${newValue ? 'shown to' : 'hidden from'} customers`);
+      await logAudit({
+        action: 'FEATURE_VISIBILITY_TOGGLED',
+        module: 'Visibility Control',
+        target_ref: 'My Inquiries',
+        prev_value: String(!newValue),
+        new_value: String(newValue),
+        explanation: `Admin ${newValue ? 'enabled' : 'disabled'} the "My Inquiries" feature for customers`,
+      });
+    } catch {
+      toast.error('Failed to update feature visibility');
+    } finally {
+      setMyInquiriesSaving(false);
+    }
+  };
 
   const loadBooks = async () => {
     setLoading(true);
@@ -158,6 +202,40 @@ export default function AdminVisibilityContent() {
 
   return (
     <AdminLayout title="Visibility Control">
+      {/* ── Feature Visibility ─────────────────────────────── */}
+      <div
+        className="rounded-xl p-4 mb-6"
+        style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
+      >
+        <h2 className="text-sm font-bold mb-3" style={{ color: 'var(--foreground)' }}>Feature Visibility</h2>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>My Inquiries</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-muted)' }}>
+              Allow customers to view their support tickets at <span style={{ color: 'var(--primary-bright)' }}>/my-queries</span>
+            </p>
+          </div>
+          <button
+            onClick={toggleMyInquiries}
+            disabled={myInquiriesSaving}
+            className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 disabled:opacity-50 flex-shrink-0"
+            style={{ background: myInquiriesVisible ? '#4ade80' : 'rgba(255,255,255,0.15)' }}
+            aria-label={`My Inquiries: ${myInquiriesVisible ? 'visible' : 'hidden'}`}
+          >
+            {myInquiriesSaving ? (
+              <span className="absolute inset-0 flex items-center justify-center">
+                <span className="w-3 h-3 rounded-full border border-t-transparent animate-spin" style={{ borderColor: 'rgba(255,255,255,0.6)' }} />
+              </span>
+            ) : (
+              <span
+                className="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200"
+                style={{ transform: myInquiriesVisible ? 'translateX(24px)' : 'translateX(3px)' }}
+              />
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Summary stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
         <div className="rounded-xl p-4" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>

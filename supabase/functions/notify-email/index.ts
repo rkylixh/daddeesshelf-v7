@@ -87,6 +87,27 @@ serve(async (req) => {
           <p style="font-size: 12px; color: #9E8E7E; text-align: center;">Daddee's Shelf · Automated Title Request Notification</p>
         </div>
       `;
+    } else if (type === "new_inquiry") {
+      const { tiktok_handle, subject: ticketSubject, message } = data;
+      subject = `💬 New Inquiry — ${ticketSubject}`;
+      html = `
+        <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; background: #FBF5EC; padding: 32px; border-radius: 12px; border: 1px solid #D8C4A8;">
+          <h1 style="color: #3A2214; font-size: 22px; margin-bottom: 4px;">New Customer Inquiry</h1>
+          <p style="color: #7B6454; font-size: 13px; margin-top: 0;">Daddee's Shelf — Contact Form Notification</p>
+          <hr style="border: none; border-top: 1px solid #D8C4A8; margin: 16px 0;" />
+          <table style="width: 100%; font-size: 13px; color: #3A2214; border-collapse: collapse;">
+            <tr><td style="padding: 6px 0; color: #7B6454; width: 160px;">TikTok Handle</td><td>${tiktok_handle}</td></tr>
+            <tr><td style="padding: 6px 0; color: #7B6454;">Subject</td><td style="font-weight: bold;">${ticketSubject}</td></tr>
+          </table>
+          <hr style="border: none; border-top: 1px solid #D8C4A8; margin: 16px 0;" />
+          <p style="font-size: 13px; color: #7B6454; margin-bottom: 6px;"><strong style="color: #3A2214;">Message:</strong></p>
+          <div style="font-size: 13px; color: #3A2214; background: #fff; border: 1px solid #D8C4A8; border-radius: 8px; padding: 12px; line-height: 1.6;">
+            ${message.replace(/\n/g, "<br/>")}
+          </div>
+          <hr style="border: none; border-top: 1px solid #D8C4A8; margin: 20px 0;" />
+          <p style="font-size: 12px; color: #9E8E7E; text-align: center;">Daddee's Shelf · Automated Inquiry Notification</p>
+        </div>
+      `;
     } else {
       throw new Error(`Unknown notification type: ${type}`);
     }

@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import { createClient } from '@/lib/supabase/client';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 
 // ── Types ──────────────────────────────────────────────────
 interface SupportTicket {
@@ -175,12 +176,15 @@ function AuthCard({ children }: { children: React.ReactNode }) {
 
 // ── Main Component ─────────────────────────────────────────
 export default function MyQueriesContent() {
-  const [step, setStep] = useState<AuthStep>('handle');
-  const [handle, setHandle] = useState('');
+  const { customer } = useCustomerAuth();
+
+  // If logged in, skip handle step and go straight to PIN or tickets
+  const [step, setStep] = useState<AuthStep>(() => customer ? 'enter-pin' : 'handle');
+  const [handle, setHandle] = useState(customer?.tiktokHandle ?? '');
   const [pin, setPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
-  const [customerId, setCustomerId] = useState('');
+  const [customerId, setCustomerId] = useState(customer?.customerId ?? '');
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -188,6 +192,15 @@ export default function MyQueriesContent() {
   const handleInputRef = useRef<HTMLInputElement>(null);
   const pinInputRef = useRef<HTMLInputElement>(null);
   const newPinInputRef = useRef<HTMLInputElement>(null);
+
+  // If customer logs in mid-session, update handle/customerId
+  useEffect(() => {
+    if (customer) {
+      setHandle(customer.tiktokHandle ?? '');
+      setCustomerId(customer.customerId ?? '');
+      if (step === 'handle') setStep('enter-pin');
+    }
+  }, [customer]);
 
   useEffect(() => {
     if (step === 'handle') handleInputRef.current?.focus();

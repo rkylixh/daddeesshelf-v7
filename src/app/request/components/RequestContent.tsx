@@ -2,13 +2,21 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 
 function genRef() {
   return 'REQ-' + Date.now().toString(36).toUpperCase();
 }
 
 export default function RequestContent() {
-  const [form, setForm] = useState({ name: '', tiktok: '', title: '', author: '', notes: '' });
+  const { customer } = useCustomerAuth();
+
+  const [form, setForm] = useState({
+    tiktok: customer?.tiktokHandle ?? '',
+    title: '',
+    author: '',
+    notes: '',
+  });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -18,11 +26,15 @@ export default function RequestContent() {
     setLoading(true);
     setError('');
     try {
+      const tiktok = customer?.tiktokHandle ?? form.tiktok.trim();
+      const rawHandle = tiktok.replace(/^@/, '');
+      const displayName = customer?.username ?? rawHandle;
       const ref = genRef();
+
       const { error: err } = await supabase.from('title_requests').insert({
         ref_number: ref,
-        customer_name: form.name,
-        tiktok_handle: form.tiktok,
+        customer_name: displayName,
+        tiktok_handle: rawHandle,
         requested_title: form.title,
         requested_author: form.author,
         notes: form.notes,
@@ -36,8 +48,8 @@ export default function RequestContent() {
             type: 'new_title_request',
             data: {
               ref_number: ref,
-              customer_name: form.name,
-              tiktok_handle: form.tiktok,
+              customer_name: displayName,
+              tiktok_handle: rawHandle,
               requested_title: form.title,
               requested_author: form.author,
               notes: form.notes,
@@ -86,7 +98,7 @@ export default function RequestContent() {
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
-                onClick={() => { setSubmitted(false); setForm({ name: '', tiktok: '', title: '', author: '', notes: '' }); }}
+                onClick={() => { setSubmitted(false); setForm({ tiktok: customer?.tiktokHandle ?? '', title: '', author: '', notes: '' }); }}
                 className="btn-secondary text-sm px-6 py-2.5"
               >
                 Submit Another Request
@@ -102,20 +114,8 @@ export default function RequestContent() {
             style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}
           >
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                    Your Name <span style={{ color: 'var(--primary)' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="input-field"
-                    placeholder="Your full name"
-                  />
-                </div>
+              {/* TikTok handle — only shown when not logged in */}
+              {!customer ? (
                 <div>
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
                     TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
@@ -129,7 +129,17 @@ export default function RequestContent() {
                     placeholder="@yourtiktok"
                   />
                 </div>
-              </div>
+              ) : (
+                <div
+                  className="rounded-lg px-3 py-2"
+                  style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }}
+                >
+                  <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
+                    Submitting as <strong style={{ color: 'var(--primary-bright)' }}>{customer.tiktokHandle}</strong>
+                    {customer.username ? ` (${customer.username})` : ''}
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>

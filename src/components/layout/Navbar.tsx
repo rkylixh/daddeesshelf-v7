@@ -937,7 +937,7 @@ const MobileNavSearch = React.memo(function MobileNavSearch({ onAdminTrigger }: 
 });
 
 // ── Nav Links (no admin) ───────────────────────────────────
-const NAV_LINKS = [
+const BASE_NAV_LINKS = [
   { label: 'Home', href: '/' },
   { label: 'Shop', href: '/shop' },
   { label: 'On Hand', href: '/on-hand' },
@@ -1139,6 +1139,33 @@ export default function Navbar() {
   const [announcements, setAnnouncements] = useState<{ id: string; title: string; message: string; type: string }[]>([]);
   const [dismissedBanners, setDismissedBanners] = useState<string[]>([]);
   const { customer, logout: customerLogout } = useCustomerAuth();
+  const [myInquiriesVisible, setMyInquiriesVisible] = useState(false);
+
+  // Build nav links — conditionally include My Queries
+  const NAV_LINKS = myInquiriesVisible
+    ? [...BASE_NAV_LINKS.slice(0, 9), { label: 'My Queries', href: '/my-queries' }, BASE_NAV_LINKS[9]]
+    : BASE_NAV_LINKS;
+
+  // Load My Inquiries visibility setting
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSetting = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('homepage_settings')
+          .select('value')
+          .eq('key', 'my_inquiries_visible')
+          .maybeSingle();
+        if (!cancelled && data) {
+          setMyInquiriesVisible(data.value === 'true');
+        }
+      } catch { /* ignore */ }
+    };
+    fetchSetting();
+    return () => { cancelled = true; };
+  }, []);
 
   // Load active announcements (client-side date filter — ISO timestamps break PostgREST .or() filters)
   useEffect(() => {
