@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import { supabase } from '@/lib/supabase';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
@@ -39,10 +39,16 @@ const SOCIAL_PLATFORMS = [
 export default function ContactContent() {
   const { customer } = useCustomerAuth();
 
-  const [form, setForm] = useState({ tiktok: customer?.tiktokHandle ?? '', subject: '', message: '' });
+  const [form, setForm] = useState({ tiktok: '', subject: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (customer?.tiktokHandle) {
+      setForm(f => ({ ...f, tiktok: customer.tiktokHandle }));
+    }
+  }, [customer]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
