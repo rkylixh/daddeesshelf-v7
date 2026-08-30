@@ -27,7 +27,7 @@ interface TicketMessage {
   created_at: string;
 }
 
-function TicketRow({ ticket, onSelect }: { ticket: SupportTicket; onSelect: (t: SupportTicket) => void }) {
+function TicketRow({ ticket, onSelect, unreadCount }: { ticket: SupportTicket; onSelect: (t: SupportTicket) => void; unreadCount: number }) {
   return (
     <tr
       className="cursor-pointer transition-colors"
@@ -46,7 +46,24 @@ function TicketRow({ ticket, onSelect }: { ticket: SupportTicket; onSelect: (t: 
         {ticket.tiktok_handle ? `@${ticket.tiktok_handle}` : '—'}
       </td>
       <td className="px-4 py-3 text-sm" style={{ color: 'var(--foreground-muted)' }}>
-        {ticket.subject}
+        <div className="flex items-center gap-2">
+          {ticket.subject}
+          {unreadCount > 0 && (
+            <span
+              className="flex items-center justify-center rounded-full text-white font-bold flex-shrink-0"
+              style={{
+                background: '#ef4444',
+                minWidth: '18px',
+                height: '18px',
+                fontSize: '10px',
+                padding: '0 4px',
+                lineHeight: '18px',
+              }}
+            >
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3">
         <span
@@ -409,6 +426,8 @@ function AdminSupportTicketsContent() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [search, setSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
+  // unreadCounts: ticketId -> number of customer messages after last admin message
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -427,7 +446,49 @@ function AdminSupportTicketsContent() {
     }
   }, []);
 
+  // Load unread counts: for each ticket, count customer messages after the last admin message
+  const loadUnreadCounts = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const { data: messages } = await supabase
+        .from('ticket_messages')
+        .select('ticket_id, sender_type, created_at')
+        .order('created_at', { ascending: true });
+
+      if (!messages) return;
+
+      // Group by ticket_id
+      const byTicket: Record<string, { sender_type: string; created_at: string }[]> = {};
+      for (const msg of messages) {
+        if (!byTicket[msg.ticket_id]) byTicket[msg.ticket_id] = [];
+        byTicket[msg.ticket_id].push(msg);
+      }
+
+      const counts: Record<string, number> = {};
+      for (const [ticketId, msgs] of Object.entries(byTicket)) {
+        // Find the last admin message timestamp
+        let lastAdminAt: string | null = null;
+        for (const msg of msgs) {
+          if (msg.sender_type === 'admin') lastAdminAt = msg.created_at;
+        }
+        // Count customer messages after last admin message (or all customer messages if no admin reply)
+        const unread = msgs.filter(
+          msg => msg.sender_type === 'customer' && (lastAdminAt === null || msg.created_at > lastAdminAt)
+        ).length;
+        if (unread > 0) counts[ticketId] = unread;
+      }
+      setUnreadCounts(counts);
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => { loadTickets(); }, [loadTickets]);
+  useEffect(() => { loadUnreadCounts(); }, [loadUnreadCounts]);
+
+  // Poll unread counts every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(loadUnreadCounts, 30000);
+    return () => clearInterval(interval);
+  }, [loadUnreadCounts]);
 
   const filtered = tickets.filter(t => {
     const matchesStatus = !statusFilter || t.status === statusFilter;
@@ -443,6 +504,22 @@ function AdminSupportTicketsContent() {
 
   const handleUpdate = (updated: SupportTicket) => {
     setTickets(prev => prev.map(t => t.id === updated.id ? updated : t));
+    // Clear unread count for this ticket after admin views/responds
+    setUnreadCounts(prev => {
+      const next = { ...prev };
+      delete next[updated.id];
+      return next;
+    });
+  };
+
+  // When a ticket is selected, clear its unread count (admin is viewing it)
+  const handleSelectTicket = (t: SupportTicket) => {
+    setSelectedTicket(t);
+    setUnreadCounts(prev => {
+      const next = { ...prev };
+      delete next[t.id];
+      return next;
+    });
   };
 
   return (
@@ -516,7 +593,7 @@ function AdminSupportTicketsContent() {
                 </thead>
                 <tbody>
                   {filtered.map(ticket => (
-                    <TicketRow key={ticket.id} ticket={ticket} onSelect={setSelectedTicket} />
+                    <TicketRow key={ticket.id} ticket={ticket} onSelect={handleSelectTicket} unreadCount={unreadCounts[ticket.id] ?? 0} />
                   ))}
                 </tbody>
               </table>

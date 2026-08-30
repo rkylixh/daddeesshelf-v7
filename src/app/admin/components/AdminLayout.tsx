@@ -21,9 +21,9 @@ const ADMIN_NAV = [
   { label: 'BookTok Favorites', href: '/admin/booktok', icon: 'HeartIcon' },
   { label: 'Homepage Content', href: '/admin/homepage', icon: 'HomeIcon' },
   { label: 'FAQ Management', href: '/admin/faqs', icon: 'QuestionMarkCircleIcon' },
-  { label: 'Support Tickets', href: '/admin/support-tickets', icon: 'EnvelopeIcon' },
+  { label: 'Support Tickets', href: '/admin/support-tickets', icon: 'EnvelopeIcon', badgeKey: 'supportTickets' },
   { label: 'Title Requests', href: '/admin/requests', icon: 'DocumentTextIcon' },
-  { label: 'Order Management', href: '/admin/orders', icon: 'ShoppingBagIcon' },
+  { label: 'Order Management', href: '/admin/orders', icon: 'ShoppingBagIcon', badgeKey: 'orders' },
   { label: 'Customer Management', href: '/admin/customers', icon: 'UsersIcon' },
   { label: 'Store Credits', href: '/admin/store-credits', icon: 'CreditCardIcon' },
   { label: 'Admin Users', href: '/admin/users', icon: 'UserGroupIcon' },
@@ -66,6 +66,44 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<string | null>(null);
   const nameByHandleRef = useRef<Map<string, string>>(new Map());
+
+  // Nav badge counts
+  const [navBadges, setNavBadges] = useState<Record<string, number>>({ supportTickets: 0, orders: 0 });
+
+  // Fetch nav badge counts
+  const fetchNavBadges = async () => {
+    try {
+      const supabase = createClient();
+      const [ticketsRes, ordersRes, pendingPayRes] = await Promise.all([
+        // New support tickets
+        supabase
+          .from('support_tickets')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'New'),
+        // New/Pending orders
+        supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'Pending'),
+        // Pending payment verification orders
+        supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('processing_status', 'Pending Payment Verification'),
+      ]);
+
+      const ticketCount = ticketsRes.count ?? 0;
+      const orderCount = (ordersRes.count ?? 0) + (pendingPayRes.count ?? 0);
+
+      setNavBadges({ supportTickets: ticketCount, orders: orderCount });
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    fetchNavBadges();
+    const interval = setInterval(fetchNavBadges, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Get current admin session
   const getAdminSession = () => {
@@ -353,7 +391,22 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               }
             >
               <Icon name={item.icon as 'HomeIcon'} size={16} style={{ color: pathname === item.href ? 'var(--primary-bright)' : 'rgba(245,230,200,0.5)' } as React.CSSProperties} />
-              <span>{item.label}</span>
+              <span className="flex-1">{item.label}</span>
+              {item.badgeKey && navBadges[item.badgeKey] > 0 && (
+                <span
+                  className="flex items-center justify-center rounded-full text-white font-bold flex-shrink-0"
+                  style={{
+                    background: '#ef4444',
+                    minWidth: '18px',
+                    height: '18px',
+                    fontSize: '10px',
+                    padding: '0 4px',
+                    lineHeight: '18px',
+                  }}
+                >
+                  {navBadges[item.badgeKey] > 99 ? '99+' : navBadges[item.badgeKey]}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
