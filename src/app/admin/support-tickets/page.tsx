@@ -160,6 +160,30 @@ function TicketDetailModal({ ticket, onClose, onUpdate }: {
       if (status === 'New') {
         setStatus('Open');
       }
+
+      // ── Notify the customer ──────────────────────────────
+      if (ticket.tiktok_handle) {
+        try {
+          const handle = ticket.tiktok_handle.replace(/^@/, '');
+          const { data: customerRow } = await supabase
+            .from('customers')
+            .select('customer_id')
+            .or(`tiktok_handle.eq.${handle},tiktok_handle.eq.@${handle}`)
+            .maybeSingle();
+          if (customerRow?.customer_id) {
+            await supabase.from('customer_notifications').insert({
+              customer_id: customerRow.customer_id,
+              tiktok_handle: ticket.tiktok_handle,
+              title: 'New reply on your support ticket',
+              message: `Admin replied to your ticket: "${ticket.subject}"`,
+              type: 'ticket_reply',
+              is_read: false,
+            });
+          }
+        } catch {
+          // notification failure is non-critical
+        }
+      }
     } catch {
       setReplyError('Failed to send reply. Please try again.');
     } finally {

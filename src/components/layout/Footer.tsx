@@ -1,6 +1,9 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
+import { createClient } from '@/lib/supabase/client';
 
 // Navigation data — keep in sync with Navbar.tsx NAV_LINKS
 const FOOTER_BROWSE_LINKS = [
@@ -10,7 +13,7 @@ const FOOTER_BROWSE_LINKS = [
   { label: 'Available Now', href: '/available-now' },
 ];
 
-const FOOTER_ACCOUNT_LINKS = [
+const FOOTER_ACCOUNT_BASE_LINKS = [
   { label: 'My Wishlist', href: '/wishlist' },
   { label: 'My Orders', href: '/orders' },
   { label: 'Request a Title', href: '/request' },
@@ -55,6 +58,31 @@ const linkStyle: React.CSSProperties = {
 };
 
 export default function Footer() {
+  const [myQueriesVisible, setMyQueriesVisible] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetch = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('homepage_settings')
+          .select('value')
+          .eq('key', 'my_inquiries_visible')
+          .maybeSingle();
+        if (!cancelled && data) {
+          setMyQueriesVisible(data.value === 'true');
+        }
+      } catch { /* ignore */ }
+    };
+    fetch();
+    return () => { cancelled = true; };
+  }, []);
+
+  const footerAccountLinks = myQueriesVisible
+    ? [...FOOTER_ACCOUNT_BASE_LINKS, { label: 'My Queries', href: '/my-queries' }]
+    : FOOTER_ACCOUNT_BASE_LINKS;
+
   return (
     <footer
       className="relative z-10"
@@ -145,7 +173,7 @@ export default function Footer() {
               Account
             </h4>
             <div className="flex flex-col" style={{ gap: '0.65rem' }}>
-              {FOOTER_ACCOUNT_LINKS.filter(isValidLink).map(link => (
+              {footerAccountLinks.filter(isValidLink).map(link => (
                 <Link
                   key={`footer-account-${link.href}`}
                   href={link.href}

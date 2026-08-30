@@ -1128,6 +1128,85 @@ function NotificationBell() {
   );
 }
 
+// ── Customer Account Dropdown ──────────────────────────────
+function CustomerAccountDropdown({
+  username,
+  myQueriesVisible,
+  onLogout,
+}: {
+  username: string;
+  myQueriesVisible: boolean;
+  onLogout: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="btn-ghost px-3 py-1.5 rounded-lg text-xs font-semibold hidden md:flex items-center gap-1.5"
+        style={{ color: 'var(--primary-bright)' }}
+      >
+        <Icon name="UserCircleIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+        {username}
+        <Icon name="ChevronDownIcon" size={12} style={{ color: 'var(--primary-bright)', opacity: 0.7 } as React.CSSProperties} />
+      </button>
+
+      {open && (
+        <div
+          className="absolute right-0 mt-1 w-44 rounded-xl overflow-hidden z-50 shadow-2xl"
+          style={{ background: 'var(--background-card)', border: '1px solid var(--border)', top: '100%' }}
+        >
+          <Link
+            href="/orders"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold transition-colors"
+            style={{ color: 'var(--foreground-muted)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(200,164,91,0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <Icon name="ShoppingBagIcon" size={13} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+            My Orders
+          </Link>
+          {myQueriesVisible && (
+            <Link
+              href="/my-queries"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold transition-colors"
+              style={{ color: 'var(--foreground-muted)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(200,164,91,0.08)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              <Icon name="ChatBubbleLeftRightIcon" size={13} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+              My Queries
+            </Link>
+          )}
+          <div style={{ height: '1px', background: 'var(--border)', margin: '2px 0' }} />
+          <button
+            onClick={() => { onLogout(); setOpen(false); }}
+            className="flex items-center gap-2 px-4 py-2.5 text-xs w-full text-left transition-colors"
+            style={{ color: 'var(--foreground-subtle)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(239,68,68,0.06)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <Icon name="ArrowRightOnRectangleIcon" size={13} />
+            Log Out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -1324,22 +1403,11 @@ export default function Navbar() {
               {/* Customer account button */}
               {customer ? (
                 <div className="hidden sm:flex items-center gap-1">
-                  <Link
-                    href="/orders"
-                    className="btn-ghost px-3 py-1.5 rounded-lg text-xs font-semibold hidden md:flex items-center gap-1.5"
-                    style={{ color: 'var(--primary-bright)' }}
-                  >
-                    <Icon name="UserCircleIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
-                    {customer.username}
-                  </Link>
-                  <button
-                    onClick={customerLogout}
-                    className="btn-ghost px-2 py-1.5 rounded-lg text-xs hidden md:flex"
-                    style={{ color: 'var(--foreground-subtle)' }}
-                    title="Log out"
-                  >
-                    <Icon name="ArrowRightOnRectangleIcon" size={14} />
-                  </button>
+                  <CustomerAccountDropdown
+                    username={customer.username}
+                    myQueriesVisible={myInquiriesVisible}
+                    onLogout={customerLogout}
+                  />
                 </div>
               ) : (
                 <Link
