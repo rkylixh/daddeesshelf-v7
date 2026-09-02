@@ -168,23 +168,69 @@ export default function ClaimAccountContent() {
 
       setIdentifyLoading(true);
       try {
+        // First check the customers table
         const { data, error } = await supabase
           .from('customers')
           .select('id, customer_id, tiktok_handle, username, pin_enrolled')
           .or(`tiktok_handle.eq.@${handle},tiktok_handle.eq.${handle}`)
           .maybeSingle();
 
-        if (error || !data) {
-          setIdentifyError('No customer found with that TikTok handle. Please check the spelling or contact support.');
+        if (!error && data) {
+          if (data.username && data.pin_enrolled) {
+            setIdentifyError('This TikTok handle is already linked to a Shelfie account. Please use your Shelfie Username to log in instead.');
+            return;
+          }
+          setFoundCustomer(data);
+          setStep('setup');
           return;
         }
 
-        if (data.username && data.pin_enrolled) {
-          setIdentifyError('This TikTok handle is already linked to a Shelfie account. Please use your Shelfie Username to log in instead.');
+        // No customers row found — check if orders exist for this handle
+        const { data: orderData } = await supabase
+          .from('orders')
+          .select('tiktok_handle, customer_name')
+          .or(`tiktok_handle.eq.@${handle},tiktok_handle.eq.${handle}`)
+          .limit(1)
+          .maybeSingle();
+
+        if (!orderData) {
+          setIdentifyError('No account or orders found with that TikTok handle. Please check the spelling or contact support.');
           return;
         }
 
-        setFoundCustomer(data);
+        // Orders exist but no customers row — create one so they can claim their account
+        const normalizedHandle = '@' + handle;
+        const { data: newCustomer, error: insertErr } = await supabase
+          .from('customers')
+          .insert({
+            tiktok_handle: normalizedHandle,
+            pin_enrolled: false,
+          })
+          .select('id, customer_id, tiktok_handle, username, pin_enrolled')
+          .single();
+
+        if (insertErr || !newCustomer) {
+          // If insert failed due to conflict, try fetching again (race condition)
+          const { data: retryData } = await supabase
+            .from('customers')
+            .select('id, customer_id, tiktok_handle, username, pin_enrolled')
+            .or(`tiktok_handle.eq.@${handle},tiktok_handle.eq.${handle}`)
+            .maybeSingle();
+
+          if (retryData) {
+            if (retryData.username && retryData.pin_enrolled) {
+              setIdentifyError('This TikTok handle is already linked to a Shelfie account. Please use your Shelfie Username to log in instead.');
+              return;
+            }
+            setFoundCustomer(retryData);
+            setStep('setup');
+            return;
+          }
+          setIdentifyError('Something went wrong. Please try again.');
+          return;
+        }
+
+        setFoundCustomer(newCustomer);
         setStep('setup');
       } catch {
         setIdentifyError('Something went wrong. Please try again.');
