@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown, { BOOK_SEARCH_HINTS } from '@/components/ui/SearchHintDropdown';
 
 interface Props {
   totalCount: number;
@@ -24,6 +25,8 @@ export default function ShopHeader({
   search,
   onSearchChange,
 }: Props) {
+  const [searchFocused, setSearchFocused] = useState(false);
+
   return (
     <div>
       {/* Title row */}
@@ -50,11 +53,17 @@ export default function ShopHeader({
           />
           <input
             type="search"
-            placeholder="Search by title, author, SKU, genre, series..."
+            placeholder="Search title, book code, tropes, genre..."
             value={search}
             onChange={e => onSearchChange(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             className="input-field pl-9 pr-4 py-2 text-sm"
           />
+          {/* Search hint dropdown */}
+          {searchFocused && (
+            <SearchHintDropdown hints={BOOK_SEARCH_HINTS} />
+          )}
         </div>
 
         {/* Filter toggle (mobile/tablet) */}

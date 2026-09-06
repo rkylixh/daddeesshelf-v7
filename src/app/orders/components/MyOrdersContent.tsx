@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import { createClient } from '@/lib/supabase/client';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 
 // ── Types ──────────────────────────────────────────────────
 interface OrderItem {
@@ -206,6 +207,7 @@ function OrderCard({ order }: { order: Order }) {
 
 // ── Main Component ─────────────────────────────────────────
 export default function MyOrdersContent() {
+  const { customer, isLoggedIn } = useCustomerAuth();
   const [step, setStep] = useState<AuthStep>('handle');
   const [handle, setHandle] = useState('');
   const [pin, setPin] = useState('');
@@ -220,6 +222,33 @@ export default function MyOrdersContent() {
   const handleInputRef = useRef<HTMLInputElement>(null);
   const pinInputRef = useRef<HTMLInputElement>(null);
   const newPinInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-load orders when customer is logged in via CustomerAuthContext
+  useEffect(() => {
+    if (!isLoggedIn || !customer) return;
+    const autoLoad = async () => {
+      setLoading(true);
+      try {
+        const supabase = createClient();
+        const rawHandle = customer.tiktokHandle.replace(/^@/, '');
+        const normalizedHandle = '@' + rawHandle;
+        // Search both '@handle' and 'handle' variants to catch orders stored under either format
+        const { data: orderData } = await supabase
+          .from('orders')
+          .select('*')
+          .in('tiktok_handle', [normalizedHandle, rawHandle])
+          .order('created_at', { ascending: false });
+        setOrders((orderData ?? []) as Order[]);
+        setHandle(normalizedHandle);
+        setStep('orders');
+      } catch {
+        // ignore — fall through to manual login
+      } finally {
+        setLoading(false);
+      }
+    };
+    autoLoad();
+  }, [isLoggedIn, customer]);
 
   useEffect(() => {
     if (step === 'handle') handleInputRef.current?.focus();
@@ -239,20 +268,19 @@ export default function MyOrdersContent() {
       const rawHandle = handle.trim().replace(/^@/, '');
       const normalizedHandle = '@' + rawHandle;
 
-      // Check customers table first
-      const { data: customer } = await supabase
+      // Check customers table — try both '@handle' and 'handle' variants
+      const { data: customerRows } = await supabase
         .from('customers')
         .select('id, tiktok_handle, pin_hash, pin_enrolled')
-        .eq('tiktok_handle', normalizedHandle)
-        .maybeSingle();
+        .in('tiktok_handle', [normalizedHandle, rawHandle]);
+
+      const customer = customerRows && customerRows.length > 0 ? customerRows[0] : null;
 
       if (customer) {
         setCustomerId(customer.id);
         if (!customer.pin_enrolled || !customer.pin_hash) {
-          // Customer exists but no PIN yet — create PIN
           setStep('create-pin');
         } else {
-          // Customer has PIN — enter PIN
           setStep('enter-pin');
         }
         return;
@@ -262,23 +290,27 @@ export default function MyOrdersContent() {
       const { data: existingOrders } = await supabase
         .from('orders')
         .select('id, customer_pin')
-        .eq('tiktok_handle', normalizedHandle)
+        .in('tiktok_handle', [normalizedHandle, rawHandle])
         .limit(1);
 
       if (existingOrders && existingOrders.length > 0) {
-        // Legacy customer with orders but no customer record — create customer record and prompt PIN creation
-        const { data: newCustomer, error: insertErr } = await supabase
+        // Legacy customer with orders but no customer record.
+        // Use upsert on tiktok_handle to avoid creating a duplicate if a race condition occurs.
+        const { data: upserted, error: upsertErr } = await supabase
           .from('customers')
-          .insert({ tiktok_handle: normalizedHandle, pin_hash: '', pin_enrolled: false })
-          .select('id')
+          .upsert(
+            { tiktok_handle: normalizedHandle, pin_hash: '', pin_enrolled: false },
+            { onConflict: 'tiktok_handle', ignoreDuplicates: false }
+          )
+          .select('id, pin_hash, pin_enrolled')
           .single();
 
-        if (insertErr || !newCustomer) {
-          // If insert fails (e.g. already exists race condition), try select again
+        if (upsertErr || !upserted) {
+          // Upsert failed — try a plain select as fallback (row may already exist)
           const { data: retryCustomer } = await supabase
             .from('customers')
             .select('id, pin_hash, pin_enrolled')
-            .eq('tiktok_handle', normalizedHandle)
+            .in('tiktok_handle', [normalizedHandle, rawHandle])
             .maybeSingle();
           if (retryCustomer) {
             setCustomerId(retryCustomer.id);
@@ -292,8 +324,12 @@ export default function MyOrdersContent() {
           throw new Error('Could not initialize your account. Please try again.');
         }
 
-        setCustomerId(newCustomer.id);
-        setStep('create-pin');
+        setCustomerId(upserted.id);
+        if (!upserted.pin_enrolled || !upserted.pin_hash) {
+          setStep('create-pin');
+        } else {
+          setStep('enter-pin');
+        }
         return;
       }
 
@@ -334,11 +370,11 @@ export default function MyOrdersContent() {
         throw new Error('Incorrect PIN.');
       }
 
-      // Fetch orders
+      // Fetch orders — search both '@handle' and 'handle' variants
       const { data: orderData, error: ordersErr } = await supabase
         .from('orders')
         .select('*')
-        .eq('tiktok_handle', normalizedHandle)
+        .in('tiktok_handle', [normalizedHandle, rawHandle])
         .order('created_at', { ascending: false });
 
       if (ordersErr) throw ordersErr;
@@ -398,11 +434,11 @@ export default function MyOrdersContent() {
         if (updateErr) throw updateErr;
       }
 
-      // Fetch orders after PIN creation
+      // Fetch orders — search both '@handle' and 'handle' variants
       const { data: orderData } = await supabase
         .from('orders')
         .select('*')
-        .eq('tiktok_handle', normalizedHandle)
+        .in('tiktok_handle', [normalizedHandle, rawHandle])
         .order('created_at', { ascending: false });
 
       setOrders((orderData ?? []) as Order[]);
@@ -465,6 +501,7 @@ export default function MyOrdersContent() {
                 disabled={loading}
                 className="btn-primary w-full py-3 text-sm"
                 style={{ opacity: loading ? 0.7 : 1 }}
+                suppressHydrationWarning
               >
                 {loading ? 'Checking...' : 'Continue →'}
               </button>
@@ -509,6 +546,7 @@ export default function MyOrdersContent() {
                 disabled={loading}
                 className="btn-primary w-full py-3 text-sm"
                 style={{ opacity: loading ? 0.7 : 1 }}
+                suppressHydrationWarning
               >
                 {loading ? 'Verifying...' : 'View My Orders ✦'}
               </button>
@@ -584,6 +622,7 @@ export default function MyOrdersContent() {
                 disabled={loading}
                 className="btn-primary w-full py-3 text-sm"
                 style={{ opacity: loading ? 0.7 : 1 }}
+                suppressHydrationWarning
               >
                 {loading ? 'Saving...' : 'Create PIN & View Orders ✦'}
               </button>

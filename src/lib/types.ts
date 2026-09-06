@@ -17,6 +17,7 @@ export interface Book {
   arrival_date: string | null;
   inventory: number;
   reserved: number;
+  ordered: number;
   synopsis: string;
   cover_url: string;
   goodreads_url?: string;
@@ -30,6 +31,9 @@ export interface Book {
   visibility?: string;
   created_at: string;
   updated_at: string;
+  // Price fields
+  preorder_price?: number;
+  onhand_price?: number | null;
   // Extended enrichment fields
   reader_tags?: string[];
   why_readers_love?: string;
@@ -69,6 +73,9 @@ export interface BookFilters {
   author?: string;
   batch?: string;
   source?: string;
+  trope?: string;
+  selectedTropes?: string[];
+  tropeMatchMode?: 'all' | 'any';
 }
 
 export interface AdminFilters extends BookFilters {

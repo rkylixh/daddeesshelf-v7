@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import AppLogo from '@/components/ui/AppLogo';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown, { BOOK_SEARCH_HINTS } from '@/components/ui/SearchHintDropdown';
 import { Book } from '@/lib/types';
 import { getAllBooksAdmin, createBook, updateBook, deleteBook, bulkUpdateBooks, getDistinctGenres, getDistinctBatches } from '@/lib/books';
 import InventoryTable from './InventoryTable';
@@ -22,10 +23,12 @@ export default function InventoryControlContent() {
   const [batches, setBatches] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [filterGenre, setFilterGenre] = useState('');
   const [filterFormat, setFilterFormat] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterBatch, setFilterBatch] = useState('');
+  const [filterSynopsis, setFilterSynopsis] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [editingBook, setEditingBook] = useState<Book | null>(null);
@@ -67,6 +70,8 @@ export default function InventoryControlContent() {
     if (filterFormat) result = result.filter(b => b.format === filterFormat);
     if (filterStatus) result = result.filter(b => b.status === filterStatus);
     if (filterBatch) result = result.filter(b => b.batch === filterBatch);
+    if (filterSynopsis === 'has') result = result.filter(b => b.synopsis && b.synopsis.trim().length > 0);
+    if (filterSynopsis === 'missing') result = result.filter(b => !b.synopsis || b.synopsis.trim().length === 0);
 
     result.sort((a, b) => {
       const av = a[sortCol] ?? '';
@@ -76,7 +81,7 @@ export default function InventoryControlContent() {
     });
 
     return result;
-  }, [books, search, filterGenre, filterFormat, filterStatus, filterBatch, sortCol, sortDir]);
+  }, [books, search, filterGenre, filterFormat, filterStatus, filterBatch, filterSynopsis, sortCol, sortDir]);
 
   const handleSort = (col: keyof Book) => {
     if (sortCol === col) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
@@ -148,9 +153,10 @@ export default function InventoryControlContent() {
     setFilterFormat('');
     setFilterStatus('');
     setFilterBatch('');
+    setFilterSynopsis('');
   };
 
-  const activeFilterCount = [filterGenre, filterFormat, filterStatus, filterBatch].filter(Boolean).length;
+  const activeFilterCount = [filterGenre, filterFormat, filterStatus, filterBatch, filterSynopsis].filter(Boolean).length;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -233,8 +239,11 @@ export default function InventoryControlContent() {
               placeholder="Search by title, author, SKU, genre..."
               value={search}
               onChange={e => setSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
               className="input-field pl-9 py-2 text-sm"
             />
+            {searchFocused && <SearchHintDropdown hints={BOOK_SEARCH_HINTS} />}
           </div>
 
           {/* Genre filter */}
@@ -272,6 +281,16 @@ export default function InventoryControlContent() {
               <option value="Pre-order">Pre-order</option>
               <option value="On Hand">On Hand</option>
               <option value="Sold Out">Sold Out</option>
+            </select>
+          </div>
+
+          {/* Synopsis filter */}
+          <div className="flex flex-col gap-1 min-w-[140px]">
+            <label className="text-xs" style={{ color: 'var(--foreground-subtle)' }}>Synopsis</label>
+            <select value={filterSynopsis} onChange={e => setFilterSynopsis(e.target.value)} className="select-field text-sm py-2">
+              <option value="">All Books</option>
+              <option value="has">Has Synopsis</option>
+              <option value="missing">Missing Synopsis</option>
             </select>
           </div>
 

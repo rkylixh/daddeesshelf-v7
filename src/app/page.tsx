@@ -6,6 +6,7 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import StarField from '@/components/layout/StarField';
 import HomeHero from './components/HomeHero';
+import BatchEtaCalendar from './components/BatchEtaCalendar';
 import BookGrid from '@/components/books/BookGrid';
 import BookCard from '@/components/books/BookCard';
 import { getBooks, mapBookFromRow, isEtaVisible, formatBookPrice } from '@/lib/books';
@@ -13,6 +14,7 @@ import { Book } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import Icon from '@/components/ui/AppIcon';
 import AppImage from '@/components/ui/AppImage';
+import StatusBadge from '@/components/books/StatusBadge';
 
 interface BatchInfo {
   name: string;
@@ -26,6 +28,62 @@ interface SiteStats {
   activeBatchCount: number;
   lowestPrice: number;
   wishlistCount: number;
+}
+
+// ── Batch Calendar Modal ───────────────────────────────────
+function BatchCalendarModal({
+  batches,
+  onClose,
+}: {
+  batches: { batch: string; eta: string; etaVisible: boolean; count: number }[];
+  onClose: () => void;
+}) {
+  // Close on backdrop click
+  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(30,18,10,0.72)', backdropFilter: 'blur(4px)' }}
+      onClick={handleBackdrop}
+    >
+      <div
+        className="relative w-full max-w-lg rounded-2xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(180deg, #F9F1E3 0%, #F4E8D2 100%)',
+          boxShadow: '0 24px 64px rgba(75,53,42,0.35)',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
+        {/* Modal header */}
+        <div
+          className="flex items-center justify-between px-5 py-4 sticky top-0"
+          style={{ background: 'rgba(249,241,227,0.97)', borderBottom: '1px solid rgba(200,164,91,0.3)', zIndex: 1 }}
+        >
+          <div className="flex items-center gap-2">
+            <Icon name="CalendarIcon" size={16} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+            <h2 className="font-display text-base font-bold" style={{ color: 'var(--foreground)' }}>
+              Batch ETA Calendar
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+            style={{ background: 'rgba(200,164,91,0.15)', color: 'var(--foreground-muted)', border: '1px solid rgba(200,164,91,0.3)' }}
+            aria-label="Close calendar"
+          >
+            <Icon name="XMarkIcon" size={16} />
+          </button>
+        </div>
+        <div className="p-4">
+          <BatchEtaCalendar batches={batches} />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Section divider that feels like a bookstore aisle ──
@@ -95,7 +153,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const touchStartX = useRef<number | null>(null);
 
-  const visibleCount = 3;
+  const visibleCount = 4;
   const total = books.length;
 
   const next = useCallback(() => {
@@ -144,7 +202,7 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
         <Icon name="ChevronLeftIcon" size={18} />
       </button>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 overflow-hidden">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 overflow-hidden">
         {indices.map((idx, pos) => {
           const book = books[idx];
           return (
@@ -164,14 +222,12 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
                     src={book.cover_url || '/assets/images/no_image.png'}
                     alt={`Cover of ${book.title} by ${book.author}`}
                     fill
-                    sizes="(max-width: 640px) 50vw, 33vw"
+                    sizes="(max-width: 640px) 50vw, 25vw"
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   {book.status === 'Pre-order' && (
-                    <div className="absolute top-2 left-2">
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(200,164,91,0.92)', color: '#3A2214' }}>
-                        Preorder
-                      </span>
+                    <div className="absolute bottom-2 left-2">
+                      <StatusBadge status="Pre-order" size="sm" available={book.available ?? 0} />
                     </div>
                   )}
                 </div>
@@ -218,11 +274,13 @@ function BestSellersCarousel({ books }: { books: Book[] }) {
 export default function HomePage() {
   const [batchInfo, setBatchInfo] = useState<BatchInfo | null>(null);
   const [batchBooks, setBatchBooks] = useState<Book[]>([]);
+  const [allBatchEtas, setAllBatchEtas] = useState<{ batch: string; eta: string; etaVisible: boolean; count: number }[]>([]);
   const [bestSellers, setBestSellers] = useState<Book[]>([]);
   const [booktokFavorites, setBooktokFavorites] = useState<Book[]>([]);
   const [featuredBooks, setFeaturedBooks] = useState<Book[]>([]);
   const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [howItWorksSteps, setHowItWorksSteps] = useState<{ step: string; icon: string; title: string; desc: string }[]>([
     { step: '1', icon: 'BookOpenIcon', title: 'Browse & Select', desc: 'Choose titles from the current import batch' },
     { step: '2', icon: 'ShoppingCartIcon', title: 'Add to Cart', desc: 'Add multiple books to your preorder cart' },
@@ -237,20 +295,24 @@ export default function HomePage() {
   useEffect(() => {
     async function load() {
       try {
-        const [booksRes, wishlistRes] = await Promise.all([
-          supabase.from('books').select('final_srp, batch, is_visible').eq('is_visible', true),
-          supabase.from('wishlists').select('id', { count: 'exact', head: true }),
+        const [booksRes] = await Promise.all([
+          supabase.from('books').select('preorder_price, onhand_price, batch, is_visible').eq('is_visible', true),
         ]);
 
         const allBooks = booksRes.data ?? [];
         const distinctBatches = [...new Set(allBooks.map((b: Record<string, unknown>) => String(b.batch)).filter(Boolean))];
-        const prices = allBooks.map((b: Record<string, unknown>) => Number(b.final_srp)).filter(p => p > 0);
+        const prices = allBooks.map((b: Record<string, unknown>) => {
+          const preorderPrice = b.preorder_price != null ? Number(b.preorder_price) : 0;
+          const onhandPrice = b.onhand_price != null ? Number(b.onhand_price) : null;
+          const candidates = [preorderPrice, onhandPrice].filter((p): p is number => p != null && p > 0);
+          return candidates.length > 0 ? Math.min(...candidates) : 0;
+        }).filter(p => p > 0);
 
         setSiteStats({
           titlesAvailable: allBooks.length,
           activeBatchCount: distinctBatches.length,
           lowestPrice: prices.length > 0 ? Math.min(...prices) : 0,
-          wishlistCount: wishlistRes.count ?? 0,
+          wishlistCount: 0,
         });
 
         // Load homepage settings
@@ -274,6 +336,26 @@ export default function HomePage() {
           .order('arrival_date', { ascending: true });
 
         if (!batchRows || batchRows.length === 0) { setLoading(false); return; }
+
+        // Build all batch ETA entries for the calendar
+        const batchEtaMap: Record<string, { eta: string; count: number; etaVisible: boolean }> = {};
+        for (const r of batchRows) {
+          const bName = String(r.batch ?? '');
+          const bEta = String(r.arrival_date ?? '');
+          if (!bName || !bEta) continue;
+          if (!batchEtaMap[bName]) {
+            batchEtaMap[bName] = { eta: bEta, count: 0, etaVisible: true };
+          }
+          batchEtaMap[bName].count += 1;
+        }
+        setAllBatchEtas(
+          Object.entries(batchEtaMap).map(([batch, info]) => ({
+            batch,
+            eta: info.eta,
+            etaVisible: info.etaVisible,
+            count: info.count,
+          }))
+        );
 
         const now = new Date();
         const futureBatches = batchRows.filter((r: Record<string, unknown>) => r.arrival_date && new Date(String(r.arrival_date)) > now);
@@ -301,7 +383,7 @@ export default function HomePage() {
           etaVisible,
           count: preorderBooks.length,
         });
-        setBatchBooks(preorderBooks.slice(0, 6));
+        setBatchBooks(preorderBooks.slice(0, 8));
 
         const { data: seedData } = await supabase
           .from('best_sellers_seed')
@@ -380,6 +462,11 @@ export default function HomePage() {
     <div style={{ position: 'relative', minHeight: '100vh' }}>
       {/* StarField background — same as all other pages */}
       <StarField />
+
+      {/* Batch Calendar Modal */}
+      {showCalendarModal && allBatchEtas.length > 0 && (
+        <BatchCalendarModal batches={allBatchEtas} onClose={() => setShowCalendarModal(false)} />
+      )}
 
       {/* Page content sits above the environment */}
       <div className="relative" style={{ zIndex: 1 }}>
@@ -518,6 +605,24 @@ export default function HomePage() {
                 <>
                   <BookstoreDivider label="✦ Featured Books ✦" />
                   <BookstoreSection>
+                    {/* View Batch Calendar button above featured books */}
+                    {allBatchEtas.length > 0 && (
+                      <div className="flex justify-end mb-4">
+                        <button
+                          onClick={() => setShowCalendarModal(true)}
+                          className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-lg transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+                          style={{
+                            background: 'rgba(200,164,91,0.14)',
+                            border: '1px solid rgba(200,164,91,0.45)',
+                            color: 'var(--primary-bright)',
+                            boxShadow: '0 2px 8px rgba(200,164,91,0.12)',
+                          }}
+                        >
+                          <Icon name="CalendarIcon" size={14} style={{ color: 'var(--primary-bright)' } as React.CSSProperties} />
+                          View Batch Calendar
+                        </button>
+                      </div>
+                    )}
                     <div className="flex items-end justify-between mb-6">
                       <div>
                         <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--foreground)' }}>Featured Books</h2>
@@ -630,10 +735,8 @@ const COL_CLASSES: Record<number, string> = {
 };
 
 function BalancedBookGrid({ books }: { books: Book[] }) {
-  const cols = getBalancedCols(books.length);
-  const colClass = COL_CLASSES[cols] ?? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5';
   return (
-    <div className={`grid ${colClass} gap-4`}>
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
       {books.map(book => (
         <BookCard key={book.id} book={book} />
       ))}

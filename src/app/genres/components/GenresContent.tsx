@@ -157,7 +157,7 @@ function GenreDetailView({ genre, books, imageMap, onBack }: GenreDetailViewProp
               <button
                 key={sg.name}
                 onClick={() => handleSubgenreClick(sg.name)}
-                className="group flex flex-col items-center gap-2 p-3 rounded-xl text-center transition-all duration-300"
+                className="group flex flex-col rounded-xl text-center transition-all duration-300 overflow-hidden"
                 style={{
                   background: 'rgba(251,245,236,0.55)',
                   border: '1.5px solid rgba(200,164,91,0.55)',
@@ -166,26 +166,31 @@ function GenreDetailView({ genre, books, imageMap, onBack }: GenreDetailViewProp
                   WebkitBackdropFilter: 'blur(8px)',
                 }}
               >
-                {sgImg ? (
-                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                {/* Image / icon area */}
+                <div
+                  className="relative w-full overflow-hidden flex items-center justify-center"
+                  style={{ aspectRatio: '3/2', background: 'rgba(200,180,150,0.18)' }}
+                >
+                  {sgImg ? (
                     <AppImage
                       src={sgImg}
                       alt={`${sg.name} subgenre`}
-                      width={40}
-                      height={40}
+                      fill
+                      sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 15vw"
                       className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
                     />
-                  </div>
-                ) : (
-                  <span
-                    className="text-2xl leading-none"
-                    style={{ filter: 'drop-shadow(0 0 6px rgba(139,92,246,0.4))' }}
-                    aria-hidden="true"
-                  >
-                    {SUBGENRE_ICONS[sg.name] ?? GENRE_ICONS[genre] ?? '📚'}
-                  </span>
-                )}
-                <div>
+                  ) : (
+                    <span
+                      className="text-3xl leading-none"
+                      style={{ filter: 'drop-shadow(0 0 6px rgba(139,92,246,0.4))' }}
+                      aria-hidden="true"
+                    >
+                      {SUBGENRE_ICONS[sg.name] ?? GENRE_ICONS[genre] ?? '📚'}
+                    </span>
+                  )}
+                </div>
+                {/* Label area */}
+                <div className="px-2 py-2">
                   <p className="font-display text-xs font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>
                     {sg.name}
                   </p>
@@ -284,7 +289,7 @@ export default function GenresContent() {
                   <button
                     key={genre}
                     onClick={() => setSelectedGenre(genre)}
-                    className="group flex flex-col items-center gap-3 p-5 rounded-2xl text-center transition-all duration-300"
+                    className="group flex flex-col rounded-2xl text-center transition-all duration-300 overflow-hidden"
                     style={{
                       background: 'rgba(251,245,236,0.55)',
                       border: '1.5px solid rgba(200,164,91,0.55)',
@@ -293,20 +298,31 @@ export default function GenresContent() {
                       WebkitBackdropFilter: 'blur(8px)',
                     }}
                   >
-                    {genreImg ? (
-                      <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0">
+                    {/* Image / icon area */}
+                    <div
+                      className="relative w-full overflow-hidden flex items-center justify-center"
+                      style={{ aspectRatio: '3/2', background: 'rgba(200,180,150,0.18)' }}
+                    >
+                      {genreImg ? (
                         <AppImage
                           src={genreImg}
                           alt={`${genre} genre`}
-                          width={56}
-                          height={56}
+                          fill
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                           className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
                         />
-                      </div>
-                    ) : (
-                      <span className="text-3xl" aria-hidden="true">{GENRE_ICONS[genre] ?? '📚'}</span>
-                    )}
-                    <div>
+                      ) : (
+                        <span
+                          className="text-5xl leading-none"
+                          style={{ filter: 'drop-shadow(0 0 8px rgba(139,92,246,0.35))' }}
+                          aria-hidden="true"
+                        >
+                          {GENRE_ICONS[genre] ?? '📚'}
+                        </span>
+                      )}
+                    </div>
+                    {/* Label area */}
+                    <div className="px-3 py-3">
                       <p className="font-display text-sm font-semibold leading-snug" style={{ color: 'var(--foreground)' }}>{genre}</p>
                       <p className="text-xs mt-1" style={{ color: 'var(--foreground-subtle)' }}>{data.count} title{data.count !== 1 ? 's' : ''}</p>
                     </div>

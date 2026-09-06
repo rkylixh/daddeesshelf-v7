@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown from '@/components/ui/SearchHintDropdown';
 import { createClient } from '@/lib/supabase/client';
 
 interface StoreCredit {
@@ -547,6 +548,7 @@ export default function AdminStoreCreditsContent() {
   const [toggleTarget, setToggleTarget] = useState<StoreCredit | null>(null);
   const [isOwnerRole, setIsOwnerRole] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const loadCredits = useCallback(async () => {
     setLoading(true);
@@ -651,7 +653,14 @@ export default function AdminStoreCreditsContent() {
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <div className="relative flex-1 min-w-[200px]">
           <Icon name="MagnifyingGlassIcon" size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--foreground-subtle)' } as React.CSSProperties} />
-          <input type="search" placeholder="Search by handle, reason, order ref..." value={search} onChange={e => setSearch(e.target.value)} className="input-field text-sm py-2 pl-9" />
+          <input type="search" placeholder="Search by handle, reason, order ref..." value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} className="input-field text-sm py-2 pl-9" />
+          {searchFocused && (
+            <SearchHintDropdown hints={[
+              { label: 'TikTok Handle', icon: 'UserIcon' },
+              { label: 'Reason', icon: 'ChatBubbleLeftIcon' },
+              { label: 'Order Ref', icon: 'HashtagIcon' },
+            ]} />
+          )}
         </div>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="select-field text-sm py-2">
           <option value="">All Statuses</option>

@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown, { BOOK_SEARCH_HINTS } from '@/components/ui/SearchHintDropdown';
 import { Book } from '@/lib/types';
 import { getAllBooksAdmin, createBook, updateBook, deleteBook, bulkUpdateBooks } from '@/lib/books';
 import { toast } from 'sonner';
@@ -37,6 +38,198 @@ interface GenreImage {
   genre: string;
   subgenre: string | null;
   image_url: string;
+}
+
+// ── Batch Control Tab ────────────────────────────────────
+interface BatchSummary {
+  batch: string;
+  total: number;
+  preorder: number;
+  onHand: number;
+  soldOut: number;
+  earliestEta: string | null;
+  latestEta: string | null;
+}
+
+function BatchControlTab() {
+  const [batches, setBatches] = useState<BatchSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadBatches();
+  }, []);
+
+  const loadBatches = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from('books').select('id, batch, arrival_date, inventory, reserved, visibility');
+    if (error || !data) { setLoading(false); return; }
+
+    // Group by batch
+    const map: Record<string, BatchSummary> = {};
+    for (const row of data) {
+      const b = row.batch || 'No Batch';
+      if (!map[b]) {
+        map[b] = { batch: b, total: 0, preorder: 0, onHand: 0, soldOut: 0, earliestEta: null, latestEta: null };
+      }
+      map[b].total++;
+
+      // Compute status same way as computeStatus()
+      const available = (row.inventory ?? 0) - (row.reserved ?? 0);
+      let status: string;
+      if (row.visibility === 'Reserved' || (row.reserved ?? 0) === 1) {
+        status = 'Sold Out';
+      } else if (row.arrival_date && new Date(row.arrival_date) > new Date()) {
+        status = 'Pre-order';
+      } else if (available > 0) {
+        status = 'On Hand';
+      } else {
+        status = 'Sold Out';
+      }
+
+      if (status === 'Pre-order') map[b].preorder++;
+      else if (status === 'On Hand') map[b].onHand++;
+      else map[b].soldOut++;
+
+      if (row.arrival_date) {
+        if (!map[b].earliestEta || row.arrival_date < map[b].earliestEta!) map[b].earliestEta = row.arrival_date;
+        if (!map[b].latestEta || row.arrival_date > map[b].latestEta!) map[b].latestEta = row.arrival_date;
+      }
+    }
+
+    const sorted = Object.values(map).sort((a, b) => a.batch.localeCompare(b.batch));
+    setBatches(sorted);
+    setLoading(false);
+  };
+
+  const switchBatchToOnHand = async (batchName: string) => {
+    setSwitching(batchName);
+    try {
+      // Set arrival_date to null for all pre-order books in this batch
+      // This makes computeStatus() evaluate inventory instead, returning "On Hand"
+      const { error } = await supabase
+        .from('books')
+        .update({ arrival_date: null, updated_at: new Date().toISOString() })
+        .eq('batch', batchName)
+        .not('arrival_date', 'is', null)
+        .gt('arrival_date', new Date().toISOString().split('T')[0]);
+
+      if (error) throw error;
+
+      await logAudit({
+        action: 'BATCH_SWITCHED_TO_ON_HAND',
+        module: 'Inventory',
+        target_ref: batchName,
+        prev_value: 'Pre-order',
+        new_value: 'On Hand',
+        explanation: `Admin manually switched batch "${batchName}" to on-hand status (early arrival)`,
+      });
+
+      toast.success(`${batchName} switched to on-hand`);
+      await loadBatches();
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to switch batch');
+    } finally {
+      setSwitching(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="font-display text-lg font-bold mb-1" style={{ color: 'var(--foreground)' }}>Batch Control</h2>
+        <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+          Manually switch an entire batch to on-hand when it arrives early. This clears the ETA date for all pre-order titles in the batch.
+        </p>
+      </div>
+
+      {batches.length === 0 ? (
+        <div className="text-center py-16" style={{ color: 'var(--foreground-muted)' }}>No batches found.</div>
+      ) : (
+        <div className="space-y-3">
+          {batches.map(b => {
+            const hasPreorders = b.preorder > 0;
+            const isSwitching = switching === b.batch;
+            return (
+              <div
+                key={b.batch}
+                className="rounded-xl p-5 flex flex-wrap items-center justify-between gap-4"
+                style={{
+                  background: 'var(--background-card)',
+                  border: `1px solid ${hasPreorders ? 'rgba(139,92,246,0.25)' : 'var(--border)'}`,
+                }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="font-semibold" style={{ color: 'var(--foreground)' }}>{b.batch}</p>
+                    {hasPreorders && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa' }}>
+                        {b.preorder} pre-order{b.preorder !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {!hasPreorders && b.onHand > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399' }}>
+                        All on hand
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs" style={{ color: 'var(--foreground-muted)' }}>
+                    <span>{b.total} title{b.total !== 1 ? 's' : ''} total</span>
+                    {b.onHand > 0 && <span style={{ color: '#34d399' }}>{b.onHand} on hand</span>}
+                    {b.soldOut > 0 && <span style={{ color: 'var(--foreground-subtle)' }}>{b.soldOut} sold out</span>}
+                    {b.earliestEta && (
+                      <span>
+                        ETA: {b.earliestEta === b.latestEta
+                          ? new Date(b.earliestEta).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : `${new Date(b.earliestEta).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })} – ${new Date(b.latestEta!).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                        }
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {hasPreorders && (
+                  <button
+                    onClick={() => switchBatchToOnHand(b.batch)}
+                    disabled={isSwitching}
+                    className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-all"
+                    style={{
+                      background: isSwitching ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.15)',
+                      color: '#34d399',
+                      border: '1px solid rgba(16,185,129,0.3)',
+                      cursor: isSwitching ? 'not-allowed' : 'pointer',
+                      opacity: isSwitching ? 0.7 : 1,
+                    }}
+                  >
+                    {isSwitching ? (
+                      <>
+                        <div className="w-3.5 h-3.5 rounded-full border border-t-transparent animate-spin" style={{ borderColor: '#34d399' }} />
+                        Switching...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="CheckCircleIcon" size={15} />
+                        Mark as On Hand
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Genre Edits Tab ──────────────────────────────────────
@@ -85,17 +278,19 @@ function GenreEditsTab() {
         updated_at: new Date().toISOString(),
       };
 
-      let error;
+      let saveError;
       if (existing?.id) {
-        ({ error } = await supabase.from('genre_images').update(payload).eq('id', existing.id));
+        let result = await supabase.from('genre_images').update(payload).eq('id', existing.id);
+        saveError = result.error;
       } else if (!url.trim()) {
         // Nothing to clear
         setSaving(null);
         return;
       } else {
-        ({ error } = await supabase.from('genre_images').insert(payload));
+        let result = await supabase.from('genre_images').insert(payload);
+        saveError = result.error;
       }
-      if (error) throw error;
+      if (saveError) throw saveError;
       toast.success(`Image saved for ${subgenre ?? genre}`);
       await logAudit({
         action: 'GENRE_IMAGE_UPDATED',
@@ -260,7 +455,7 @@ function GenreEditsTab() {
 
 // ── Main Component ───────────────────────────────────────
 export default function AdminInventoryContent() {
-  const [activeTab, setActiveTab] = useState<'books' | 'genre-edits'>('books');
+  const [activeTab, setActiveTab] = useState<'books' | 'genre-edits' | 'batch-control'>('books');
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -274,6 +469,7 @@ export default function AdminInventoryContent() {
   const [deleteTarget, setDeleteTarget] = useState<Book | null>(null);
   const [sortCol, setSortCol] = useState<keyof Book>('created_at');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     loadBooks();
@@ -431,6 +627,16 @@ export default function AdminInventoryContent() {
           Book Management
         </button>
         <button
+          onClick={() => setActiveTab('batch-control')}
+          className="text-sm font-medium px-4 py-2 rounded-lg transition-all"
+          style={activeTab === 'batch-control'
+            ? { background: 'var(--primary)', color: '#fff' }
+            : { color: 'var(--foreground-muted)' }
+          }
+        >
+          Batch Control
+        </button>
+        <button
           onClick={() => setActiveTab('genre-edits')}
           className="text-sm font-medium px-4 py-2 rounded-lg transition-all"
           style={activeTab === 'genre-edits'
@@ -444,6 +650,8 @@ export default function AdminInventoryContent() {
 
       {activeTab === 'genre-edits' ? (
         <GenreEditsTab />
+      ) : activeTab === 'batch-control' ? (
+        <BatchControlTab />
       ) : (
         <>
           {/* Stats */}
@@ -480,7 +688,8 @@ export default function AdminInventoryContent() {
           <div className="rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-end" style={{ background: 'var(--background-card)', border: '1px solid var(--border)' }}>
             <div className="relative flex-1 min-w-[200px]">
               <Icon name="MagnifyingGlassIcon" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--foreground-subtle)' } as React.CSSProperties} />
-              <input type="search" placeholder="Search by title, author, SKU..." value={search} onChange={e => setSearch(e.target.value)} className="input-field pl-9 py-2 text-sm" />
+              <input type="search" placeholder="Search by title, author, SKU..." value={search} onChange={e => setSearch(e.target.value)} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} className="input-field pl-9 py-2 text-sm" />
+              {searchFocused && <SearchHintDropdown hints={BOOK_SEARCH_HINTS} />}
             </div>
             <select value={filterGenre} onChange={e => setFilterGenre(e.target.value)} className="select-field text-sm py-2">
               <option value="">All Genres</option>

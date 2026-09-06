@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import Icon from '@/components/ui/AppIcon';
+import SearchHintDropdown from '@/components/ui/SearchHintDropdown';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { logAudit } from '@/lib/auditLog';
@@ -352,6 +353,7 @@ export default function AdminCustomersContent() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [resetTarget, setResetTarget] = useState<Customer | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
@@ -471,8 +473,16 @@ export default function AdminCustomersContent() {
             placeholder="Search by TikTok handle..."
             value={search}
             onChange={e => setSearch(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             className="input-field text-sm py-2 pl-9"
           />
+          {searchFocused && (
+            <SearchHintDropdown hints={[
+              { label: 'TikTok Handle', icon: 'UserIcon' },
+              { label: 'Display Name', icon: 'IdentificationIcon' },
+            ]} />
+          )}
         </div>
         <button
           onClick={syncCustomersFromOrders}

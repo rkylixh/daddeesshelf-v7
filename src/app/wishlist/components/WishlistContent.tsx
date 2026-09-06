@@ -6,6 +6,8 @@ import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
 import { getBooks, formatBookPrice } from '@/lib/books';
 import { Book } from '@/lib/types';
+import { createClient } from '@/lib/supabase/client';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 
 const WISHLIST_KEY = 'ds-wishlist';
 
@@ -19,10 +21,32 @@ function removeFromWishlist(id: string) {
   localStorage.setItem(WISHLIST_KEY, JSON.stringify(current.filter(i => i !== id)));
 }
 
+interface TitleRequest {
+  id: string;
+  ref_number: string;
+  requested_title: string;
+  requested_author: string;
+  notes: string;
+  status: string;
+  admin_notes: string;
+  owner_notes: string;
+  created_at: string;
+}
+
+const REQUEST_STATUS_COLORS: Record<string, string> = {
+  'Pending': '#f59e0b',
+  'Noted': '#3b82f6',
+  'Added to Batch': '#10b981',
+  'Declined': '#6b7280',
+};
+
 export default function WishlistContent() {
+  const { customer, isLoggedIn } = useCustomerAuth();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+  const [titleRequests, setTitleRequests] = useState<TitleRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
 
   useEffect(() => {
     const ids = getWishlistIds();
@@ -39,10 +63,40 @@ export default function WishlistContent() {
     loadBooks();
   }, []);
 
+  // Load title requests for logged-in customer
+  useEffect(() => {
+    if (!isLoggedIn || !customer?.tiktokHandle) return;
+    const loadRequests = async () => {
+      setRequestsLoading(true);
+      try {
+        const supabase = createClient();
+        const rawHandle = customer.tiktokHandle.replace(/^@/, '');
+        const normalizedHandle = '@' + rawHandle;
+        const { data } = await supabase
+          .from('title_requests')
+          .select('id, ref_number, requested_title, requested_author, notes, status, admin_notes, owner_notes, created_at')
+          .in('tiktok_handle', [normalizedHandle, rawHandle])
+          .order('created_at', { ascending: false });
+        setTitleRequests((data ?? []) as TitleRequest[]);
+      } catch {
+        // non-blocking
+      } finally {
+        setRequestsLoading(false);
+      }
+    };
+    loadRequests();
+  }, [isLoggedIn, customer]);
+
   const handleRemove = (id: string) => {
     removeFromWishlist(id);
     setBooks(prev => prev.filter(b => b.id !== id));
     setWishlistIds(prev => prev.filter(i => i !== id));
+  };
+
+  const formatDate = (d: string) => {
+    const date = new Date(d);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
   };
 
   return (
@@ -186,6 +240,97 @@ export default function WishlistContent() {
               Continue Browsing
             </Link>
           </div>
+        </div>
+      )}
+
+      {/* Title Requests Section — shown when logged in */}
+      {isLoggedIn && (
+        <div className="mt-16">
+          <div className="mb-6">
+            <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--primary)', letterSpacing: '0.2em' }}>
+              ✦ My Requests ✦
+            </p>
+            <h2 className="font-display text-2xl font-bold" style={{ color: '#3A2214' }}>
+              Title Requests
+            </h2>
+            <p className="text-sm mt-1" style={{ color: '#6B5040' }}>
+              Titles you&apos;ve requested from us.
+            </p>
+          </div>
+
+          {requestsLoading ? (
+            <div className="flex justify-center py-10">
+              <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--primary)' }} />
+            </div>
+          ) : titleRequests.length === 0 ? (
+            <div
+              className="rounded-2xl p-8 text-center"
+              style={{ background: 'rgba(251,245,236,0.7)', border: '1px solid var(--border)', backdropFilter: 'blur(8px)' }}
+            >
+              <p className="text-sm" style={{ color: '#6B5040' }}>
+                You haven&apos;t submitted any title requests yet.
+              </p>
+              <Link href="/request" className="btn-primary text-sm px-6 py-2.5 inline-block mt-4">
+                Request a Title
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {titleRequests.map(req => {
+                const statusColor = REQUEST_STATUS_COLORS[req.status] ?? '#f59e0b';
+                const hasAdminNote = req.admin_notes && req.admin_notes.trim().length > 0;
+                const hasOwnerNote = req.owner_notes && req.owner_notes.trim().length > 0;
+                return (
+                  <div
+                    key={req.id}
+                    className="rounded-xl p-5"
+                    style={{ background: 'rgba(251,245,236,0.7)', border: '1px solid var(--border)', backdropFilter: 'blur(8px)' }}
+                  >
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-display text-sm font-bold" style={{ color: '#3A2214' }}>
+                            {req.requested_title}
+                          </span>
+                          <span
+                            className="text-xs font-bold px-2.5 py-0.5 rounded-full"
+                            style={{ background: `${statusColor}20`, color: statusColor, border: `1px solid ${statusColor}40` }}
+                          >
+                            {req.status}
+                          </span>
+                        </div>
+                        {req.requested_author && (
+                          <p className="text-xs italic mb-1" style={{ color: '#6B5040' }}>
+                            by {req.requested_author}
+                          </p>
+                        )}
+                        <p className="text-xs" style={{ color: '#9B8070' }}>
+                          {req.ref_number} · Submitted {formatDate(req.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                    {req.notes && (
+                      <p className="text-xs mt-2 pt-2" style={{ color: '#6B5040', borderTop: '1px solid var(--border)' }}>
+                        <span className="font-semibold">Your note:</span> {req.notes}
+                      </p>
+                    )}
+                    {hasOwnerNote && (
+                      <div className="mt-2 pt-2 rounded-lg px-3 py-2" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)', borderTop: 'none' }}>
+                        <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--primary)' }}>✦ Update from us</p>
+                        <p className="text-xs" style={{ color: '#6B5040' }}>{req.owner_notes}</p>
+                      </div>
+                    )}
+                    {hasAdminNote && !hasOwnerNote && (
+                      <div className="mt-2 pt-2 rounded-lg px-3 py-2" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderTop: 'none' }}>
+                        <p className="text-xs font-semibold mb-0.5" style={{ color: '#10b981' }}>✦ Note</p>
+                        <p className="text-xs" style={{ color: '#6B5040' }}>{req.admin_notes}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import { supabase } from '@/lib/supabase';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 
 // ── Social platform config ─────────────────────────────────
-// To re-enable a platform, set enabled: true via Admin Dashboard in the future.
 const SOCIAL_PLATFORMS = [
   {
     id: 'tiktok',
@@ -23,7 +23,7 @@ const SOCIAL_PLATFORMS = [
     value: "Daddee\'s Shelf",
     href: 'https://facebook.com',
     desc: 'Message us for pre-order support.',
-    enabled: false, // Hidden — can be re-enabled via Admin Dashboard
+    enabled: false,
   },
   {
     id: 'instagram',
@@ -32,33 +32,58 @@ const SOCIAL_PLATFORMS = [
     value: '@daddeesshelf',
     href: 'https://instagram.com',
     desc: 'Follow for book updates and announcements.',
-    enabled: false, // Hidden — can be re-enabled via Admin Dashboard
+    enabled: false,
   },
 ];
 
 export default function ContactContent() {
-  const [form, setForm] = useState({ display_name: '', tiktok: '', subject: '', message: '' });
+  const { customer } = useCustomerAuth();
+
+  const [form, setForm] = useState({ tiktok: '', subject: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (customer?.tiktokHandle) {
+      setForm(f => ({ ...f, tiktok: customer.tiktokHandle }));
+    }
+  }, [customer]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.display_name.trim() || !form.tiktok.trim() || !form.message.trim() || !form.subject) {
+    const tiktok = customer?.tiktokHandle ?? form.tiktok.trim();
+    if (!tiktok || !form.message.trim() || !form.subject) {
       setError('Please fill in all required fields.');
       return;
     }
     setSubmitting(true);
     setError('');
     try {
+      const rawHandle = tiktok.replace(/^@/, '');
       const { error: err } = await supabase.from('support_tickets').insert({
-        name: form.display_name.trim(),
-        tiktok_handle: form.tiktok.trim().replace(/^@/, ''),
+        name: customer?.username ?? rawHandle,
+        tiktok_handle: rawHandle,
         subject: form.subject,
         message: form.message.trim(),
         status: 'New',
       });
       if (err) throw err;
+
+      // Send email notification (fire-and-forget)
+      try {
+        await supabase.functions.invoke('notify-email', {
+          body: {
+            type: 'new_inquiry',
+            data: {
+              tiktok_handle: rawHandle,
+              subject: form.subject,
+              message: form.message.trim(),
+            },
+          },
+        });
+      } catch { /* non-blocking */ }
+
       setSubmitted(true);
     } catch {
       setError('Something went wrong. Please try again or message us on TikTok.');
@@ -91,7 +116,6 @@ export default function ContactContent() {
             Reach Us Directly
           </h2>
 
-          {/* Visible social platforms only */}
           {visiblePlatforms.map(c => (
             <a
               key={c.id}
@@ -138,7 +162,7 @@ export default function ContactContent() {
           </div>
         </div>
 
-        {/* Contact form — saves as support ticket */}
+        {/* Contact form */}
         <div>
           <h2 className="font-display text-xl font-bold mb-6" style={{ color: 'var(--foreground)' }}>
             Send a Message
@@ -156,32 +180,33 @@ export default function ContactContent() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  Display Name <span style={{ color: 'var(--primary)' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.display_name}
-                  onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))}
-                  className="input-field"
-                  placeholder="Your display name"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
-                  TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.tiktok}
-                  onChange={e => setForm(f => ({ ...f, tiktok: e.target.value }))}
-                  className="input-field"
-                  placeholder="@yourtiktok"
-                />
-              </div>
+              {/* TikTok handle — only shown when not logged in */}
+              {!customer && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                    TikTok Handle <span style={{ color: 'var(--primary)' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={form.tiktok}
+                    onChange={e => setForm(f => ({ ...f, tiktok: e.target.value }))}
+                    className="input-field"
+                    placeholder="@yourtiktok"
+                  />
+                </div>
+              )}
+              {customer && (
+                <div
+                  className="rounded-lg px-3 py-2"
+                  style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }}
+                >
+                  <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
+                    Sending as <strong style={{ color: 'var(--primary-bright)' }}>{customer.tiktokHandle}</strong>
+                    {customer.username ? ` (${customer.username})` : ''}
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
                   Subject <span style={{ color: 'var(--primary)' }}>*</span>
